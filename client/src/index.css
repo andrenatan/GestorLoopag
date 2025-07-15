@@ -98,7 +98,7 @@
   }
   
   .nav-item.active {
-    @apply bg-primary/10 text-primary border border-primary/20;
+    @apply bg-primary bg-opacity-10 text-primary border border-primary border-opacity-20;
   }
   
   .stats-card {

@@ -91,6 +91,8 @@ export class MemStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentUserId++;
     const user: User = { 
+      role: "operator",
+      isActive: true,
       ...insertUser, 
       id, 
       createdAt: new Date()
@@ -124,6 +126,11 @@ export class MemStorage implements IStorage {
   async createEmployee(insertEmployee: InsertEmployee): Promise<Employee> {
     const id = this.currentEmployeeId++;
     const employee: Employee = { 
+      birthDate: null,
+      address: null,
+      salary: null,
+      photo: null,
+      isActive: true,
       ...insertEmployee, 
       id, 
       createdAt: new Date()
@@ -157,10 +164,16 @@ export class MemStorage implements IStorage {
   async createClient(insertClient: InsertClient): Promise<Client> {
     const id = this.currentClientId++;
     const client: Client = { 
-      ...insertClient, 
       id, 
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      subscriptionStatus: "Ativa",
+      paymentMethods: ([] as string[]),
+      paymentStatus: "Em dia",
+      referralSource: null,
+      referredById: null,
+      notes: null,
+      ...insertClient
     };
     this.clients.set(id, client);
     return client;
@@ -233,6 +246,10 @@ export class MemStorage implements IStorage {
   async createWhatsappInstance(insertInstance: InsertWhatsappInstance): Promise<WhatsappInstance> {
     const id = this.currentWhatsappInstanceId++;
     const instance: WhatsappInstance = { 
+      status: "disconnected",
+      instanceId: null,
+      qrCode: null,
+      webhookUrl: null,
       ...insertInstance, 
       id, 
       createdAt: new Date(),
@@ -267,6 +284,7 @@ export class MemStorage implements IStorage {
   async createMessageTemplate(insertTemplate: InsertMessageTemplate): Promise<MessageTemplate> {
     const id = this.currentMessageTemplateId++;
     const template: MessageTemplate = { 
+      isActive: true,
       ...insertTemplate, 
       id, 
       createdAt: new Date(),
@@ -301,6 +319,9 @@ export class MemStorage implements IStorage {
   async createBillingHistory(insertBilling: InsertBillingHistory): Promise<BillingHistory> {
     const id = this.currentBillingHistoryId++;
     const billing: BillingHistory = { 
+      status: "pending",
+      sentAt: null,
+      errorMessage: null,
       ...insertBilling, 
       id, 
       createdAt: new Date()

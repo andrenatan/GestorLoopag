@@ -54,7 +54,7 @@ export const clients = pgTable("clients", {
   plan: text("plan").notNull(),
   value: decimal("value", { precision: 10, scale: 2 }).notNull(),
   referralSource: text("referral_source"),
-  referredById: integer("referred_by_id").references(() => clients.id),
+  referredById: integer("referred_by_id"),
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
