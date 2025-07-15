@@ -1,0 +1,140 @@
+Sistema Loopag - Gestão Completa de Assinaturas IPTV
+Crie um sistema completo de gestão de assinaturas e cobranças chamado "Loopag" com as seguintes especificações:
+🎨 Design e Interface
+
+Tema Dual: Implementar toggle para alternar entre modo Dark e Light
+Design Futurista: Usar glassmorphism, gradientes vibrantes, animações suaves e elementos 3D sutis
+Cores Dark Mode: Background #0a0a0a, cards #1a1a1a com bordas neon (#6366f1, #8b5cf6)
+Cores Light Mode: Background #f8fafc, cards brancos com sombras coloridas
+Menu Lateral: Colapsável com ícones modernos e tooltips
+Responsivo: Mobile-first, funcionando perfeitamente em todas as telas
+
+📋 Estrutura de Páginas e Funcionalidades
+1. Dashboard Principal
+Criar um dashboard com:
+
+Cards animados mostrando métricas em tempo real
+Gráficos interativos (pizza, barras, linhas) usando Recharts
+Filtros por data com date picker moderno
+Métricas principais:
+
+Clientes vencendo hoje (card vermelho com animação pulse)
+Clientes vencendo em 3 dias (card amarelo)
+Inadimplentes da semana (card laranja)
+Total de cobranças enviadas hoje (card azul)
+Novos clientes do dia (card verde)
+Faturamento (card roxo com gráfico sparkline)
+
+
+
+2. Gestão de Clientes
+Tela com DataTable avançada contendo:
+Campos obrigatórios:
+
+ID (auto-gerado)
+Nome completo
+Telefone (máscara: (XX) XXXXX-XXXX)
+Usuário
+Senha (com toggle para visualizar)
+Sistema (dropdown: "P2P - Android", "IPTV - Geral", "Dois Pontos Distintos")
+Email ClouDy
+Senha ClouDy
+Vencimento ClouDy (date picker)
+Status Assinatura (badges coloridos: Ativa=verde, Inativa=vermelho, Aguardando=amarelo, Teste=azul)
+Método de Pagamento (multi-select: PIX, Cartão, Boleto)
+Data de Ativação
+Data de Vencimento
+Dias para Vencimento (calculado automaticamente com cor baseada em urgência)
+Situação Pagamento (Em dia/Pendente com ícone)
+Plano (dropdown customizável)
+Valor (formato monetário R$)
+Fonte/Indicação
+Cliente que Indicou (autocomplete buscando clientes existentes)
+Anotações (textarea expansível)
+
+Funcionalidades:
+
+Busca global em tempo real
+Filtros avançados por cada coluna
+Ordenação por qualquer campo
+Paginação com opção de itens por página
+Ações em lote (ativar/desativar múltiplos)
+Botão de importar Excel/CSV com preview
+Exportar dados filtrados
+Edição inline com validação
+Modal de edição completa
+Histórico de alterações do cliente
+
+3. Rankings de Indicações
+Página com dois cards side-by-side:
+
+Top 10 - Últimos 30 dias: Lista com avatares, nome, quantidade de indicações e prêmio
+Top 10 - Anual: Lista similar com medalhas (ouro, prata, bronze)
+Animações de entrada e gráfico de barras horizontal
+Filtros por período customizado
+
+4. Gestão de Funcionários
+Formulário moderno com:
+
+Foto do funcionário (upload com preview)
+Nome completo
+Telefone
+Data de Nascimento (com cálculo de idade)
+E-mail
+Endereço completo (com CEP e autocomplete)
+Função/Cargo
+Salário (formato monetário)
+Data de Admissão
+Status (toggle switch Ativo/Inativo)
+Grid de cards para visualizar funcionários
+
+5. Usuários do Sistema
+
+Criar usuários baseados nos funcionários cadastrados
+Definir níveis de acesso (Admin, Operador, Visualizador)
+Permissões granulares por módulo
+Log de acessos e ações
+
+6. Central de Cobranças
+Interface dividida em seções:
+Configuração WhatsApp:
+
+Card para gerar QR Code
+Botão "Conectar WhatsApp" que chama: https://webhook.dev.userxai.online/webhook-test/cria_instancia
+Status da conexão com indicador visual
+Múltiplas instâncias com nomes
+
+Envio de Cobranças:
+
+Tabs para: "Vence em 3 dias", "Vence Amanhã", "Vence Hoje"
+Lista de clientes elegíveis em cada tab
+Checkbox para selecionar quem cobrar
+Preview da mensagem em tempo real
+Botão de envio em massa com confirmação
+Log de envios com status
+
+Templates de Mensagem:
+
+Editor com variáveis ({nome}, {valor}, {vencimento}, {plano})
+Preview em mockup de WhatsApp
+Salvar múltiplos templates
+Templates por tipo de vencimento
+
+Informações de Pagamento:
+
+Dados da empresa para cobrança
+PIX (chave, QR Code)
+Dados bancários
+Instruções de pagamento
+
+🛠️ Especificações Técnicas
+Stack:
+
+Next.js 14 com App Router
+TypeScript
+Tailwind CSS + Shadcn/ui
+Supabase (banco de dados e autenticação)
+Recharts para gráficos
+React Hook Form + Zod para formulários
+Tanstack Table para datatables
+Lucide React para ícones
