@@ -35,15 +35,7 @@ export function ThemeProvider({
 
     root.classList.remove("light", "dark");
 
-    if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
-        ? "dark"
-        : "light";
-
-      root.classList.add(systemTheme);
-      return;
-    }
+    // Theme is always "dark" or "light" - no system theme handling needed
 
     root.classList.add(theme);
   }, [theme]);
