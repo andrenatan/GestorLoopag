@@ -58,7 +58,7 @@ export function Sidebar({ className }: SidebarProps) {
   return (
     <aside 
       className={cn(
-        "glassmorphism border-r border-border transition-all duration-300 relative",
+        "bg-black/40 backdrop-blur-xl border-r border-white/10 transition-all duration-300 relative text-white",
         collapsed ? "w-16" : "w-64",
         className
       )}
@@ -70,7 +70,7 @@ export function Sidebar({ className }: SidebarProps) {
             <Zap className="w-6 h-6 text-white" />
           </div>
           {!collapsed && (
-            <span className="text-xl font-bold">Loopag</span>
+            <span className="text-xl font-bold text-white">Loopag</span>
           )}
         </div>
 
@@ -79,7 +79,7 @@ export function Sidebar({ className }: SidebarProps) {
           variant="ghost"
           size="icon"
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-6 rounded-full border glassmorphism"
+          className="absolute -right-3 top-6 rounded-full border border-white/20 bg-black/40 backdrop-blur-xl text-white hover:bg-white/10"
         >
           <Menu className="h-4 w-4" />
         </Button>
@@ -94,8 +94,11 @@ export function Sidebar({ className }: SidebarProps) {
               return (
                 <Link key={item.href} href={item.href}>
                   <Button
-                    variant={isActive ? "secondary" : "ghost"}
-                    className="inline-flex items-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-secondary/80 h-10 px-4 py-2 w-full justify-start nav-item active border border-opacity-20 bg-[transparent] text-[#fafafa]"
+                    variant="ghost"
+                    className={cn(
+                      "w-full justify-start h-10 px-4 py-2 text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 bg-transparent border-0",
+                      isActive && "bg-blue-600 text-white hover:bg-blue-700 border border-blue-500/50"
+                    )}
                   >
                     <Icon className="h-5 w-5" />
                     {!collapsed && <span className="ml-3">{item.title}</span>}
