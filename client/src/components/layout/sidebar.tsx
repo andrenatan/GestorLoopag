@@ -95,7 +95,7 @@ export function Sidebar({ className }: SidebarProps) {
                 <Link key={item.href} href={item.href}>
                   <Button
                     variant={isActive ? "secondary" : "ghost"}
-                    className="inline-flex items-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-secondary/80 h-10 px-4 py-2 w-full justify-start nav-item active border border-opacity-20 text-[#fafafa] bg-[transparent]"
+                    className="inline-flex items-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-secondary/80 h-10 px-4 py-2 w-full justify-start nav-item active border border-opacity-20 bg-[transparent] text-[#fafafa]"
                   >
                     <Icon className="h-5 w-5" />
                     {!collapsed && <span className="ml-3">{item.title}</span>}
