@@ -101,6 +101,10 @@
     @apply bg-primary bg-opacity-10 text-primary border border-primary border-opacity-20;
   }
   
+  .nav-item.active span, .nav-item.active svg {
+    color: hsl(var(--primary)) !important;
+  }
+  
   .stats-card {
     @apply glassmorphism rounded-xl p-6 neon-border hover:scale-105 transition-all duration-300;
   }

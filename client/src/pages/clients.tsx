@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ClientForm } from "@/components/clients/client-form";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -19,7 +20,8 @@ import {
   MessageCircle,
   Trash2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ArrowLeft
 } from "lucide-react";
 import type { Client } from "@shared/schema";
 
@@ -42,6 +44,8 @@ export default function Clients() {
   const [systemFilter, setSystemFilter] = useState("all");
   const [selectedClients, setSelectedClients] = useState<number[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showForm, setShowForm] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | undefined>();
   const itemsPerPage = 10;
 
   const { toast } = useToast();
@@ -50,6 +54,46 @@ export default function Clients() {
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ["/api/clients"],
     queryFn: api.getClients,
+  });
+
+  const createClientMutation = useMutation({
+    mutationFn: (data: any) => api.createClient(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      setShowForm(false);
+      setEditingClient(undefined);
+      toast({
+        title: "Cliente cadastrado",
+        description: "Cliente foi cadastrado com sucesso.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível cadastrar o cliente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateClientMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => api.updateClient(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      setShowForm(false);
+      setEditingClient(undefined);
+      toast({
+        title: "Cliente atualizado",
+        description: "Cliente foi atualizado com sucesso.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o cliente.",
+        variant: "destructive",
+      });
+    },
   });
 
   const deleteClientMutation = useMutation({
@@ -119,6 +163,29 @@ export default function Clients() {
     }
   };
 
+  const handleNewClient = () => {
+    setEditingClient(undefined);
+    setShowForm(true);
+  };
+
+  const handleEditClient = (client: Client) => {
+    setEditingClient(client);
+    setShowForm(true);
+  };
+
+  const handleFormSubmit = (data: any) => {
+    if (editingClient) {
+      updateClientMutation.mutate({ id: editingClient.id, data });
+    } else {
+      createClientMutation.mutate(data);
+    }
+  };
+
+  const handleFormCancel = () => {
+    setShowForm(false);
+    setEditingClient(undefined);
+  };
+
   if (isLoading) {
     return (
       <div className="p-6">
@@ -126,6 +193,39 @@ export default function Clients() {
           <div className="h-8 bg-muted rounded w-64" />
           <div className="h-96 bg-muted rounded" />
         </div>
+      </div>
+    );
+  }
+
+  if (showForm) {
+    return (
+      <div className="p-6 space-y-6">
+        {/* Form Header */}
+        <div className="flex items-center space-x-4">
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={handleFormCancel}
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">
+              {editingClient ? "Editar Cliente" : "Novo Cliente"}
+            </h1>
+            <p className="text-muted-foreground">
+              {editingClient ? "Atualize as informações do cliente" : "Cadastre um novo cliente IPTV"}
+            </p>
+          </div>
+        </div>
+
+        {/* Client Form */}
+        <ClientForm
+          initialData={editingClient}
+          onSubmit={handleFormSubmit}
+          onCancel={handleFormCancel}
+          isLoading={createClientMutation.isPending || updateClientMutation.isPending}
+        />
       </div>
     );
   }
@@ -145,7 +245,10 @@ export default function Clients() {
             <Upload className="w-4 h-4" />
             <span>Importar</span>
           </Button>
-          <Button className="flex items-center space-x-2">
+          <Button 
+            onClick={handleNewClient}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 flex items-center space-x-2"
+          >
             <Plus className="w-4 h-4" />
             <span>Novo Cliente</span>
           </Button>

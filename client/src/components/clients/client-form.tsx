@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -9,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Upload, FileSpreadsheet, AlertTriangle } from "lucide-react";
 import type { Client } from "@shared/schema";
 
 const clientFormSchema = z.object({
@@ -24,8 +27,8 @@ const clientFormSchema = z.object({
   paymentMethods: z.array(z.string()).default([]),
   activationDate: z.string().min(1, "Data de ativação é obrigatória"),
   expiryDate: z.string().min(1, "Data de vencimento é obrigatória"),
-  paymentStatus: z.enum(["Em dia", "Pendente"]).default("Em dia"),
-  plan: z.string().min(1, "Plano é obrigatório"),
+  paymentStatus: z.enum(["Pago", "Vencido", "A Pagar"]).default("Pago"),
+  plan: z.enum(["Mensal", "Trimestral", "Semestral", "Anual"]),
   value: z.string().min(1, "Valor é obrigatório"),
   referralSource: z.string().optional(),
   referredById: z.number().optional(),
@@ -42,12 +45,14 @@ interface ClientFormProps {
 }
 
 const paymentMethodOptions = [
-  { id: "pix", label: "PIX" },
-  { id: "cartao", label: "Cartão" },
-  { id: "boleto", label: "Boleto" },
+  { id: "pix", label: "PIX", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" },
+  { id: "cartao", label: "Cartão", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" },
 ];
 
 export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false }: ClientFormProps) {
+  const [userId, setUserId] = useState<number>(1);
+  const [daysToExpiry, setDaysToExpiry] = useState<number>(0);
+  
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientFormSchema),
     defaultValues: {
@@ -63,8 +68,8 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
       paymentMethods: initialData?.paymentMethods || [],
       activationDate: initialData?.activationDate || new Date().toISOString().split('T')[0],
       expiryDate: initialData?.expiryDate || "",
-      paymentStatus: initialData?.paymentStatus || "Em dia",
-      plan: initialData?.plan || "",
+      paymentStatus: initialData?.paymentStatus || "Pago",
+      plan: initialData?.plan || "Mensal",
       value: initialData?.value || "",
       referralSource: initialData?.referralSource || "",
       referredById: initialData?.referredById || undefined,
@@ -72,16 +77,81 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
     },
   });
 
+  // Auto-generate username from name and phone
+  const handleNameChange = (name: string) => {
+    const phone = form.getValues("phone");
+    if (name && phone) {
+      const firstName = name.split(" ")[0].toLowerCase();
+      const lastFourDigits = phone.slice(-4);
+      form.setValue("username", `${firstName}${lastFourDigits}`);
+    }
+  };
+
+  // Auto-generate password from phone
+  const handlePhoneChange = (phone: string) => {
+    form.setValue("password", phone);
+    const name = form.getValues("name");
+    if (name && phone) {
+      const firstName = name.split(" ")[0].toLowerCase();
+      const lastFourDigits = phone.slice(-4);
+      form.setValue("username", `${firstName}${lastFourDigits}`);
+    }
+  };
+
+  // Calculate days to expiry
+  useEffect(() => {
+    const expiryDate = form.watch("expiryDate");
+    if (expiryDate) {
+      const today = new Date();
+      const expiry = new Date(expiryDate);
+      const diffTime = expiry.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      setDaysToExpiry(diffDays);
+    }
+  }, [form.watch("expiryDate")]);
+
+  const getDaysToExpiryColor = () => {
+    if (daysToExpiry <= 0) return "text-yellow-600 font-bold"; // Vencido
+    if (daysToExpiry <= 3) return "text-red-600 font-bold"; // Crítico
+    return "text-green-600"; // Normal
+  };
+
   const handleSubmit = (data: ClientFormData) => {
     onSubmit(data);
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      {/* Opção de Importação de Planilha */}
+      <Card className="glassmorphism neon-border">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <FileSpreadsheet className="w-5 h-5 text-primary" />
+              <div>
+                <h3 className="font-semibold">Importar Planilha</h3>
+                <p className="text-sm text-muted-foreground">
+                  Importe clientes em lote usando uma planilha Excel ou CSV
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" className="space-x-2">
+              <Upload className="w-4 h-4" />
+              <span>Selecionar Arquivo</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="glassmorphism neon-border">
         <CardHeader>
-          <CardTitle>
-            {initialData ? "Editar Cliente" : "Novo Cliente"}
+          <CardTitle className="flex items-center justify-between">
+            <span>{initialData ? "Editar Cliente" : "Novo Cliente"}</span>
+            {!initialData && (
+              <Badge variant="secondary" className="text-lg px-3 py-1">
+                ID: {userId.toString().padStart(3, '0')}
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -98,7 +168,14 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                       <FormItem>
                         <FormLabel>Nome Completo *</FormLabel>
                         <FormControl>
-                          <Input placeholder="Nome completo do cliente" {...field} />
+                          <Input 
+                            placeholder="Nome completo do cliente" 
+                            {...field}
+                            onChange={(e) => {
+                              field.onChange(e);
+                              handleNameChange(e.target.value);
+                            }}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -111,7 +188,14 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                       <FormItem>
                         <FormLabel>Telefone *</FormLabel>
                         <FormControl>
-                          <Input placeholder="(11) 99999-9999" {...field} />
+                          <Input 
+                            placeholder="(11) 99999-9999" 
+                            {...field}
+                            onChange={(e) => {
+                              field.onChange(e);
+                              handlePhoneChange(e.target.value);
+                            }}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -131,7 +215,11 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                     name="username"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Usuário *</FormLabel>
+                        <FormLabel>Usuário * 
+                          <span className="text-xs text-muted-foreground ml-2">
+                            (Gerado automaticamente: primeiro nome + 4 últimos dígitos do telefone)
+                          </span>
+                        </FormLabel>
                         <FormControl>
                           <Input placeholder="Nome de usuário" {...field} />
                         </FormControl>
@@ -144,9 +232,13 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                     name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Senha *</FormLabel>
+                        <FormLabel>Senha * 
+                          <span className="text-xs text-muted-foreground ml-2">
+                            (Padrão: número do telefone)
+                          </span>
+                        </FormLabel>
                         <FormControl>
-                          <Input type="password" placeholder="Senha de acesso" {...field} />
+                          <Input placeholder="Senha de acesso" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -267,8 +359,9 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="Em dia">Em dia</SelectItem>
-                            <SelectItem value="Pendente">Pendente</SelectItem>
+                            <SelectItem value="Pago">Pago</SelectItem>
+                            <SelectItem value="Vencido">Vencido</SelectItem>
+                            <SelectItem value="A Pagar">A Pagar</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -313,7 +406,9 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                                       />
                                     </FormControl>
                                     <FormLabel className="font-normal">
-                                      {method.label}
+                                      <Badge className={method.color}>
+                                        {method.label}
+                                      </Badge>
                                     </FormLabel>
                                   </FormItem>
                                 )
@@ -333,7 +428,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
               {/* Datas e Valores */}
               <div>
                 <h3 className="text-lg font-semibold mb-4">Datas e Valores</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
                     name="activationDate"
@@ -360,15 +455,37 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                       </FormItem>
                     )}
                   />
+                  <div className="flex flex-col space-y-2">
+                    <FormLabel>Dias para Vencimento</FormLabel>
+                    <div className={`p-3 text-center font-bold text-lg border rounded-md ${getDaysToExpiryColor()}`}>
+                      {daysToExpiry > 0 ? `${daysToExpiry} dias` : daysToExpiry === 0 ? "Vence hoje" : `${Math.abs(daysToExpiry)} dias vencido`}
+                      {daysToExpiry <= 3 && daysToExpiry > 0 && (
+                        <AlertTriangle className="w-4 h-4 inline ml-2" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                   <FormField
                     control={form.control}
                     name="plan"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Plano *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Nome do plano" {...field} />
-                        </FormControl>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o plano" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Mensal">Mensal</SelectItem>
+                            <SelectItem value="Trimestral">Trimestral</SelectItem>
+                            <SelectItem value="Semestral">Semestral</SelectItem>
+                            <SelectItem value="Anual">Anual</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}

@@ -97,7 +97,7 @@ export function Sidebar({ className }: SidebarProps) {
                     variant={isActive ? "secondary" : "ghost"}
                     className={cn(
                       "w-full justify-start nav-item",
-                      isActive && "active bg-primary/10 text-primary border border-primary/20",
+                      isActive && "active bg-primary bg-opacity-10 text-primary border border-primary border-opacity-20",
                       collapsed && "justify-center px-2"
                     )}
                   >
