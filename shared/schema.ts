@@ -49,8 +49,8 @@ export const clients = pgTable("clients", {
   activationDate: date("activation_date").notNull(),
   expiryDate: date("expiry_date").notNull(),
   paymentStatus: text("payment_status", {
-    enum: ["Em dia", "Pendente"]
-  }).notNull().default("Em dia"),
+    enum: ["Pago", "Vencido", "A Pagar"]
+  }).notNull().default("Pago"),
   plan: text("plan").notNull(),
   value: decimal("value", { precision: 10, scale: 2 }).notNull(),
   referralSource: text("referral_source"),

@@ -98,17 +98,19 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
     }
   };
 
+  // Watch expiry date for calculation
+  const expiryDateWatch = form.watch("expiryDate");
+  
   // Calculate days to expiry
   useEffect(() => {
-    const expiryDate = form.watch("expiryDate");
-    if (expiryDate) {
+    if (expiryDateWatch) {
       const today = new Date();
-      const expiry = new Date(expiryDate);
+      const expiry = new Date(expiryDateWatch);
       const diffTime = expiry.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       setDaysToExpiry(diffDays);
     }
-  }, [form.watch("expiryDate")]);
+  }, [expiryDateWatch]);
 
   const getDaysToExpiryColor = () => {
     if (daysToExpiry <= 0) return "text-yellow-600 font-bold"; // Vencido
