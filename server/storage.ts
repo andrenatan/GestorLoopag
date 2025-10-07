@@ -1,7 +1,8 @@
 import { 
-  users, employees, clients, whatsappInstances, messageTemplates, billingHistory,
+  users, employees, systems, clients, whatsappInstances, messageTemplates, billingHistory,
   type User, type InsertUser,
   type Employee, type InsertEmployee,
+  type System, type InsertSystem,
   type Client, type InsertClient,
   type WhatsappInstance, type InsertWhatsappInstance,
   type MessageTemplate, type InsertMessageTemplate,
@@ -22,6 +23,13 @@ export interface IStorage {
   createEmployee(employee: InsertEmployee): Promise<Employee>;
   updateEmployee(id: number, employee: Partial<InsertEmployee>): Promise<Employee | undefined>;
   deleteEmployee(id: number): Promise<boolean>;
+
+  // Systems
+  getAllSystems(): Promise<System[]>;
+  getSystem(id: number): Promise<System | undefined>;
+  createSystem(system: InsertSystem): Promise<System>;
+  updateSystem(id: number, system: Partial<InsertSystem>): Promise<System | undefined>;
+  deleteSystem(id: number): Promise<boolean>;
 
   // Clients
   getAllClients(): Promise<Client[]>;
@@ -67,6 +75,7 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private users: Map<number, User> = new Map();
   private employees: Map<number, Employee> = new Map();
+  private systems: Map<number, System> = new Map();
   private clients: Map<number, Client> = new Map();
   private whatsappInstances: Map<number, WhatsappInstance> = new Map();
   private messageTemplates: Map<number, MessageTemplate> = new Map();
@@ -74,6 +83,7 @@ export class MemStorage implements IStorage {
   
   private currentUserId = 1;
   private currentEmployeeId = 1;
+  private currentSystemId = 1;
   private currentClientId = 1;
   private currentWhatsappInstanceId = 1;
   private currentMessageTemplateId = 1;
@@ -150,6 +160,41 @@ export class MemStorage implements IStorage {
 
   async deleteEmployee(id: number): Promise<boolean> {
     return this.employees.delete(id);
+  }
+
+  // Systems
+  async getAllSystems(): Promise<System[]> {
+    return Array.from(this.systems.values());
+  }
+
+  async getSystem(id: number): Promise<System | undefined> {
+    return this.systems.get(id);
+  }
+
+  async createSystem(insertSystem: InsertSystem): Promise<System> {
+    const id = this.currentSystemId++;
+    const system: System = { 
+      description: null,
+      isActive: true,
+      ...insertSystem, 
+      id, 
+      createdAt: new Date()
+    };
+    this.systems.set(id, system);
+    return system;
+  }
+
+  async updateSystem(id: number, updateSystem: Partial<InsertSystem>): Promise<System | undefined> {
+    const system = this.systems.get(id);
+    if (!system) return undefined;
+    
+    const updatedSystem = { ...system, ...updateSystem };
+    this.systems.set(id, updatedSystem);
+    return updatedSystem;
+  }
+
+  async deleteSystem(id: number): Promise<boolean> {
+    return this.systems.delete(id);
   }
 
   // Clients
