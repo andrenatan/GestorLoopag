@@ -11,7 +11,8 @@ import {
   UserCheck, 
   MessageCircle,
   Menu,
-  Zap
+  Zap,
+  Server
 } from "lucide-react";
 
 const sidebarItems = [
@@ -24,6 +25,11 @@ const sidebarItems = [
     title: "Clientes",
     href: "/clients",
     icon: Users,
+  },
+  {
+    title: "Sistemas",
+    href: "/systems",
+    icon: Server,
   },
   {
     title: "Cobranças",
