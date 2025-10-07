@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Clients from "@/pages/clients";
+import Systems from "@/pages/systems";
 import Billing from "@/pages/billing";
 import Rankings from "@/pages/rankings";
 import Employees from "@/pages/employees";
@@ -22,6 +23,7 @@ function Router() {
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/clients" component={Clients} />
+          <Route path="/systems" component={Systems} />
           <Route path="/billing" component={Billing} />
           <Route path="/rankings" component={Rankings} />
           <Route path="/employees" component={Employees} />
