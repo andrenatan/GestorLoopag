@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
-  insertUserSchema, insertEmployeeSchema, insertClientSchema, 
+  insertUserSchema, insertEmployeeSchema, insertSystemSchema, insertClientSchema, 
   insertWhatsappInstanceSchema, insertMessageTemplateSchema, insertBillingHistorySchema 
 } from "@shared/schema";
 
@@ -102,6 +102,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to delete employee" });
+    }
+  });
+
+  // Systems Routes
+  app.get("/api/systems", async (req, res) => {
+    try {
+      const systems = await storage.getAllSystems();
+      res.json(systems);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch systems" });
+    }
+  });
+
+  app.post("/api/systems", async (req, res) => {
+    try {
+      const validatedData = insertSystemSchema.parse(req.body);
+      const system = await storage.createSystem(validatedData);
+      res.status(201).json(system);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid system data", error });
+    }
+  });
+
+  app.patch("/api/systems/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertSystemSchema.partial().parse(req.body);
+      const system = await storage.updateSystem(id, validatedData);
+      
+      if (!system) {
+        return res.status(404).json({ message: "System not found" });
+      }
+      
+      res.json(system);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid system data", error });
+    }
+  });
+
+  app.delete("/api/systems/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteSystem(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "System not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete system" });
     }
   });
 
