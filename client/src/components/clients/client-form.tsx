@@ -74,7 +74,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
       activationDate: initialData?.activationDate || new Date().toISOString().split('T')[0],
       expiryDate: initialData?.expiryDate || "",
       paymentStatus: initialData?.paymentStatus || "Pago",
-      plan: initialData?.plan || "Mensal",
+      plan: (initialData?.plan as "Mensal" | "Trimestral" | "Semestral" | "Anual") || "Mensal",
       value: initialData?.value || "",
       referralSource: initialData?.referralSource || "",
       referredById: initialData?.referredById || undefined,
