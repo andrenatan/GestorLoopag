@@ -97,7 +97,7 @@ export default function Systems() {
         method: "DELETE",
       });
       if (!response.ok) throw new Error("Failed to delete system");
-      return response.json();
+      return response.status === 204 ? null : response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/systems"] });

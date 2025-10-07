@@ -209,16 +209,16 @@ export class MemStorage implements IStorage {
   async createClient(insertClient: InsertClient): Promise<Client> {
     const id = this.currentClientId++;
     const client: Client = { 
+      ...insertClient,
       id, 
       createdAt: new Date(),
       updatedAt: new Date(),
-      subscriptionStatus: "Ativa",
-      paymentMethods: [],
-      paymentStatus: "Pago",
-      referralSource: null,
-      referredById: null,
-      notes: null,
-      ...insertClient
+      subscriptionStatus: insertClient.subscriptionStatus || "Ativa",
+      paymentMethods: (insertClient.paymentMethods || []) as string[],
+      paymentStatus: insertClient.paymentStatus || "Pago",
+      referralSource: insertClient.referralSource || null,
+      referredById: insertClient.referredById || null,
+      notes: insertClient.notes || null,
     };
     this.clients.set(id, client);
     return client;
@@ -228,7 +228,12 @@ export class MemStorage implements IStorage {
     const client = this.clients.get(id);
     if (!client) return undefined;
     
-    const updatedClient = { ...client, ...updateClient, updatedAt: new Date() };
+    const updatedClient: Client = { 
+      ...client, 
+      ...updateClient, 
+      paymentMethods: (updateClient.paymentMethods !== undefined ? updateClient.paymentMethods : client.paymentMethods) as string[],
+      updatedAt: new Date() 
+    };
     this.clients.set(id, updatedClient);
     return updatedClient;
   }
