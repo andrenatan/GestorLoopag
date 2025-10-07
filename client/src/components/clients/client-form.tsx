@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -12,14 +13,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileSpreadsheet, AlertTriangle } from "lucide-react";
-import type { Client } from "@shared/schema";
+import type { Client, System } from "@shared/schema";
 
 const clientFormSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   phone: z.string().min(1, "Telefone é obrigatório"),
   username: z.string().min(1, "Usuário é obrigatório"),
   password: z.string().min(1, "Senha é obrigatória"),
-  system: z.enum(["P2P - Android", "IPTV - Geral", "Dois Pontos Distintos"]),
+  system: z.string().min(1, "Sistema é obrigatório"),
   cloudyEmail: z.string().email("Email ClouDy inválido"),
   cloudyPassword: z.string().min(1, "Senha ClouDy é obrigatória"),
   cloudyExpiry: z.string().min(1, "Vencimento ClouDy é obrigatório"),
@@ -53,6 +54,10 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   const [userId, setUserId] = useState<number>(1);
   const [daysToExpiry, setDaysToExpiry] = useState<number>(0);
   
+  const { data: systems = [], isLoading: systemsLoading } = useQuery<System[]>({
+    queryKey: ["/api/systems"],
+  });
+  
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientFormSchema),
     defaultValues: {
@@ -60,7 +65,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
       phone: initialData?.phone || "",
       username: initialData?.username || "",
       password: initialData?.password || "",
-      system: initialData?.system || "IPTV - Geral",
+      system: initialData?.system || "",
       cloudyEmail: initialData?.cloudyEmail || "",
       cloudyPassword: initialData?.cloudyPassword || "",
       cloudyExpiry: initialData?.cloudyExpiry || "",
@@ -252,16 +257,23 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Sistema *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={systemsLoading}>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o sistema" />
+                            <SelectTrigger data-testid="select-system">
+                              <SelectValue placeholder={systemsLoading ? "Carregando sistemas..." : "Selecione o sistema"} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="P2P - Android">P2P - Android</SelectItem>
-                            <SelectItem value="IPTV - Geral">IPTV - Geral</SelectItem>
-                            <SelectItem value="Dois Pontos Distintos">Dois Pontos Distintos</SelectItem>
+                            {systems.filter(s => s.isActive).map((system) => (
+                              <SelectItem key={system.id} value={system.name}>
+                                {system.name}
+                              </SelectItem>
+                            ))}
+                            {systems.filter(s => s.isActive).length === 0 && (
+                              <div className="p-2 text-sm text-muted-foreground text-center">
+                                Nenhum sistema ativo encontrado
+                              </div>
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />
