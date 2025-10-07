@@ -29,6 +29,15 @@ export const employees = pgTable("employees", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Systems table
+export const systems = pgTable("systems", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Clients table for IPTV subscribers
 export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
@@ -36,9 +45,7 @@ export const clients = pgTable("clients", {
   phone: text("phone").notNull(),
   username: text("username").notNull(),
   password: text("password").notNull(),
-  system: text("system", { 
-    enum: ["P2P - Android", "IPTV - Geral", "Dois Pontos Distintos"] 
-  }).notNull(),
+  system: text("system").notNull(),
   cloudyEmail: text("cloudy_email").notNull(),
   cloudyPassword: text("cloudy_password").notNull(),
   cloudyExpiry: date("cloudy_expiry").notNull(),
@@ -113,6 +120,11 @@ export const insertEmployeeSchema = createInsertSchema(employees).omit({
   createdAt: true,
 });
 
+export const insertSystemSchema = createInsertSchema(systems).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertClientSchema = createInsertSchema(clients).omit({
   id: true,
   createdAt: true,
@@ -142,6 +154,9 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 
 export type Employee = typeof employees.$inferSelect;
 export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;
+
+export type System = typeof systems.$inferSelect;
+export type InsertSystem = z.infer<typeof insertSystemSchema>;
 
 export type Client = typeof clients.$inferSelect;
 export type InsertClient = z.infer<typeof insertClientSchema>;

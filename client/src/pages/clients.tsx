@@ -32,7 +32,7 @@ const statusColors = {
   "Teste": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
 };
 
-const systemColors = {
+const systemColors: Record<string, string> = {
   "P2P - Android": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
   "IPTV - Geral": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
   "Dois Pontos Distintos": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
