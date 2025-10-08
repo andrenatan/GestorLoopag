@@ -63,6 +63,10 @@ export interface IStorage {
 
   // Dashboard Stats
   getDashboardStats(): Promise<{
+    activeClients: number;
+    inactiveClients: number;
+    expiringTomorrow: number;
+    expiredYesterday: number;
     expiringToday: number;
     expiring3Days: number;
     overdue: number;
@@ -391,27 +395,66 @@ export class MemStorage implements IStorage {
 
   // Dashboard Stats
   async getDashboardStats() {
-    const today = new Date();
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const getBrasiliaDate = () => {
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      return new Date(utc + (3600000 * -3));
+    };
+
+    const getDateOnly = (date: Date) => {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    };
+
+    const brasiliaToday = getBrasiliaDate();
+    const todayStart = getDateOnly(brasiliaToday);
     const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+    
+    const yesterday = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayEnd = todayStart;
+    
+    const tomorrow = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+    const tomorrowEnd = new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000);
 
     const clients = Array.from(this.clients.values());
     const billingHistory = Array.from(this.billingHistory.values());
 
+    const activeClients = clients.filter(client => 
+      client.subscriptionStatus === "Ativa"
+    ).length;
+
+    const inactiveClients = clients.filter(client => 
+      client.subscriptionStatus === "Inativa"
+    ).length;
+
+    const expiringTomorrow = clients.filter(client => {
+      const expiryDate = new Date(client.expiryDate);
+      const expiryDateOnly = getDateOnly(expiryDate);
+      return expiryDateOnly >= tomorrow && expiryDateOnly < tomorrowEnd;
+    }).length;
+
+    const expiredYesterday = clients.filter(client => {
+      const expiryDate = new Date(client.expiryDate);
+      const expiryDateOnly = getDateOnly(expiryDate);
+      return expiryDateOnly >= yesterday && expiryDateOnly < yesterdayEnd;
+    }).length;
+
     const expiringToday = clients.filter(client => {
       const expiryDate = new Date(client.expiryDate);
-      return expiryDate >= todayStart && expiryDate < todayEnd;
+      const expiryDateOnly = getDateOnly(expiryDate);
+      return expiryDateOnly >= todayStart && expiryDateOnly < todayEnd;
     }).length;
 
     const expiring3Days = clients.filter(client => {
       const expiryDate = new Date(client.expiryDate);
+      const expiryDateOnly = getDateOnly(expiryDate);
       const threeDaysFromNow = new Date(todayStart.getTime() + 3 * 24 * 60 * 60 * 1000);
-      return expiryDate > todayStart && expiryDate <= threeDaysFromNow;
+      return expiryDateOnly > todayStart && expiryDateOnly <= threeDaysFromNow;
     }).length;
 
     const overdue = clients.filter(client => {
       const expiryDate = new Date(client.expiryDate);
-      return expiryDate < todayStart;
+      const expiryDateOnly = getDateOnly(expiryDate);
+      return expiryDateOnly < todayStart;
     }).length;
 
     const billingSentToday = billingHistory.filter(billing => {
@@ -429,6 +472,10 @@ export class MemStorage implements IStorage {
       .reduce((sum, client) => sum + parseFloat(client.value || "0"), 0);
 
     return {
+      activeClients,
+      inactiveClients,
+      expiringTomorrow,
+      expiredYesterday,
       expiringToday,
       expiring3Days,
       overdue,
