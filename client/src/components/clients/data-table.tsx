@@ -59,8 +59,7 @@ export function DataTable({
   // Filter data
   const filteredData = data.filter((item) => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.phone.includes(searchTerm) ||
-                         item.cloudyEmail.toLowerCase().includes(searchTerm.toLowerCase());
+                         item.phone.includes(searchTerm);
     
     const matchesStatus = statusFilter === "all" || item.subscriptionStatus === statusFilter;
     const matchesSystem = systemFilter === "all" || item.system === systemFilter;
@@ -234,7 +233,7 @@ export function DataTable({
                         </div>
                         <div>
                           <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-muted-foreground">{item.cloudyEmail}</p>
+                          <p className="text-sm text-muted-foreground">{item.username}</p>
                         </div>
                       </div>
                     </TableCell>

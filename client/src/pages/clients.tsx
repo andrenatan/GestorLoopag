@@ -117,8 +117,7 @@ export default function Clients() {
   // Filter clients
   const filteredClients = clients.filter((client: Client) => {
     const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         client.phone.includes(searchTerm) ||
-                         client.cloudyEmail.toLowerCase().includes(searchTerm.toLowerCase());
+                         client.phone.includes(searchTerm);
     
     const matchesStatus = statusFilter === "all" || client.subscriptionStatus === statusFilter;
     const matchesSystem = systemFilter === "all" || client.system === systemFilter;
@@ -358,7 +357,7 @@ export default function Clients() {
                         </div>
                         <div>
                           <p className="font-medium">{client.name}</p>
-                          <p className="text-sm text-muted-foreground">{client.cloudyEmail}</p>
+                          <p className="text-sm text-muted-foreground">{client.username}</p>
                         </div>
                       </div>
                     </TableCell>
