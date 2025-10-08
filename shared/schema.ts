@@ -46,9 +46,6 @@ export const clients = pgTable("clients", {
   username: text("username").notNull(),
   password: text("password").notNull(),
   system: text("system").notNull(),
-  cloudyEmail: text("cloudy_email").notNull(),
-  cloudyPassword: text("cloudy_password").notNull(),
-  cloudyExpiry: date("cloudy_expiry").notNull(),
   subscriptionStatus: text("subscription_status", {
     enum: ["Ativa", "Inativa", "Aguardando", "Teste"]
   }).notNull().default("Ativa"),
