@@ -341,6 +341,7 @@ export class MemStorage implements IStorage {
     const id = this.currentMessageTemplateId++;
     const template: MessageTemplate = { 
       isActive: true,
+      imageUrl: null,
       ...insertTemplate, 
       id, 
       createdAt: new Date(),
