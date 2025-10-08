@@ -12,7 +12,8 @@ import {
   MessageCircle,
   Menu,
   Zap,
-  Server
+  Server,
+  FileText
 } from "lucide-react";
 
 const sidebarItems = [
@@ -35,6 +36,11 @@ const sidebarItems = [
     title: "Cobranças",
     href: "/billing",
     icon: CreditCard,
+  },
+  {
+    title: "Templates",
+    href: "/templates",
+    icon: FileText,
   },
   {
     title: "Rankings",
