@@ -81,11 +81,9 @@ export const whatsappInstances = pgTable("whatsapp_instances", {
 // Message templates table
 export const messageTemplates = pgTable("message_templates", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  type: text("type", {
-    enum: ["vence_3_dias", "vence_hoje", "vencido", "novo_cliente"]
-  }).notNull(),
+  title: text("title").notNull(),
   content: text("content").notNull(),
+  imageUrl: text("image_url"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
