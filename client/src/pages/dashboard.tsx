@@ -10,7 +10,11 @@ import {
   XCircle, 
   Send, 
   UserPlus, 
-  TrendingUp 
+  TrendingUp,
+  Users,
+  UserX,
+  Calendar,
+  CalendarX
 } from "lucide-react";
 import {
   LineChart,
@@ -50,9 +54,14 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="p-6 space-y-8">
         <div className="animate-pulse">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-32 bg-muted rounded-xl" />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="h-32 bg-muted rounded-xl" />
             ))}
@@ -86,7 +95,35 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - Principais */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatsCard
+          title="Clientes Ativos"
+          value={stats?.activeClients || 0}
+          icon={Users}
+          color="green"
+        />
+        <StatsCard
+          title="Clientes Inativos"
+          value={stats?.inactiveClients || 0}
+          icon={UserX}
+          color="red"
+        />
+        <StatsCard
+          title="Vencendo Amanhã"
+          value={stats?.expiringTomorrow || 0}
+          icon={Calendar}
+          color="yellow"
+        />
+        <StatsCard
+          title="Venceu Ontem"
+          value={stats?.expiredYesterday || 0}
+          icon={CalendarX}
+          color="orange"
+        />
+      </div>
+
+      {/* Stats Cards - Secundários */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
         <StatsCard
           title="Vencendo Hoje"
