@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { ChartCard } from "@/components/dashboard/chart-card";
@@ -24,16 +25,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-// Mock data for revenue chart
-const revenueData = [
-  { month: "Jul", value: 8500 },
-  { month: "Ago", value: 9200 },
-  { month: "Set", value: 10800 },
-  { month: "Out", value: 11500 },
-  { month: "Nov", value: 12100 },
-  { month: "Dez", value: 12450 },
-];
-
 // Helper to get month name in Portuguese
 const getMonthName = (monthIndex: number) => {
   const months = [
@@ -43,7 +34,20 @@ const getMonthName = (monthIndex: number) => {
   return months[monthIndex];
 };
 
+const getPeriodLabel = (period: string) => {
+  const labels: { [key: string]: string } = {
+    'current_month': 'Mês Atual',
+    'last_month': 'Mês Passado',
+    '3_months': 'Últimos 3 Meses',
+    '6_months': 'Últimos 6 Meses',
+    '12_months': 'Últimos 12 Meses'
+  };
+  return labels[period] || 'Mês Atual';
+};
+
 export default function Dashboard() {
+  const [revenuePeriod, setRevenuePeriod] = useState<'current_month' | 'last_month' | '3_months' | '6_months' | '12_months'>('6_months');
+
   const { data: stats, isLoading } = useQuery({
     queryKey: ["/api/dashboard/stats"],
     queryFn: api.getDashboardStats,
@@ -56,7 +60,14 @@ export default function Dashboard() {
     refetchInterval: 30000,
   });
 
+  const { data: revenueData, isLoading: isLoadingRevenue } = useQuery({
+    queryKey: ["/api/dashboard/revenue-by-period", revenuePeriod],
+    queryFn: () => api.getRevenueByPeriod(revenuePeriod),
+    refetchInterval: 30000,
+  });
+
   const currentMonth = getMonthName(new Date().getMonth());
+  const isDayPeriod = revenuePeriod === 'current_month' || revenuePeriod === 'last_month';
 
   if (isLoading) {
     return (
@@ -151,38 +162,61 @@ export default function Dashboard() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ChartCard
-          title="Faturamento Mensal"
+          title="Faturamento por Período"
           action={
-            <Select defaultValue="6months">
-              <SelectTrigger className="w-40">
+            <Select value={revenuePeriod} onValueChange={(value: any) => setRevenuePeriod(value)}>
+              <SelectTrigger className="w-48">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="6months">Últimos 6 meses</SelectItem>
-                <SelectItem value="12months">Últimos 12 meses</SelectItem>
+                <SelectItem value="current_month">Mês Atual</SelectItem>
+                <SelectItem value="last_month">Mês Passado</SelectItem>
+                <SelectItem value="3_months">Últimos 3 Meses</SelectItem>
+                <SelectItem value="6_months">Últimos 6 Meses</SelectItem>
+                <SelectItem value="12_months">Últimos 12 Meses</SelectItem>
               </SelectContent>
             </Select>
           }
         >
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={revenueData}>
-                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip 
-                  formatter={(value) => [`R$ ${value}`, "Faturamento"]}
-                  labelFormatter={(label) => `Mês: ${label}`}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="hsl(var(--primary))" 
-                  strokeWidth={3}
-                  dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {isLoadingRevenue ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="animate-pulse text-muted-foreground">Carregando...</div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={revenueData || []}>
+                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                  <XAxis 
+                    dataKey="label" 
+                    label={{ 
+                      value: isDayPeriod ? 'Dias do mês' : 'Meses', 
+                      position: 'insideBottom', 
+                      offset: -5 
+                    }}
+                  />
+                  <YAxis 
+                    label={{ value: 'Faturamento (R$)', angle: -90, position: 'insideLeft' }}
+                  />
+                  <Tooltip 
+                    formatter={(value) => [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, "Faturamento"]}
+                    labelFormatter={(label) => isDayPeriod ? `Dia ${label}` : label}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="hsl(var(--primary))" 
+                    strokeWidth={3}
+                    dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 4 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </ChartCard>
 
