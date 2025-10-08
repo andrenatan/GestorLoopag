@@ -18,6 +18,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/dashboard/new-clients-by-day", async (req, res) => {
+    try {
+      const data = await storage.getNewClientsByDay();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch new clients by day" });
+    }
+  });
+
   // Users Routes
   app.get("/api/users", async (req, res) => {
     try {

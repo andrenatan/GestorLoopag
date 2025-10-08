@@ -74,6 +74,7 @@ export interface IStorage {
     newClientsToday: number;
     totalRevenue: number;
   }>;
+  getNewClientsByDay(): Promise<{ day: number; count: number }[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -484,6 +485,42 @@ export class MemStorage implements IStorage {
       newClientsToday,
       totalRevenue
     };
+  }
+
+  async getNewClientsByDay() {
+    const getBrasiliaDateString = (date: Date) => {
+      const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+      const brasiliaTime = new Date(utc + (3600000 * -3));
+      return brasiliaTime.toISOString().split('T')[0];
+    };
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    
+    const clients = Array.from(this.clients.values());
+    
+    const clientsByDay: { [key: number]: number } = {};
+    for (let day = 1; day <= daysInMonth; day++) {
+      clientsByDay[day] = 0;
+    }
+    
+    clients.forEach(client => {
+      const createdDate = new Date(client.createdAt);
+      const createdDateStr = getBrasiliaDateString(createdDate);
+      const [year, month, day] = createdDateStr.split('-').map(Number);
+      
+      if (year === currentYear && month === currentMonth + 1) {
+        clientsByDay[day] = (clientsByDay[day] || 0) + 1;
+      }
+    });
+    
+    return Object.entries(clientsByDay).map(([day, count]) => ({
+      day: parseInt(day),
+      count
+    }));
   }
 }
 

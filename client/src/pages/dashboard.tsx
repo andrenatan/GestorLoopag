@@ -22,12 +22,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
 } from "recharts";
 
-// Mock data for charts
+// Mock data for revenue chart
 const revenueData = [
   { month: "Jul", value: 8500 },
   { month: "Ago", value: 9200 },
@@ -37,18 +34,29 @@ const revenueData = [
   { month: "Dez", value: 12450 },
 ];
 
-const subscriptionData = [
-  { name: "IPTV - Geral", value: 45, color: "#3b82f6" },
-  { name: "P2P - Android", value: 30, color: "#8b5cf6" },
-  { name: "Dois Pontos Distintos", value: 25, color: "#f59e0b" },
-];
+// Helper to get month name in Portuguese
+const getMonthName = (monthIndex: number) => {
+  const months = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+  ];
+  return months[monthIndex];
+};
 
 export default function Dashboard() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ["/api/dashboard/stats"],
     queryFn: api.getDashboardStats,
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30000,
   });
+
+  const { data: newClientsByDay, isLoading: isLoadingNewClients } = useQuery({
+    queryKey: ["/api/dashboard/new-clients-by-day"],
+    queryFn: api.getNewClientsByDay,
+    refetchInterval: 30000,
+  });
+
+  const currentMonth = getMonthName(new Date().getMonth());
 
   if (isLoading) {
     return (
@@ -179,32 +187,45 @@ export default function Dashboard() {
         </ChartCard>
 
         <ChartCard
-          title="Tipos de Assinatura"
-          action={
-            <Button variant="ghost" size="sm">
-              Ver Detalhes
-            </Button>
-          }
+          title={`Novos Clientes por Dia em ${currentMonth}`}
         >
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={subscriptionData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={(entry) => `${entry.name}: ${entry.value}%`}
-                >
-                  {subscriptionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            {isLoadingNewClients ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="animate-pulse text-muted-foreground">Carregando...</div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={newClientsByDay || []}>
+                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                  <XAxis 
+                    dataKey="day" 
+                    label={{ value: 'Dias do mês', position: 'insideBottom', offset: -5 }}
+                  />
+                  <YAxis 
+                    label={{ value: 'Total de novos clientes', angle: -90, position: 'insideLeft' }}
+                    allowDecimals={false}
+                  />
+                  <Tooltip 
+                    formatter={(value) => [`${value}`, "Novos clientes"]}
+                    labelFormatter={(label) => `Dia ${label}`}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="count" 
+                    stroke="#3b82f6" 
+                    strokeWidth={2}
+                    dot={{ fill: "#3b82f6", strokeWidth: 2, r: 5 }}
+                    activeDot={{ r: 7 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </ChartCard>
       </div>

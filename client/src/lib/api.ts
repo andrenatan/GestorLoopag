@@ -3,6 +3,7 @@ import { apiRequest } from "./queryClient";
 export const api = {
   // Dashboard
   getDashboardStats: () => fetch("/api/dashboard/stats").then(res => res.json()),
+  getNewClientsByDay: () => fetch("/api/dashboard/new-clients-by-day").then(res => res.json()),
 
   // Clients
   getClients: () => fetch("/api/clients").then(res => res.json()),
