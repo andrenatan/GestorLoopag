@@ -30,7 +30,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const objectStorageClient = new Client();
+      const bucketName = process.env.REPLIT_OBJECT_STORAGE_BUCKET || 'loopag-templates';
+      const objectStorageClient = new Client({ bucketId: bucketName });
       const fileName = `templates/${Date.now()}-${req.file.originalname}`;
       
       // Upload to Object Storage
@@ -58,7 +59,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/images/:filename(*)", async (req, res) => {
     try {
       const fileName = decodeURIComponent(req.params.filename);
-      const objectStorageClient = new Client();
+      const bucketName = process.env.REPLIT_OBJECT_STORAGE_BUCKET || 'loopag-templates';
+      const objectStorageClient = new Client({ bucketId: bucketName });
       
       const { ok, value, error } = await objectStorageClient.downloadAsBytes(fileName);
       
