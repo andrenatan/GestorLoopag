@@ -27,6 +27,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/dashboard/revenue-by-period", async (req, res) => {
+    try {
+      const period = req.query.period as 'current_month' | 'last_month' | '3_months' | '6_months' | '12_months';
+      if (!['current_month', 'last_month', '3_months', '6_months', '12_months'].includes(period)) {
+        return res.status(400).json({ message: "Invalid period" });
+      }
+      const data = await storage.getRevenueByPeriod(period);
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch revenue by period" });
+    }
+  });
+
   // Users Routes
   app.get("/api/users", async (req, res) => {
     try {

@@ -75,6 +75,7 @@ export interface IStorage {
     totalRevenue: number;
   }>;
   getNewClientsByDay(): Promise<{ day: number; count: number }[]>;
+  getRevenueByPeriod(period: 'current_month' | 'last_month' | '3_months' | '6_months' | '12_months'): Promise<{ label: string; value: number }[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -521,6 +522,74 @@ export class MemStorage implements IStorage {
       day: parseInt(day),
       count
     }));
+  }
+
+  async getRevenueByPeriod(period: 'current_month' | 'last_month' | '3_months' | '6_months' | '12_months') {
+    const getBrasiliaDateString = (date: Date) => {
+      const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+      const brasiliaTime = new Date(utc + (3600000 * -3));
+      return brasiliaTime.toISOString().split('T')[0];
+    };
+
+    const now = new Date();
+    const clients = Array.from(this.clients.values()).filter(c => c.subscriptionStatus === "Ativa");
+
+    if (period === 'current_month' || period === 'last_month') {
+      const targetMonth = period === 'current_month' ? now.getMonth() : now.getMonth() - 1;
+      const targetYear = targetMonth < 0 ? now.getFullYear() - 1 : now.getFullYear();
+      const adjustedMonth = targetMonth < 0 ? 11 : targetMonth;
+      
+      const daysInMonth = new Date(targetYear, adjustedMonth + 1, 0).getDate();
+      const revenueByDay: { [key: number]: number } = {};
+      
+      for (let day = 1; day <= daysInMonth; day++) {
+        revenueByDay[day] = 0;
+      }
+      
+      clients.forEach(client => {
+        const createdDate = new Date(client.createdAt);
+        const createdDateStr = getBrasiliaDateString(createdDate);
+        const [year, month, day] = createdDateStr.split('-').map(Number);
+        
+        if (year === targetYear && month === adjustedMonth + 1) {
+          revenueByDay[day] = (revenueByDay[day] || 0) + parseFloat(client.value || "0");
+        }
+      });
+      
+      return Object.entries(revenueByDay).map(([day, value]) => ({
+        label: day,
+        value
+      }));
+    } else {
+      const monthsToShow = period === '3_months' ? 3 : period === '6_months' ? 6 : 12;
+      const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+      const revenueByMonth: { [key: string]: number } = {};
+      
+      for (let i = monthsToShow - 1; i >= 0; i--) {
+        const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthKey = `${monthNames[targetDate.getMonth()]}`;
+        revenueByMonth[monthKey] = 0;
+      }
+      
+      clients.forEach(client => {
+        const createdDate = new Date(client.createdAt);
+        const createdDateStr = getBrasiliaDateString(createdDate);
+        const [year, month] = createdDateStr.split('-').map(Number);
+        
+        for (let i = monthsToShow - 1; i >= 0; i--) {
+          const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          if (year === targetDate.getFullYear() && month === targetDate.getMonth() + 1) {
+            const monthKey = `${monthNames[targetDate.getMonth()]}`;
+            revenueByMonth[monthKey] = (revenueByMonth[monthKey] || 0) + parseFloat(client.value || "0");
+          }
+        }
+      });
+      
+      return Object.entries(revenueByMonth).map(([label, value]) => ({
+        label,
+        value
+      }));
+    }
   }
 }
 
