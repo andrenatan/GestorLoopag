@@ -395,25 +395,20 @@ export class MemStorage implements IStorage {
 
   // Dashboard Stats
   async getDashboardStats() {
-    const getBrasiliaDate = () => {
-      const now = new Date();
-      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-      return new Date(utc + (3600000 * -3));
+    const getBrasiliaDateString = (date: Date) => {
+      const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+      const brasiliaTime = new Date(utc + (3600000 * -3));
+      return brasiliaTime.toISOString().split('T')[0];
     };
 
-    const getDateOnly = (date: Date) => {
-      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    };
-
-    const brasiliaToday = getBrasiliaDate();
-    const todayStart = getDateOnly(brasiliaToday);
-    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const todayBrasilia = getBrasiliaDateString(now);
     
-    const yesterday = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
-    const yesterdayEnd = todayStart;
+    const yesterdayDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayBrasilia = getBrasiliaDateString(yesterdayDate);
     
-    const tomorrow = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-    const tomorrowEnd = new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000);
+    const tomorrowDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const tomorrowBrasilia = getBrasiliaDateString(tomorrowDate);
 
     const clients = Array.from(this.clients.values());
     const billingHistory = Array.from(this.billingHistory.values());
@@ -427,44 +422,50 @@ export class MemStorage implements IStorage {
     ).length;
 
     const expiringTomorrow = clients.filter(client => {
-      const expiryDate = new Date(client.expiryDate);
-      const expiryDateOnly = getDateOnly(expiryDate);
-      return expiryDateOnly >= tomorrow && expiryDateOnly < tomorrowEnd;
+      const expiryDateStr = typeof client.expiryDate === 'string' 
+        ? client.expiryDate 
+        : getBrasiliaDateString(new Date(client.expiryDate));
+      return expiryDateStr === tomorrowBrasilia;
     }).length;
 
     const expiredYesterday = clients.filter(client => {
-      const expiryDate = new Date(client.expiryDate);
-      const expiryDateOnly = getDateOnly(expiryDate);
-      return expiryDateOnly >= yesterday && expiryDateOnly < yesterdayEnd;
+      const expiryDateStr = typeof client.expiryDate === 'string' 
+        ? client.expiryDate 
+        : getBrasiliaDateString(new Date(client.expiryDate));
+      return expiryDateStr === yesterdayBrasilia;
     }).length;
 
     const expiringToday = clients.filter(client => {
-      const expiryDate = new Date(client.expiryDate);
-      const expiryDateOnly = getDateOnly(expiryDate);
-      return expiryDateOnly >= todayStart && expiryDateOnly < todayEnd;
+      const expiryDateStr = typeof client.expiryDate === 'string' 
+        ? client.expiryDate 
+        : getBrasiliaDateString(new Date(client.expiryDate));
+      return expiryDateStr === todayBrasilia;
     }).length;
 
     const expiring3Days = clients.filter(client => {
       const expiryDate = new Date(client.expiryDate);
-      const expiryDateOnly = getDateOnly(expiryDate);
-      const threeDaysFromNow = new Date(todayStart.getTime() + 3 * 24 * 60 * 60 * 1000);
-      return expiryDateOnly > todayStart && expiryDateOnly <= threeDaysFromNow;
+      const diffTime = expiryDate.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays > 0 && diffDays <= 3;
     }).length;
 
     const overdue = clients.filter(client => {
       const expiryDate = new Date(client.expiryDate);
-      const expiryDateOnly = getDateOnly(expiryDate);
-      return expiryDateOnly < todayStart;
+      return expiryDate.getTime() < now.getTime();
     }).length;
 
+    const todayStartTime = new Date(todayBrasilia + 'T00:00:00-03:00').getTime();
+    const todayEndTime = todayStartTime + (24 * 60 * 60 * 1000);
+
     const billingSentToday = billingHistory.filter(billing => {
-      const sentAt = billing.sentAt ? new Date(billing.sentAt) : null;
-      return sentAt && sentAt >= todayStart && sentAt < todayEnd;
+      if (!billing.sentAt) return false;
+      const sentTime = new Date(billing.sentAt).getTime();
+      return sentTime >= todayStartTime && sentTime < todayEndTime;
     }).length;
 
     const newClientsToday = clients.filter(client => {
-      const createdAt = new Date(client.createdAt);
-      return createdAt >= todayStart && createdAt < todayEnd;
+      const createdTime = new Date(client.createdAt).getTime();
+      return createdTime >= todayStartTime && createdTime < todayEndTime;
     }).length;
 
     const totalRevenue = clients
