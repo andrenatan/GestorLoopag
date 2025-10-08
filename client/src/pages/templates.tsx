@@ -22,7 +22,9 @@ export default function Templates() {
   const [content, setContent] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: templates, isLoading } = useQuery<MessageTemplate[]>({
     queryKey: ["/api/templates"],
@@ -121,6 +123,61 @@ export default function Templates() {
       textarea.focus();
       textarea.setSelectionRange(start + emojiData.emoji.length, start + emojiData.emoji.length);
     }, 0);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Erro",
+        description: "Por favor, selecione apenas imagens.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Erro",
+        description: "A imagem deve ter no máximo 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      setImageUrl(data.url);
+
+      toast({
+        title: "Sucesso",
+        description: "Imagem enviada com sucesso!",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Falha ao enviar imagem.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -237,26 +294,51 @@ export default function Templates() {
               </div>
 
               <div>
-                <Label htmlFor="imageUrl" className="text-slate-200">
-                  URL da Imagem (opcional)
+                <Label htmlFor="image" className="text-slate-200">
+                  Imagem (opcional)
                 </Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="imageUrl"
-                    data-testid="input-template-image"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    placeholder="https://exemplo.com/imagem.jpg"
-                    className="bg-slate-800/50 border-slate-700 text-slate-100"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="bg-slate-800/50 border-slate-700 hover:bg-slate-700 shrink-0"
-                  >
-                    <ImageIcon className="w-4 h-4" />
-                  </Button>
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      data-testid="input-template-image-file"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      data-testid="button-upload-image"
+                      className="bg-slate-800/50 border-slate-700 hover:bg-slate-700"
+                    >
+                      <ImageIcon className="w-4 h-4 mr-2" />
+                      {uploading ? "Enviando..." : imageUrl ? "Trocar Imagem" : "Selecionar Imagem"}
+                    </Button>
+                    {imageUrl && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setImageUrl("")}
+                        data-testid="button-remove-image"
+                        className="bg-slate-800/50 border-slate-700 hover:bg-red-500/20 hover:text-red-500"
+                      >
+                        Remover
+                      </Button>
+                    )}
+                  </div>
+                  {imageUrl && (
+                    <div className="relative w-full max-w-xs">
+                      <img
+                        src={imageUrl}
+                        alt="Preview"
+                        className="w-full h-32 object-cover rounded-lg border border-slate-700"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 

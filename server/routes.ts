@@ -44,13 +44,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: "Failed to upload file", error });
       }
 
-      // Get public URL
-      const url = await objectStorageClient.downloadUrl(fileName);
+      // Return the filename - we'll serve it via another route
+      const url = `/api/images/${encodeURIComponent(fileName)}`;
       
       res.json({ url });
     } catch (error) {
       console.error("Upload error:", error);
       res.status(500).json({ message: "Failed to upload image", error });
+    }
+  });
+
+  // Image serving route
+  app.get("/api/images/:filename(*)", async (req, res) => {
+    try {
+      const fileName = decodeURIComponent(req.params.filename);
+      const objectStorageClient = new Client();
+      
+      const { ok, value, error } = await objectStorageClient.downloadAsBytes(fileName);
+      
+      if (!ok || !value) {
+        console.error("Download failed:", error);
+        return res.status(404).json({ message: "Image not found" });
+      }
+
+      // Set appropriate content type
+      const ext = fileName.split('.').pop()?.toLowerCase();
+      const contentTypes: Record<string, string> = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp'
+      };
+      
+      res.contentType(contentTypes[ext || 'jpg'] || 'image/jpeg');
+      res.send(value);
+    } catch (error) {
+      console.error("Image serving error:", error);
+      res.status(500).json({ message: "Failed to serve image", error });
     }
   });
   
