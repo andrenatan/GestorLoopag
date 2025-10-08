@@ -5,8 +5,54 @@ import {
   insertUserSchema, insertEmployeeSchema, insertSystemSchema, insertClientSchema, 
   insertWhatsappInstanceSchema, insertMessageTemplateSchema, insertBillingHistorySchema 
 } from "@shared/schema";
+import multer from "multer";
+import { Client } from "@replit/object-storage";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // Configure multer for memory storage
+  const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only image files are allowed'));
+      }
+    }
+  });
+
+  // Image upload route
+  app.post("/api/upload", upload.single('image'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const objectStorageClient = new Client();
+      const fileName = `templates/${Date.now()}-${req.file.originalname}`;
+      
+      // Upload to Object Storage
+      const { ok, error } = await objectStorageClient.uploadFromBytes(
+        fileName,
+        req.file.buffer
+      );
+
+      if (!ok) {
+        console.error("Upload failed:", error);
+        return res.status(500).json({ message: "Failed to upload file", error });
+      }
+
+      // Get public URL
+      const url = await objectStorageClient.downloadUrl(fileName);
+      
+      res.json({ url });
+    } catch (error) {
+      console.error("Upload error:", error);
+      res.status(500).json({ message: "Failed to upload image", error });
+    }
+  });
   
   // Dashboard Stats
   app.get("/api/dashboard/stats", async (req, res) => {
