@@ -21,9 +21,6 @@ const clientFormSchema = z.object({
   username: z.string().min(1, "Usuário é obrigatório"),
   password: z.string().min(1, "Senha é obrigatória"),
   system: z.string().min(1, "Sistema é obrigatório"),
-  cloudyEmail: z.string().email("Email ClouDy inválido"),
-  cloudyPassword: z.string().min(1, "Senha ClouDy é obrigatória"),
-  cloudyExpiry: z.string().min(1, "Vencimento ClouDy é obrigatório"),
   subscriptionStatus: z.enum(["Ativa", "Inativa", "Aguardando", "Teste"]).default("Ativa"),
   paymentMethods: z.array(z.string()).default([]),
   activationDate: z.string().min(1, "Data de ativação é obrigatória"),
@@ -66,9 +63,6 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
       username: initialData?.username || "",
       password: initialData?.password || "",
       system: initialData?.system || "",
-      cloudyEmail: initialData?.cloudyEmail || "",
-      cloudyPassword: initialData?.cloudyPassword || "",
-      cloudyExpiry: initialData?.cloudyExpiry || "",
       subscriptionStatus: initialData?.subscriptionStatus || "Ativa",
       paymentMethods: initialData?.paymentMethods || [],
       activationDate: initialData?.activationDate || new Date().toISOString().split('T')[0],
@@ -276,54 +270,6 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                             )}
                           </SelectContent>
                         </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Informações ClouDy */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Informações ClouDy</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="cloudyEmail"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email ClouDy *</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="email@cloudy.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="cloudyPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Senha ClouDy *</FormLabel>
-                        <FormControl>
-                          <Input type="password" placeholder="Senha ClouDy" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="cloudyExpiry"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Vencimento ClouDy *</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
