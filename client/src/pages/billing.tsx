@@ -7,9 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { MessageCircle, QrCode, Send, Eye } from "lucide-react";
+import { MessageCircle, QrCode, Send, Eye, Smartphone } from "lucide-react";
 import type { Client, WhatsappInstance, MessageTemplate } from "@shared/schema";
 
 export default function Billing() {
@@ -17,6 +20,10 @@ export default function Billing() {
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
   const [selectedInstance, setSelectedInstance] = useState<number | null>(null);
   const [customMessage, setCustomMessage] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [instanceName, setInstanceName] = useState("");
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -68,6 +75,60 @@ export default function Billing() {
     },
   });
 
+  const createInstanceMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const response = await api.createWhatsappInstance({
+        name,
+        status: "disconnected",
+      });
+      return response.json();
+    },
+    onSuccess: async (newInstance: WhatsappInstance) => {
+      setIsConnecting(true);
+      try {
+        const response = await fetch("https://webhook.dev.userxai.online/webhook/gestor_loopag_connect", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            instanceName: instanceName,
+            instanceId: newInstance.id,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Webhook retornou erro: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.qrCode) {
+          setQrCode(data.qrCode);
+          const updateResponse = await api.updateWhatsappInstance(newInstance.id, {
+            qrCode: data.qrCode,
+            status: "connecting",
+          });
+          queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/instances"] });
+        } else {
+          throw new Error("QR Code não recebido do webhook");
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Falha ao conectar com o webhook";
+        toast({
+          title: "Erro na conexão",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        setIsDialogOpen(false);
+        setInstanceName("");
+        setQrCode(null);
+      } finally {
+        setIsConnecting(false);
+      }
+    },
+  });
+
   const handleSendMessages = () => {
     if (!selectedInstance || !selectedTemplate || selectedClients.length === 0) {
       toast({
@@ -98,6 +159,35 @@ export default function Billing() {
       .replace(/{vencimento}/g, "15/12/2024")
       .replace(/{plano}/g, "IPTV Premium")
       .replace(/{sistema}/g, "IPTV - Geral");
+  };
+
+  const handleConnectWhatsApp = () => {
+    // Validate instance name (only letters and numbers)
+    const nameRegex = /^[a-zA-Z0-9]+$/;
+    if (!instanceName.trim()) {
+      toast({
+        title: "Erro",
+        description: "Por favor, insira um nome para a instância",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!nameRegex.test(instanceName)) {
+      toast({
+        title: "Erro",
+        description: "Apenas letras e números, sem espaços ou caracteres especiais",
+        variant: "destructive",
+      });
+      return;
+    }
+    createInstanceMutation.mutate(instanceName);
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setInstanceName("");
+    setQrCode(null);
+    setIsConnecting(false);
   };
 
   const ClientList = ({ clients, title }: { clients: Client[]; title: string }) => (
@@ -146,10 +236,19 @@ export default function Billing() {
         {/* WhatsApp Connection */}
         <Card className="glassmorphism neon-border">
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <MessageCircle className="w-5 h-5 text-green-500" />
-              <span>Conexão WhatsApp</span>
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center space-x-2">
+                <MessageCircle className="w-5 h-5 text-green-500" />
+                <span>Conexão WhatsApp</span>
+              </CardTitle>
+              <Button 
+                size="sm" 
+                onClick={() => setIsDialogOpen(true)}
+                data-testid="button-add-instance-header"
+              >
+                Adicionar Instância
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {instances.map((instance: WhatsappInstance) => (
@@ -189,7 +288,9 @@ export default function Billing() {
               <div className="text-center py-8">
                 <MessageCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">Nenhuma instância WhatsApp configurada</p>
-                <Button className="mt-4">Adicionar Instância</Button>
+                <Button className="mt-4" onClick={() => setIsDialogOpen(true)} data-testid="button-add-instance">
+                  Adicionar Instância
+                </Button>
               </div>
             )}
           </CardContent>
@@ -211,7 +312,7 @@ export default function Billing() {
               <SelectContent>
                 {templates.map((template: MessageTemplate) => (
                   <SelectItem key={template.id} value={template.id.toString()}>
-                    {template.name}
+                    {template.title}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -290,6 +391,72 @@ export default function Billing() {
           </div>
         </CardContent>
       </Card>
+
+      {/* WhatsApp Connection Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
+        <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800">
+          <DialogHeader>
+            <DialogTitle className="text-white">Conectar Novo Número</DialogTitle>
+          </DialogHeader>
+          
+          {!qrCode ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="instance-name" className="text-white">
+                  Nome do Número <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="instance-name"
+                  placeholder="Ex: Vendas, Suporte, Marketing"
+                  value={instanceName}
+                  onChange={(e) => setInstanceName(e.target.value)}
+                  className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
+                  data-testid="input-instance-name"
+                />
+                <p className="text-xs text-gray-400">
+                  Apenas letras e números, sem espaços ou caracteres especiais
+                </p>
+              </div>
+
+              <Button
+                onClick={handleConnectWhatsApp}
+                disabled={createInstanceMutation.isPending || isConnecting}
+                className="w-full bg-green-500 hover:bg-green-600 text-white"
+                data-testid="button-connect-whatsapp"
+              >
+                <Smartphone className="w-4 h-4 mr-2" />
+                {createInstanceMutation.isPending || isConnecting ? "Conectando..." : "Conectar WhatsApp"}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-white p-6 rounded-lg flex justify-center">
+                <img src={qrCode} alt="QR Code" className="w-64 h-64" data-testid="img-qrcode" />
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-center font-semibold text-white text-lg">
+                  Escaneie o QR Code
+                </h3>
+                <ol className="text-sm text-gray-300 space-y-2 list-decimal list-inside">
+                  <li>Abra o WhatsApp no seu celular</li>
+                  <li>Vá em Configurações → Aparelhos conectados</li>
+                  <li>Toque em "Conectar um aparelho"</li>
+                  <li>Escaneie este QR Code</li>
+                </ol>
+              </div>
+
+              <Button
+                onClick={handleCloseDialog}
+                className="w-full bg-green-500 hover:bg-green-600 text-white"
+                data-testid="button-qr-scanned"
+              >
+                Já escaneei o QR Code
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
