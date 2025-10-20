@@ -84,48 +84,34 @@ export default function Billing() {
       return response.json();
     },
     onSuccess: async (newInstance: WhatsappInstance) => {
-      setIsConnecting(true);
-      try {
-        const response = await fetch("https://webhook.dev.userxai.online/webhook/gestor_loopag_connect", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            instanceName: instanceName,
-            instanceId: newInstance.id,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Webhook retornou erro: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        
-        if (data.qrCode) {
-          setQrCode(data.qrCode);
-          const updateResponse = await api.updateWhatsappInstance(newInstance.id, {
-            qrCode: data.qrCode,
-            status: "connecting",
-          });
-          queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/instances"] });
-        } else {
-          throw new Error("QR Code não recebido do webhook");
-        }
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Falha ao conectar com o webhook";
+      setIsConnecting(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/instances"] });
+      
+      // Check if QR code was returned from backend
+      if (newInstance.qrCode) {
+        setQrCode(newInstance.qrCode);
         toast({
-          title: "Erro na conexão",
-          description: errorMessage,
+          title: "Sucesso",
+          description: "QR Code gerado com sucesso!",
+        });
+      } else {
+        toast({
+          title: "Aviso",
+          description: "Instância criada, mas QR Code não foi gerado. Tente conectar novamente.",
           variant: "destructive",
         });
-        setIsDialogOpen(false);
-        setInstanceName("");
-        setQrCode(null);
-      } finally {
-        setIsConnecting(false);
       }
+    },
+    onError: (error) => {
+      setIsConnecting(false);
+      const errorMessage = error instanceof Error ? error.message : "Falha ao criar instância";
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      setIsDialogOpen(false);
+      setInstanceName("");
     },
   });
 
@@ -180,6 +166,7 @@ export default function Billing() {
       });
       return;
     }
+    setIsConnecting(true);
     createInstanceMutation.mutate(instanceName);
   };
 
@@ -232,77 +219,24 @@ export default function Billing() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* WhatsApp Connection */}
+      <div className="grid grid-cols-1 gap-6">
+        {/* Message Template */}
         <Card className="glassmorphism neon-border">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center space-x-2">
-                <MessageCircle className="w-5 h-5 text-green-500" />
-                <span>Conexão WhatsApp</span>
+                <Eye className="w-5 h-5 text-blue-500" />
+                <span>Template de Mensagem</span>
               </CardTitle>
               <Button 
                 size="sm" 
                 onClick={() => setIsDialogOpen(true)}
                 data-testid="button-add-instance-header"
               >
-                Adicionar Instância
+                <MessageCircle className="w-4 h-4 mr-2" />
+                Conectar WhatsApp
               </Button>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {instances.map((instance: WhatsappInstance) => (
-              <div
-                key={instance.id}
-                className={`flex items-center justify-between p-4 rounded-lg border ${
-                  instance.status === "connected" 
-                    ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20"
-                    : "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50"
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className={`w-3 h-3 rounded-full ${
-                    instance.status === "connected" 
-                      ? "bg-green-500 animate-pulse" 
-                      : "bg-gray-400"
-                  }`} />
-                  <span className="font-medium">{instance.name}</span>
-                  <Badge variant={instance.status === "connected" ? "default" : "secondary"}>
-                    {instance.status === "connected" ? "Conectado" : "Desconectado"}
-                  </Badge>
-                </div>
-                {instance.status !== "connected" && (
-                  <Button
-                    size="sm"
-                    onClick={() => connectInstanceMutation.mutate(instance.id)}
-                    disabled={connectInstanceMutation.isPending}
-                  >
-                    <QrCode className="w-4 h-4 mr-2" />
-                    Conectar
-                  </Button>
-                )}
-              </div>
-            ))}
-
-            {instances.length === 0 && (
-              <div className="text-center py-8">
-                <MessageCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">Nenhuma instância WhatsApp configurada</p>
-                <Button className="mt-4" onClick={() => setIsDialogOpen(true)} data-testid="button-add-instance">
-                  Adicionar Instância
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Message Template */}
-        <Card className="glassmorphism neon-border">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Eye className="w-5 h-5 text-blue-500" />
-              <span>Template de Mensagem</span>
-            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <Select value={selectedTemplate?.toString()} onValueChange={(value) => setSelectedTemplate(parseInt(value))}>
@@ -431,7 +365,12 @@ export default function Billing() {
           ) : (
             <div className="space-y-4">
               <div className="bg-white p-6 rounded-lg flex justify-center">
-                <img src={qrCode} alt="QR Code" className="w-64 h-64" data-testid="img-qrcode" />
+                <img 
+                  src={qrCode.startsWith('data:') ? qrCode : `data:image/png;base64,${qrCode}`} 
+                  alt="QR Code" 
+                  className="w-64 h-64 object-contain" 
+                  data-testid="img-qrcode" 
+                />
               </div>
 
               <div className="space-y-2">

@@ -351,6 +351,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertWhatsappInstanceSchema.parse(req.body);
       const instance = await storage.createWhatsappInstance(validatedData);
+      
+      // Call webhook to generate QR code
+      try {
+        const webhookResponse = await fetch("https://webhook.dev.userxai.online/webhook/gestor_loopag_connect", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            instanceName: instance.name,
+            instanceId: instance.id,
+          }),
+        });
+
+        if (!webhookResponse.ok) {
+          throw new Error(`Webhook error: ${webhookResponse.status}`);
+        }
+
+        // Poll for QR code for up to 10 seconds
+        let qrCode = null;
+        const maxAttempts = 20; // 20 attempts * 500ms = 10 seconds
+        let attempts = 0;
+
+        while (attempts < maxAttempts && !qrCode) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          try {
+            const checkResponse = await fetch("https://webhook.dev.userxai.online/webhook/gestor_loopag_connect", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                instanceName: instance.name,
+                instanceId: instance.id,
+              }),
+            });
+
+            if (checkResponse.ok) {
+              const data = await checkResponse.json();
+              if (data.qrCode) {
+                qrCode = data.qrCode;
+                break;
+              }
+            }
+          } catch (pollError) {
+            // Continue polling on error
+          }
+          
+          attempts++;
+        }
+
+        if (qrCode) {
+          // Update instance with QR code
+          await storage.updateWhatsappInstance(instance.id, {
+            qrCode,
+            status: "connecting",
+          });
+          
+          return res.status(201).json({
+            ...instance,
+            qrCode,
+            status: "connecting",
+          });
+        }
+      } catch (webhookError) {
+        console.error("Webhook error:", webhookError);
+      }
+      
       res.status(201).json(instance);
     } catch (error) {
       res.status(400).json({ message: "Invalid WhatsApp instance data", error });
