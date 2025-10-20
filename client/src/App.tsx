@@ -15,6 +15,7 @@ import Rankings from "@/pages/rankings";
 import Employees from "@/pages/employees";
 import Users from "@/pages/users";
 import Templates from "@/pages/templates";
+import WhatsApp from "@/pages/whatsapp";
 
 function Router() {
   return (
@@ -30,7 +31,7 @@ function Router() {
           <Route path="/employees" component={Employees} />
           <Route path="/users" component={Users} />
           <Route path="/templates" component={Templates} />
-          <Route path="/whatsapp" component={Billing} />
+          <Route path="/whatsapp" component={WhatsApp} />
           <Route component={NotFound} />
         </Switch>
       </main>

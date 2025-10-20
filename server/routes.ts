@@ -352,8 +352,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertWhatsappInstanceSchema.parse(req.body);
       const instance = await storage.createWhatsappInstance(validatedData);
       
+      console.log(`[WhatsApp] Creating instance: ${instance.name} (ID: ${instance.id})`);
+      
       // Call webhook to generate QR code
       try {
+        console.log(`[WhatsApp] Sending initial request to webhook...`);
         const webhookResponse = await fetch("https://webhook.dev.userxai.online/webhook/gestor_loopag_connect", {
           method: "POST",
           headers: {
@@ -365,42 +368,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }),
         });
 
+        console.log(`[WhatsApp] Webhook response status: ${webhookResponse.status}`);
+
         if (!webhookResponse.ok) {
           throw new Error(`Webhook error: ${webhookResponse.status}`);
         }
 
-        // Poll for QR code for up to 10 seconds
-        let qrCode = null;
-        const maxAttempts = 20; // 20 attempts * 500ms = 10 seconds
-        let attempts = 0;
+        // Try to get QR code from initial response
+        const initialData = await webhookResponse.json();
+        console.log(`[WhatsApp] Initial webhook response data:`, JSON.stringify(initialData).substring(0, 200));
+        
+        let qrCode = initialData?.qrCode || null;
 
-        while (attempts < maxAttempts && !qrCode) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          try {
-            const checkResponse = await fetch("https://webhook.dev.userxai.online/webhook/gestor_loopag_connect", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                instanceName: instance.name,
-                instanceId: instance.id,
-              }),
-            });
+        // If no QR code in initial response, poll for up to 10 seconds
+        if (!qrCode) {
+          console.log(`[WhatsApp] QR code not in initial response, starting polling...`);
+          const maxAttempts = 20; // 20 attempts * 500ms = 10 seconds
+          let attempts = 0;
 
-            if (checkResponse.ok) {
-              const data = await checkResponse.json();
-              if (data.qrCode) {
-                qrCode = data.qrCode;
-                break;
+          while (attempts < maxAttempts && !qrCode) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            attempts++;
+            
+            try {
+              console.log(`[WhatsApp] Polling attempt ${attempts}/${maxAttempts}...`);
+              const checkResponse = await fetch("https://webhook.dev.userxai.online/webhook/gestor_loopag_connect", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  instanceName: instance.name,
+                  instanceId: instance.id,
+                  checkStatus: true,
+                }),
+              });
+
+              if (checkResponse.ok) {
+                const data = await checkResponse.json();
+                console.log(`[WhatsApp] Poll response:`, JSON.stringify(data).substring(0, 200));
+                if (data.qrCode) {
+                  qrCode = data.qrCode;
+                  console.log(`[WhatsApp] QR code received on attempt ${attempts}`);
+                  break;
+                }
               }
+            } catch (pollError) {
+              console.log(`[WhatsApp] Poll error on attempt ${attempts}:`, pollError);
             }
-          } catch (pollError) {
-            // Continue polling on error
           }
-          
-          attempts++;
+        } else {
+          console.log(`[WhatsApp] QR code received in initial response`);
         }
 
         if (qrCode) {
@@ -410,18 +428,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: "connecting",
           });
           
+          console.log(`[WhatsApp] Instance updated with QR code successfully`);
+          
           return res.status(201).json({
             ...instance,
             qrCode,
             status: "connecting",
           });
+        } else {
+          console.log(`[WhatsApp] No QR code received after polling`);
         }
       } catch (webhookError) {
-        console.error("Webhook error:", webhookError);
+        console.error("[WhatsApp] Webhook error:", webhookError);
       }
       
       res.status(201).json(instance);
     } catch (error) {
+      console.error("[WhatsApp] Error creating instance:", error);
       res.status(400).json({ message: "Invalid WhatsApp instance data", error });
     }
   });
