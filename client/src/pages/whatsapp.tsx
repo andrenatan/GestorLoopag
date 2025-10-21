@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
@@ -16,6 +17,8 @@ export default function WhatsApp() {
   const [instanceName, setInstanceName] = useState("");
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [instanceToDelete, setInstanceToDelete] = useState<WhatsappInstance | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -64,13 +67,25 @@ export default function WhatsApp() {
   });
 
   const deleteInstanceMutation = useMutation({
-    mutationFn: (id: number) => api.updateWhatsappInstance(id, { status: "disconnected" }),
+    mutationFn: (id: number) => api.deleteWhatsappInstance(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/instances"] });
+      setDeleteConfirmOpen(false);
+      setInstanceToDelete(null);
       toast({
         title: "Sucesso",
-        description: "Instância desconectada com sucesso!",
+        description: "Instância excluída com sucesso!",
       });
+    },
+    onError: (error) => {
+      const errorMessage = error instanceof Error ? error.message : "Falha ao excluir instância";
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      setDeleteConfirmOpen(false);
+      setInstanceToDelete(null);
     },
   });
 
@@ -116,6 +131,17 @@ export default function WhatsApp() {
     setInstanceName("");
     setQrCode(null);
     setIsConnecting(false);
+  };
+
+  const handleDeleteClick = (instance: WhatsappInstance) => {
+    setInstanceToDelete(instance);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (instanceToDelete) {
+      deleteInstanceMutation.mutate(instanceToDelete.id);
+    }
   };
 
   return (
@@ -207,9 +233,9 @@ export default function WhatsApp() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => deleteInstanceMutation.mutate(instance.id)}
+                      onClick={() => handleDeleteClick(instance)}
                       disabled={deleteInstanceMutation.isPending}
-                      data-testid={`button-disconnect-${instance.id}`}
+                      data-testid={`button-delete-${instance.id}`}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -290,6 +316,36 @@ export default function WhatsApp() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent className="bg-gray-900 border-gray-800">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">
+              Confirmar Exclusão
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-300">
+              Tem certeza que deseja excluir a instância "{instanceToDelete?.name}"?
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              className="bg-gray-800 text-white hover:bg-gray-700 border-gray-700"
+              data-testid="button-cancel-delete"
+            >
+              Não
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-red-500 hover:bg-red-600 text-white"
+              disabled={deleteInstanceMutation.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {deleteInstanceMutation.isPending ? "Excluindo..." : "Sim"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

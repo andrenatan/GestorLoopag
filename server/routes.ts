@@ -455,6 +455,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/whatsapp/instances/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Get instance to retrieve the name for webhook call
+      const instance = await storage.getWhatsappInstance(id);
+      if (!instance) {
+        return res.status(404).json({ message: "WhatsApp instance not found" });
+      }
+
+      console.log(`[WhatsApp] Deleting instance: ${instance.name} (ID: ${id})`);
+
+      // Call webhook to delete instance
+      try {
+        console.log(`[WhatsApp] Calling delete webhook for instance: ${instance.name}`);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const webhookResponse = await fetch("https://webhook.dev.userxai.online/webhook/gestor_loopag_delete_instance", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ instanceName: instance.name }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+        
+        console.log(`[WhatsApp] Delete webhook response status: ${webhookResponse.status}`);
+
+        if (!webhookResponse.ok) {
+          console.error(`[WhatsApp] Delete webhook returned non-OK status: ${webhookResponse.status}`);
+        }
+      } catch (webhookError: any) {
+        if (webhookError.name === 'AbortError') {
+          console.error("[WhatsApp] Delete webhook timeout after 15 seconds");
+        } else {
+          console.error("[WhatsApp] Delete webhook error:", webhookError);
+        }
+        // Continue with deletion even if webhook fails
+      }
+
+      // Delete instance from storage
+      await storage.deleteWhatsappInstance(id);
+      console.log(`[WhatsApp] Instance deleted successfully from storage`);
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("[WhatsApp] Error deleting instance:", error);
+      res.status(500).json({ message: "Failed to delete WhatsApp instance", error });
+    }
+  });
+
   app.post("/api/whatsapp/instances/:id/connect", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
