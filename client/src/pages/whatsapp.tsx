@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { MessageCircle, QrCode, Smartphone, Edit, Trash2 } from "lucide-react";
+import { MessageCircle, QrCode, Smartphone, Edit, Trash2, RefreshCw } from "lucide-react";
 import type { WhatsappInstance } from "@shared/schema";
 
 export default function WhatsApp() {
@@ -101,6 +101,25 @@ export default function WhatsApp() {
           description: "QR Code gerado com sucesso!",
         });
       }
+    },
+  });
+
+  const refreshStatusMutation = useMutation({
+    mutationFn: (id: number) => api.refreshWhatsappStatus(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/instances"] });
+      toast({
+        title: "Sucesso",
+        description: "Status da conexão atualizado!",
+      });
+    },
+    onError: (error) => {
+      const errorMessage = error instanceof Error ? error.message : "Falha ao atualizar status";
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive",
+      });
     },
   });
 
@@ -223,6 +242,16 @@ export default function WhatsApp() {
                         Conectar
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => refreshStatusMutation.mutate(instance.id)}
+                      disabled={refreshStatusMutation.isPending}
+                      data-testid={`button-refresh-${instance.id}`}
+                      title="Atualizar status da conexão"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${refreshStatusMutation.isPending ? 'animate-spin' : ''}`} />
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"

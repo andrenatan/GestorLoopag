@@ -36,6 +36,7 @@ export const api = {
   updateWhatsappInstance: (id: number, instance: any) => apiRequest("PUT", `/api/whatsapp/instances/${id}`, instance),
   deleteWhatsappInstance: (id: number) => apiRequest("DELETE", `/api/whatsapp/instances/${id}`),
   connectWhatsappInstance: (id: number) => apiRequest("POST", `/api/whatsapp/instances/${id}/connect`, {}),
+  refreshWhatsappStatus: (id: number) => apiRequest("GET", `/api/whatsapp/instances/${id}/status`).then(res => res.json()),
 
   // Templates
   getMessageTemplates: () => fetch("/api/templates").then(res => res.json()),

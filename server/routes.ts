@@ -510,6 +510,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/whatsapp/instances/:id/status", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Get instance to retrieve the name
+      const instance = await storage.getWhatsappInstance(id);
+      if (!instance) {
+        return res.status(404).json({ message: "WhatsApp instance not found" });
+      }
+
+      console.log(`[WhatsApp] Checking status for instance: ${instance.name} (ID: ${id})`);
+
+      // Call webhook to get connection state
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const webhookResponse = await fetch("https://webhook.dev.userxai.online/webhook/loopag_get_state_connection", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ instanceName: instance.name }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        console.log(`[WhatsApp] Status webhook response: ${webhookResponse.status}`);
+
+        if (!webhookResponse.ok) {
+          throw new Error(`Webhook returned status ${webhookResponse.status}`);
+        }
+
+        const responseData = await webhookResponse.json();
+        console.log(`[WhatsApp] Status response:`, responseData);
+
+        // Update instance status based on webhook response
+        let newStatus: "disconnected" | "connecting" | "connected" = "disconnected";
+        if (responseData.state === "open" || responseData.connected === true) {
+          newStatus = "connected";
+        }
+
+        const updatedInstance = await storage.updateWhatsappInstance(id, {
+          status: newStatus,
+        });
+
+        console.log(`[WhatsApp] Instance status updated to: ${newStatus}`);
+        res.json(updatedInstance);
+      } catch (webhookError: any) {
+        if (webhookError.name === 'AbortError') {
+          console.error("[WhatsApp] Status webhook timeout after 15 seconds");
+          return res.status(408).json({ message: "Timeout ao verificar status" });
+        }
+        console.error("[WhatsApp] Status webhook error:", webhookError);
+        return res.status(502).json({ message: "Erro ao verificar status da conexão" });
+      }
+    } catch (error) {
+      console.error("[WhatsApp] Error checking instance status:", error);
+      res.status(500).json({ message: "Failed to check instance status", error });
+    }
+  });
+
   app.post("/api/whatsapp/instances/:id/connect", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
