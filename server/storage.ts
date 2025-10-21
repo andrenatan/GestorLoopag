@@ -490,15 +490,15 @@ export class MemStorage implements IStorage {
   }
 
   async getNewClientsByDay() {
-    const getBrasiliaDateString = (date: Date) => {
-      const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
-      const brasiliaTime = new Date(utc + (3600000 * -3));
-      return brasiliaTime.toISOString().split('T')[0];
+    const getBrasiliaDate = () => {
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      return new Date(utc + (3600000 * -3));
     };
 
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    const brasiliaDate = getBrasiliaDate();
+    const currentMonth = brasiliaDate.getMonth();
+    const currentYear = brasiliaDate.getFullYear();
     
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     
@@ -510,9 +510,12 @@ export class MemStorage implements IStorage {
     }
     
     clients.forEach(client => {
-      const createdDate = new Date(client.createdAt);
-      const createdDateStr = getBrasiliaDateString(createdDate);
-      const [year, month, day] = createdDateStr.split('-').map(Number);
+      if (!client.activationDate || !/^\d{4}-\d{2}-\d{2}$/.test(client.activationDate)) {
+        return;
+      }
+      
+      const activationDateStr = client.activationDate;
+      const [year, month, day] = activationDateStr.split('-').map(Number);
       
       if (year === currentYear && month === currentMonth + 1) {
         clientsByDay[day] = (clientsByDay[day] || 0) + 1;
