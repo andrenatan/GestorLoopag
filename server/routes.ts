@@ -527,8 +527,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-        const webhookResponse = await fetch(`https://webhook.dev.userxai.online/webhook/loopag_get_state_connection?instanceName=${encodeURIComponent(instance.name)}`, {
-          method: "GET",
+        const webhookResponse = await fetch("https://webhook.dev.userxai.online/webhook/loopag_get_state_connection", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ instanceName: instance.name }),
           signal: controller.signal,
         });
 
