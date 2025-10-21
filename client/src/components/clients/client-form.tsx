@@ -15,9 +15,28 @@ import { Badge } from "@/components/ui/badge";
 import { Upload, FileSpreadsheet, AlertTriangle } from "lucide-react";
 import type { Client, System } from "@shared/schema";
 
+const countries = [
+  { name: "Brasil", code: "+55", flag: "🇧🇷" },
+  { name: "Estados Unidos", code: "+1", flag: "🇺🇸" },
+  { name: "Argentina", code: "+54", flag: "🇦🇷" },
+  { name: "Chile", code: "+56", flag: "🇨🇱" },
+  { name: "Colômbia", code: "+57", flag: "🇨🇴" },
+  { name: "México", code: "+52", flag: "🇲🇽" },
+  { name: "Peru", code: "+51", flag: "🇵🇪" },
+  { name: "Uruguai", code: "+598", flag: "🇺🇾" },
+  { name: "Paraguai", code: "+595", flag: "🇵🇾" },
+  { name: "Portugal", code: "+351", flag: "🇵🇹" },
+  { name: "Espanha", code: "+34", flag: "🇪🇸" },
+  { name: "Itália", code: "+39", flag: "🇮🇹" },
+  { name: "França", code: "+33", flag: "🇫🇷" },
+  { name: "Alemanha", code: "+49", flag: "🇩🇪" },
+  { name: "Reino Unido", code: "+44", flag: "🇬🇧" },
+  { name: "Canadá", code: "+1", flag: "🇨🇦" },
+];
+
 const clientFormSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
-  phone: z.string().min(1, "Telefone é obrigatório"),
+  phone: z.string().regex(/^\+\d{10,20}$/, "Informe um telefone válido com código do país"),
   username: z.string().min(1, "Usuário é obrigatório"),
   password: z.string().min(1, "Senha é obrigatória"),
   system: z.string().min(1, "Sistema é obrigatório"),
@@ -50,10 +69,25 @@ const paymentMethodOptions = [
 export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false }: ClientFormProps) {
   const [userId, setUserId] = useState<number>(1);
   const [daysToExpiry, setDaysToExpiry] = useState<number>(0);
+  const [countryCode, setCountryCode] = useState<string>("+55");
+  const [phoneNumber, setPhoneNumber] = useState<string>("");
   
   const { data: systems = [], isLoading: systemsLoading } = useQuery<System[]>({
     queryKey: ["/api/systems"],
   });
+  
+  useEffect(() => {
+    if (initialData?.phone) {
+      const sortedCountries = [...countries].sort((a, b) => b.code.length - a.code.length);
+      const country = sortedCountries.find(c => initialData.phone.startsWith(c.code));
+      if (country) {
+        setCountryCode(country.code);
+        setPhoneNumber(initialData.phone.substring(country.code.length));
+      } else {
+        setPhoneNumber(initialData.phone);
+      }
+    }
+  }, [initialData]);
   
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientFormSchema),
@@ -78,23 +112,36 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
 
   // Auto-generate username from name and phone
   const handleNameChange = (name: string) => {
-    const phone = form.getValues("phone");
-    if (name && phone) {
+    if (name && phoneNumber) {
       const firstName = name.split(" ")[0].toLowerCase();
-      const lastFourDigits = phone.slice(-4);
+      const cleanPhone = phoneNumber.replace(/\D/g, '');
+      const lastFourDigits = cleanPhone.slice(-4);
       form.setValue("username", `${firstName}${lastFourDigits}`);
     }
   };
 
-  // Auto-generate password from phone
-  const handlePhoneChange = (phone: string) => {
-    form.setValue("password", phone);
+  // Handle phone number change
+  const handlePhoneNumberChange = (phone: string) => {
+    setPhoneNumber(phone);
+    const cleanPhone = phone.replace(/\D/g, '');
+    const fullPhone = cleanPhone ? `${countryCode}${cleanPhone}` : "";
+    form.setValue("phone", fullPhone);
+    form.setValue("password", cleanPhone);
+    
     const name = form.getValues("name");
-    if (name && phone) {
+    if (name && cleanPhone) {
       const firstName = name.split(" ")[0].toLowerCase();
-      const lastFourDigits = phone.slice(-4);
+      const lastFourDigits = cleanPhone.slice(-4);
       form.setValue("username", `${firstName}${lastFourDigits}`);
     }
+  };
+
+  // Handle country code change
+  const handleCountryCodeChange = (code: string) => {
+    setCountryCode(code);
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    const fullPhone = cleanPhone ? `${code}${cleanPhone}` : "";
+    form.setValue("phone", fullPhone);
   };
 
   // Watch expiry date for calculation
@@ -182,26 +229,45 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Telefone *</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="(11) 99999-9999" 
-                            {...field}
-                            onChange={(e) => {
-                              field.onChange(e);
-                              handlePhoneChange(e.target.value);
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div>
+                    <FormLabel>Telefone *</FormLabel>
+                    <div className="flex gap-2">
+                      <Select value={countryCode} onValueChange={handleCountryCodeChange}>
+                        <SelectTrigger className="w-[160px]" data-testid="select-country-code">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          {countries.map((country) => (
+                            <SelectItem key={country.code} value={country.code}>
+                              <span className="flex items-center gap-2">
+                                <span>{country.flag}</span>
+                                <span>{country.name} {country.code}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormControl>
+                              <Input 
+                                placeholder="(99) 9999-9999" 
+                                value={phoneNumber}
+                                onChange={(e) => {
+                                  handlePhoneNumberChange(e.target.value);
+                                }}
+                                data-testid="input-phone"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
