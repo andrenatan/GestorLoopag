@@ -548,8 +548,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[WhatsApp] Status response:`, responseData);
 
         // Update instance status based on webhook response
+        // Response format: [{ instance: { instanceName, state } }]
         let newStatus: "disconnected" | "connecting" | "connected" = "disconnected";
-        if (responseData.state === "open" || responseData.connected === true) {
+        
+        // Check if response is an array and has the expected structure
+        if (Array.isArray(responseData) && responseData.length > 0) {
+          const instanceData = responseData[0]?.instance;
+          if (instanceData?.state === "open" || instanceData?.connected === true) {
+            newStatus = "connected";
+          }
+        } else if (responseData.state === "open" || responseData.connected === true) {
+          // Fallback: also support direct response format
           newStatus = "connected";
         }
 
