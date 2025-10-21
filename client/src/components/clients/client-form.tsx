@@ -151,7 +151,11 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   useEffect(() => {
     if (expiryDateWatch) {
       const today = new Date();
-      const expiry = new Date(expiryDateWatch);
+      today.setHours(0, 0, 0, 0);
+      
+      const [year, month, day] = expiryDateWatch.split('-').map(Number);
+      const expiry = new Date(year, month - 1, day);
+      
       const diffTime = expiry.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       setDaysToExpiry(diffDays);

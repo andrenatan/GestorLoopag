@@ -72,9 +72,18 @@ export function DataTable({
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
 
+  const formatDateString = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+  };
+
   const getDaysToExpiry = (expiryDate: string) => {
     const today = new Date();
-    const expiry = new Date(expiryDate);
+    today.setHours(0, 0, 0, 0);
+    
+    const [year, month, day] = expiryDate.split('-').map(Number);
+    const expiry = new Date(year, month - 1, day);
+    
     const diffTime = expiry.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
@@ -250,7 +259,7 @@ export function DataTable({
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="text-sm">{new Date(item.expiryDate).toLocaleDateString('pt-BR')}</p>
+                        <p className="text-sm">{formatDateString(item.expiryDate)}</p>
                         <p className={`text-xs ${getExpiryColor(daysToExpiry)}`}>
                           {daysToExpiry < 0 ? `${Math.abs(daysToExpiry)} dias atraso` : 
                            daysToExpiry === 0 ? "Vence hoje" :
