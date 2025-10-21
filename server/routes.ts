@@ -354,9 +354,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[WhatsApp] Creating instance: ${instance.name} (ID: ${instance.id})`);
       
-      // Call webhook to generate QR code
+      // Call webhook to generate QR code - SINGLE REQUEST with 15 second timeout
       try {
-        console.log(`[WhatsApp] Sending initial request to webhook...`);
+        console.log(`[WhatsApp] Sending request to webhook...`);
+        
+        // Create AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+        
         const webhookResponse = await fetch("https://webhook.dev.userxai.online/webhook/gestor_loopag_connect", {
           method: "POST",
           headers: {
@@ -366,62 +371,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
             instanceName: instance.name,
             instanceId: instance.id,
           }),
+          signal: controller.signal,
         });
 
+        clearTimeout(timeoutId);
         console.log(`[WhatsApp] Webhook response status: ${webhookResponse.status}`);
 
         if (!webhookResponse.ok) {
           throw new Error(`Webhook error: ${webhookResponse.status}`);
         }
 
-        // Try to get QR code from initial response
-        const initialData = await webhookResponse.json();
-        console.log(`[WhatsApp] Initial webhook response data:`, JSON.stringify(initialData).substring(0, 200));
+        // Parse JSON response - expecting array format: [{"base64": "data:image/png;base64,..."}]
+        const responseData = await webhookResponse.json();
+        console.log(`[WhatsApp] Response structure:`, Array.isArray(responseData) ? 'Array' : 'Object');
+        console.log(`[WhatsApp] Response preview:`, JSON.stringify(responseData).substring(0, 150));
         
-        let qrCode = initialData?.qrCode || null;
-
-        // If no QR code in initial response, poll for up to 10 seconds
-        if (!qrCode) {
-          console.log(`[WhatsApp] QR code not in initial response, starting polling...`);
-          const maxAttempts = 20; // 20 attempts * 500ms = 10 seconds
-          let attempts = 0;
-
-          while (attempts < maxAttempts && !qrCode) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            attempts++;
-            
-            try {
-              console.log(`[WhatsApp] Polling attempt ${attempts}/${maxAttempts}...`);
-              const checkResponse = await fetch("https://webhook.dev.userxai.online/webhook/gestor_loopag_connect", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  instanceName: instance.name,
-                  instanceId: instance.id,
-                  checkStatus: true,
-                }),
-              });
-
-              if (checkResponse.ok) {
-                const data = await checkResponse.json();
-                console.log(`[WhatsApp] Poll response:`, JSON.stringify(data).substring(0, 200));
-                if (data.qrCode) {
-                  qrCode = data.qrCode;
-                  console.log(`[WhatsApp] QR code received on attempt ${attempts}`);
-                  break;
-                }
-              }
-            } catch (pollError) {
-              console.log(`[WhatsApp] Poll error on attempt ${attempts}:`, pollError);
-            }
-          }
-        } else {
-          console.log(`[WhatsApp] QR code received in initial response`);
+        // Extract QR code from response[0].base64
+        let qrCode = null;
+        if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].base64) {
+          qrCode = responseData[0].base64;
+          console.log(`[WhatsApp] QR code extracted from response[0].base64`);
+        } else if (responseData.qrCode) {
+          // Fallback: check if qrCode is directly in the response
+          qrCode = responseData.qrCode;
+          console.log(`[WhatsApp] QR code extracted from response.qrCode (fallback)`);
+        } else if (responseData.base64) {
+          // Fallback: check if base64 is directly in the response
+          qrCode = responseData.base64;
+          console.log(`[WhatsApp] QR code extracted from response.base64 (fallback)`);
         }
 
         if (qrCode) {
+          // Ensure QR code is in data URI format
+          if (typeof qrCode === 'string' && !qrCode.startsWith('data:image/')) {
+            qrCode = `data:image/png;base64,${qrCode}`;
+            console.log(`[WhatsApp] QR code converted to data URI format`);
+          }
+          
           // Update instance with QR code
           await storage.updateWhatsappInstance(instance.id, {
             qrCode,
@@ -436,13 +422,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: "connecting",
           });
         } else {
-          console.log(`[WhatsApp] No QR code received after polling`);
+          console.log(`[WhatsApp] No QR code found in webhook response`);
+          return res.status(502).json({ message: "Webhook não retornou QR Code" });
         }
-      } catch (webhookError) {
+      } catch (webhookError: any) {
+        if (webhookError.name === 'AbortError') {
+          console.error("[WhatsApp] Webhook timeout after 15 seconds");
+          return res.status(408).json({ message: "Webhook timeout - tente novamente" });
+        }
         console.error("[WhatsApp] Webhook error:", webhookError);
+        return res.status(502).json({ message: "Erro ao conectar com webhook", error: String(webhookError?.message || webhookError) });
       }
-      
-      res.status(201).json(instance);
     } catch (error) {
       console.error("[WhatsApp] Error creating instance:", error);
       res.status(400).json({ message: "Invalid WhatsApp instance data", error });
