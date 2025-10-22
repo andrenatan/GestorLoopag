@@ -716,4 +716,456 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+import { db } from "../db";
+import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
+
+export class DbStorage implements IStorage {
+  // Users
+  async getUser(id: number): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
+    return result[0];
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const result = await db.insert(users).values(insertUser).returning();
+    return result[0];
+  }
+
+  async updateUser(id: number, updateData: Partial<InsertUser>): Promise<User | undefined> {
+    const result = await db.update(users).set(updateData).where(eq(users.id, id)).returning();
+    return result[0];
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
+  // Systems
+  async getAllSystems(): Promise<System[]> {
+    return await db.select().from(systems);
+  }
+
+  async getSystem(id: number): Promise<System | undefined> {
+    const result = await db.select().from(systems).where(eq(systems.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createSystem(insertSystem: InsertSystem): Promise<System> {
+    const result = await db.insert(systems).values(insertSystem).returning();
+    return result[0];
+  }
+
+  async updateSystem(id: number, updateData: Partial<InsertSystem>): Promise<System | undefined> {
+    const result = await db.update(systems).set(updateData).where(eq(systems.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteSystem(id: number): Promise<boolean> {
+    const result = await db.delete(systems).where(eq(systems.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Employees
+  async getAllEmployees(): Promise<Employee[]> {
+    return await db.select().from(employees);
+  }
+
+  async getEmployee(id: number): Promise<Employee | undefined> {
+    const result = await db.select().from(employees).where(eq(employees.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createEmployee(insertEmployee: InsertEmployee): Promise<Employee> {
+    const result = await db.insert(employees).values(insertEmployee).returning();
+    return result[0];
+  }
+
+  async updateEmployee(id: number, updateData: Partial<InsertEmployee>): Promise<Employee | undefined> {
+    const result = await db.update(employees).set(updateData).where(eq(employees.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteEmployee(id: number): Promise<boolean> {
+    const result = await db.delete(employees).where(eq(employees.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Clients
+  async getAllClients(): Promise<Client[]> {
+    return await db.select().from(clients);
+  }
+
+  async getClient(id: number): Promise<Client | undefined> {
+    const result = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createClient(insertClient: InsertClient): Promise<Client> {
+    const result = await db.insert(clients).values(insertClient).returning();
+    return result[0];
+  }
+
+  async updateClient(id: number, updateData: Partial<InsertClient>): Promise<Client | undefined> {
+    const result = await db.update(clients).set(updateData).where(eq(clients.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteClient(id: number): Promise<boolean> {
+    const result = await db.delete(clients).where(eq(clients.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getExpiringClients(days: number): Promise<Client[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + days);
+    
+    const allClients = await db.select().from(clients);
+    return allClients.filter(client => {
+      const [year, month, day] = client.expiryDate.split('-').map(Number);
+      const expiryDate = new Date(year, month - 1, day);
+      expiryDate.setHours(0, 0, 0, 0);
+      return expiryDate >= targetDate && expiryDate < new Date(targetDate.getTime() + 86400000);
+    });
+  }
+
+  async getOverdueClients(): Promise<Client[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const allClients = await db.select().from(clients);
+    return allClients.filter(client => {
+      const [year, month, day] = client.expiryDate.split('-').map(Number);
+      const expiryDate = new Date(year, month - 1, day);
+      expiryDate.setHours(0, 0, 0, 0);
+      return expiryDate < today;
+    });
+  }
+
+  async getReferralRankings(days?: number): Promise<{ client: Client; referralCount: number }[]> {
+    const allClients = await db.select().from(clients);
+    const referralMap = new Map<number, number>();
+    
+    allClients.forEach(client => {
+      if (client.referredById) {
+        referralMap.set(client.referredById, (referralMap.get(client.referredById) || 0) + 1);
+      }
+    });
+    
+    return allClients
+      .map(client => ({
+        client,
+        referralCount: referralMap.get(client.id) || 0
+      }))
+      .filter(item => item.referralCount > 0)
+      .sort((a, b) => b.referralCount - a.referralCount);
+  }
+
+  // WhatsApp Instances
+  async getAllWhatsappInstances(): Promise<WhatsappInstance[]> {
+    return await db.select().from(whatsappInstances);
+  }
+
+  async getWhatsappInstance(id: number): Promise<WhatsappInstance | undefined> {
+    const result = await db.select().from(whatsappInstances).where(eq(whatsappInstances.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createWhatsappInstance(insertInstance: InsertWhatsappInstance): Promise<WhatsappInstance> {
+    const result = await db.insert(whatsappInstances).values(insertInstance).returning();
+    return result[0];
+  }
+
+  async updateWhatsappInstance(id: number, updateData: Partial<InsertWhatsappInstance>): Promise<WhatsappInstance | undefined> {
+    const result = await db.update(whatsappInstances).set(updateData).where(eq(whatsappInstances.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteWhatsappInstance(id: number): Promise<boolean> {
+    const result = await db.delete(whatsappInstances).where(eq(whatsappInstances.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Message Templates
+  async getAllMessageTemplates(): Promise<MessageTemplate[]> {
+    return await db.select().from(messageTemplates);
+  }
+
+  async getMessageTemplate(id: number): Promise<MessageTemplate | undefined> {
+    const result = await db.select().from(messageTemplates).where(eq(messageTemplates.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createMessageTemplate(insertTemplate: InsertMessageTemplate): Promise<MessageTemplate> {
+    const result = await db.insert(messageTemplates).values(insertTemplate).returning();
+    return result[0];
+  }
+
+  async updateMessageTemplate(id: number, updateData: Partial<InsertMessageTemplate>): Promise<MessageTemplate | undefined> {
+    const result = await db.update(messageTemplates).set(updateData).where(eq(messageTemplates.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteMessageTemplate(id: number): Promise<boolean> {
+    const result = await db.delete(messageTemplates).where(eq(messageTemplates.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Billing History
+  async getAllBillingHistory(): Promise<BillingHistory[]> {
+    return await db.select().from(billingHistory).orderBy(desc(billingHistory.createdAt));
+  }
+
+  async getBillingHistory(clientId: number): Promise<BillingHistory[]> {
+    return await db.select().from(billingHistory)
+      .where(eq(billingHistory.clientId, clientId))
+      .orderBy(desc(billingHistory.createdAt));
+  }
+
+  async createBillingHistory(insertBilling: InsertBillingHistory): Promise<BillingHistory> {
+    const result = await db.insert(billingHistory).values(insertBilling).returning();
+    return result[0];
+  }
+
+  async updateBillingHistory(id: number, updateData: Partial<InsertBillingHistory>): Promise<BillingHistory | undefined> {
+    const result = await db.update(billingHistory).set(updateData).where(eq(billingHistory.id, id)).returning();
+    return result[0];
+  }
+
+  // Dashboard Stats
+  async getDashboardStats(): Promise<{
+    activeClients: number;
+    inactiveClients: number;
+    expiringTomorrow: number;
+    expiredYesterday: number;
+    expiringToday: number;
+    expiring3Days: number;
+    overdue: number;
+    billingSentToday: number;
+    newClientsToday: number;
+    totalRevenue: number;
+  }> {
+    const allClients = await db.select().from(clients);
+    const allBilling = await db.select().from(billingHistory);
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    
+    const threeDaysFromNow = new Date(today);
+    threeDaysFromNow.setDate(today.getDate() + 3);
+    
+    const todayStr = today.toISOString().split('T')[0];
+    
+    let activeClients = 0;
+    let inactiveClients = 0;
+    let expiringToday = 0;
+    let expiringTomorrow = 0;
+    let expiring3Days = 0;
+    let overdue = 0;
+    let expiredYesterday = 0;
+    
+    allClients.forEach(client => {
+      const [year, month, day] = client.expiryDate.split('-').map(Number);
+      const expiryDate = new Date(year, month - 1, day);
+      expiryDate.setHours(0, 0, 0, 0);
+      
+      if (expiryDate >= today) {
+        activeClients++;
+        
+        if (expiryDate.getTime() === today.getTime()) expiringToday++;
+        if (expiryDate.getTime() === tomorrow.getTime()) expiringTomorrow++;
+        if (expiryDate.getTime() === threeDaysFromNow.getTime()) expiring3Days++;
+      } else {
+        inactiveClients++;
+        overdue++;
+        
+        if (expiryDate.getTime() === yesterday.getTime()) expiredYesterday++;
+      }
+    });
+    
+    const billingSentToday = allBilling.filter(b => 
+      b.createdAt.toISOString().split('T')[0] === todayStr
+    ).length;
+    
+    const newClientsToday = allClients.filter(c => 
+      c.createdAt.toISOString().split('T')[0] === todayStr
+    ).length;
+    
+    const totalRevenue = allClients
+      .filter(c => c.paymentStatus === 'Pago')
+      .reduce((sum, c) => sum + Number(c.value || 0), 0);
+    
+    return {
+      activeClients,
+      inactiveClients,
+      expiringTomorrow,
+      expiredYesterday,
+      expiringToday,
+      expiring3Days,
+      overdue,
+      billingSentToday,
+      newClientsToday,
+      totalRevenue
+    };
+  }
+
+  async getNewClientsByDay(): Promise<{ day: number; count: number }[]> {
+    const allClients = await db.select().from(clients);
+    const today = new Date();
+    const stats = new Map<number, number>();
+    
+    for (let i = 29; i >= 0; i--) {
+      stats.set(i, 0);
+    }
+    
+    allClients.forEach(client => {
+      const regDate = new Date(client.createdAt);
+      regDate.setHours(0, 0, 0, 0);
+      const diffTime = today.getTime() - regDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays >= 0 && diffDays < 30) {
+        stats.set(diffDays, (stats.get(diffDays) || 0) + 1);
+      }
+    });
+    
+    return Array.from(stats.entries())
+      .map(([day, count]) => ({ day, count }))
+      .sort((a, b) => b.day - a.day);
+  }
+
+  async getRevenueByPeriod(period: 'current_month' | 'last_month' | '3_months' | '6_months' | '12_months'): Promise<{ label: string; value: number }[]> {
+    const allClients = await db.select().from(clients);
+    const today = new Date();
+    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    
+    if (period === 'current_month' || period === 'last_month') {
+      const targetMonth = period === 'current_month' ? today.getMonth() : today.getMonth() - 1;
+      const targetYear = targetMonth < 0 ? today.getFullYear() - 1 : today.getFullYear();
+      const month = targetMonth < 0 ? 11 : targetMonth;
+      
+      const daysInMonth = new Date(targetYear, month + 1, 0).getDate();
+      const result: { label: string; value: number }[] = [];
+      
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayStr = String(day).padStart(2, '0');
+        const value = allClients
+          .filter(c => {
+            const clientDate = c.createdAt.toISOString().split('T')[0];
+            return clientDate.startsWith(`${targetYear}-${String(month + 1).padStart(2, '0')}-${dayStr}`) && c.paymentStatus === 'Pago';
+          })
+          .reduce((sum, c) => sum + Number(c.value || 0), 0);
+        
+        result.push({ label: dayStr, value });
+      }
+      
+      return result;
+    } else {
+      const months = period === '3_months' ? 3 : period === '6_months' ? 6 : 12;
+      const result: { label: string; value: number }[] = [];
+      
+      for (let i = months - 1; i >= 0; i--) {
+        const targetDate = new Date(today);
+        targetDate.setMonth(today.getMonth() - i);
+        const month = targetDate.getMonth();
+        const year = targetDate.getFullYear();
+        
+        const value = allClients
+          .filter(c => {
+            const clientDate = c.createdAt;
+            return clientDate.getMonth() === month && clientDate.getFullYear() === year && c.paymentStatus === 'Pago';
+          })
+          .reduce((sum, c) => sum + Number(c.value || 0), 0);
+        
+        result.push({ label: monthNames[month], value });
+      }
+      
+      return result;
+    }
+  }
+
+  // Automation Configs
+  async getAllAutomationConfigs(): Promise<AutomationConfig[]> {
+    return await db.select().from(automationConfigs);
+  }
+
+  async getAutomationConfig(automationType: string): Promise<AutomationConfig | undefined> {
+    const result = await db.select().from(automationConfigs)
+      .where(eq(automationConfigs.automationType, automationType))
+      .limit(1);
+    return result[0];
+  }
+
+  async createAutomationConfig(insertConfig: InsertAutomationConfig): Promise<AutomationConfig> {
+    const result = await db.insert(automationConfigs).values(insertConfig).returning();
+    return result[0];
+  }
+
+  async updateAutomationConfig(automationType: string, updateConfig: Partial<InsertAutomationConfig> & { lastRunAt?: Date | null }): Promise<AutomationConfig | undefined> {
+    const result = await db.update(automationConfigs)
+      .set(updateConfig)
+      .where(eq(automationConfigs.automationType, automationType))
+      .returning();
+    return result[0];
+  }
+
+  // Client counting for automations
+  async getClientsExpiringInDays(days: number): Promise<Client[]> {
+    const allClients = await db.select().from(clients);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + days);
+    
+    return allClients.filter(client => {
+      const [year, month, day] = client.expiryDate.split('-').map(Number);
+      const expiryDate = new Date(year, month - 1, day);
+      return expiryDate.getTime() === targetDate.getTime();
+    });
+  }
+
+  async getClientsExpiredForDays(days: number): Promise<Client[]> {
+    const allClients = await db.select().from(clients);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() - days);
+    
+    return allClients.filter(client => {
+      const [year, month, day] = client.expiryDate.split('-').map(Number);
+      const expiryDate = new Date(year, month - 1, day);
+      return expiryDate.getTime() === targetDate.getTime();
+    });
+  }
+
+  async getClientsActiveForDays(days: number): Promise<Client[]> {
+    const allClients = await db.select().from(clients);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() - days);
+    
+    return allClients.filter(client => {
+      const [year, month, day] = client.activationDate.split('-').map(Number);
+      const activationDate = new Date(year, month - 1, day);
+      return activationDate.getTime() === targetDate.getTime();
+    });
+  }
+}
+
+export const storage = new DbStorage();
