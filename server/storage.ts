@@ -1,12 +1,13 @@
 import { 
-  users, employees, systems, clients, whatsappInstances, messageTemplates, billingHistory,
+  users, employees, systems, clients, whatsappInstances, messageTemplates, billingHistory, automationConfigs,
   type User, type InsertUser,
   type Employee, type InsertEmployee,
   type System, type InsertSystem,
   type Client, type InsertClient,
   type WhatsappInstance, type InsertWhatsappInstance,
   type MessageTemplate, type InsertMessageTemplate,
-  type BillingHistory, type InsertBillingHistory
+  type BillingHistory, type InsertBillingHistory,
+  type AutomationConfig, type InsertAutomationConfig
 } from "@shared/schema";
 
 export interface IStorage {
@@ -76,6 +77,17 @@ export interface IStorage {
   }>;
   getNewClientsByDay(): Promise<{ day: number; count: number }[]>;
   getRevenueByPeriod(period: 'current_month' | 'last_month' | '3_months' | '6_months' | '12_months'): Promise<{ label: string; value: number }[]>;
+
+  // Automation Configs
+  getAllAutomationConfigs(): Promise<AutomationConfig[]>;
+  getAutomationConfig(automationType: string): Promise<AutomationConfig | undefined>;
+  createAutomationConfig(config: InsertAutomationConfig): Promise<AutomationConfig>;
+  updateAutomationConfig(automationType: string, config: Partial<InsertAutomationConfig>): Promise<AutomationConfig | undefined>;
+
+  // Client counting for automations
+  getClientsExpiringInDays(days: number): Promise<Client[]>;
+  getClientsExpiredForDays(days: number): Promise<Client[]>;
+  getClientsActiveForDays(days: number): Promise<Client[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -86,6 +98,7 @@ export class MemStorage implements IStorage {
   private whatsappInstances: Map<number, WhatsappInstance> = new Map();
   private messageTemplates: Map<number, MessageTemplate> = new Map();
   private billingHistory: Map<number, BillingHistory> = new Map();
+  private automationConfigs: Map<string, AutomationConfig> = new Map();
   
   private currentUserId = 1;
   private currentEmployeeId = 1;
@@ -94,6 +107,7 @@ export class MemStorage implements IStorage {
   private currentWhatsappInstanceId = 1;
   private currentMessageTemplateId = 1;
   private currentBillingHistoryId = 1;
+  private currentAutomationConfigId = 1;
 
   // Users
   async getUser(id: number): Promise<User | undefined> {
@@ -594,6 +608,111 @@ export class MemStorage implements IStorage {
         value
       }));
     }
+  }
+
+  // Automation Configs
+  async getAllAutomationConfigs(): Promise<AutomationConfig[]> {
+    return Array.from(this.automationConfigs.values());
+  }
+
+  async getAutomationConfig(automationType: string): Promise<AutomationConfig | undefined> {
+    return this.automationConfigs.get(automationType);
+  }
+
+  async createAutomationConfig(insertConfig: InsertAutomationConfig): Promise<AutomationConfig> {
+    const id = this.currentAutomationConfigId++;
+    const config: AutomationConfig = {
+      id,
+      isActive: insertConfig.isActive ?? false,
+      whatsappInstanceId: insertConfig.whatsappInstanceId ?? null,
+      subItems: (insertConfig.subItems ?? []) as Array<{
+        id: string;
+        name: string;
+        active: boolean;
+        templateId: number | null;
+        clientCount: number;
+      }>,
+      automationType: insertConfig.automationType,
+      scheduledTime: insertConfig.scheduledTime,
+      webhookUrl: insertConfig.webhookUrl,
+      lastRunAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.automationConfigs.set(insertConfig.automationType, config);
+    return config;
+  }
+
+  async updateAutomationConfig(automationType: string, updateConfig: Partial<InsertAutomationConfig>): Promise<AutomationConfig | undefined> {
+    const config = this.automationConfigs.get(automationType);
+    if (!config) return undefined;
+    
+    const updatedConfig: AutomationConfig = {
+      id: config.id,
+      automationType: config.automationType,
+      isActive: updateConfig.isActive ?? config.isActive,
+      scheduledTime: updateConfig.scheduledTime ?? config.scheduledTime,
+      whatsappInstanceId: updateConfig.whatsappInstanceId ?? config.whatsappInstanceId,
+      subItems: (updateConfig.subItems ?? config.subItems) as Array<{
+        id: string;
+        name: string;
+        active: boolean;
+        templateId: number | null;
+        clientCount: number;
+      }>,
+      webhookUrl: updateConfig.webhookUrl ?? config.webhookUrl,
+      lastRunAt: config.lastRunAt,
+      createdAt: config.createdAt,
+      updatedAt: new Date()
+    };
+    this.automationConfigs.set(automationType, updatedConfig);
+    return updatedConfig;
+  }
+
+  // Client counting for automations
+  async getClientsExpiringInDays(days: number): Promise<Client[]> {
+    const clients = Array.from(this.clients.values());
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + days);
+    
+    return clients.filter(client => {
+      const [year, month, day] = client.expiryDate.split('-').map(Number);
+      const expiryDate = new Date(year, month - 1, day);
+      return expiryDate.getTime() === targetDate.getTime();
+    });
+  }
+
+  async getClientsExpiredForDays(days: number): Promise<Client[]> {
+    const clients = Array.from(this.clients.values());
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() - days);
+    
+    return clients.filter(client => {
+      const [year, month, day] = client.expiryDate.split('-').map(Number);
+      const expiryDate = new Date(year, month - 1, day);
+      return expiryDate.getTime() === targetDate.getTime();
+    });
+  }
+
+  async getClientsActiveForDays(days: number): Promise<Client[]> {
+    const clients = Array.from(this.clients.values());
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() - days);
+    
+    return clients.filter(client => {
+      const [year, month, day] = client.activationDate.split('-').map(Number);
+      const activationDate = new Date(year, month - 1, day);
+      return activationDate.getTime() === targetDate.getTime();
+    });
   }
 }
 

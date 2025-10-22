@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
   insertUserSchema, insertEmployeeSchema, insertSystemSchema, insertClientSchema, 
-  insertWhatsappInstanceSchema, insertMessageTemplateSchema, insertBillingHistorySchema 
+  insertWhatsappInstanceSchema, insertMessageTemplateSchema, insertBillingHistorySchema,
+  insertAutomationConfigSchema
 } from "@shared/schema";
 import multer from "multer";
 import { Client } from "@replit/object-storage";
@@ -713,6 +714,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(results);
     } catch (error) {
       res.status(500).json({ message: "Failed to send billing messages", error });
+    }
+  });
+
+  // Automation Config Routes
+  app.get("/api/automation-configs", async (req, res) => {
+    try {
+      const configs = await storage.getAllAutomationConfigs();
+      res.json(configs);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch automation configs" });
+    }
+  });
+
+  app.get("/api/automation-configs/:type", async (req, res) => {
+    try {
+      const config = await storage.getAutomationConfig(req.params.type);
+      if (!config) {
+        return res.status(404).json({ message: "Automation config not found" });
+      }
+      res.json(config);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch automation config" });
+    }
+  });
+
+  app.post("/api/automation-configs", async (req, res) => {
+    try {
+      const validatedData = insertAutomationConfigSchema.parse(req.body);
+      const config = await storage.createAutomationConfig(validatedData);
+      res.status(201).json(config);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid automation config data", error });
+    }
+  });
+
+  app.put("/api/automation-configs/:type", async (req, res) => {
+    try {
+      const config = await storage.updateAutomationConfig(req.params.type, req.body);
+      if (!config) {
+        return res.status(404).json({ message: "Automation config not found" });
+      }
+      res.json(config);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update automation config" });
     }
   });
 

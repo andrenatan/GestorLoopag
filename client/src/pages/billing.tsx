@@ -1,227 +1,449 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Eye } from "lucide-react";
-import type { Client, WhatsappInstance, MessageTemplate } from "@shared/schema";
+import { Send, Clock, Users, RefreshCw, Power, MessageSquare, ChevronDown, ChevronRight } from "lucide-react";
+import type { WhatsappInstance, MessageTemplate, AutomationConfig } from "@shared/schema";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+
+type AutomationType = "cobrancas" | "reativacao" | "novosClientes";
+
+interface AutomationSectionState {
+  active: boolean;
+  time: string;
+  items: Array<{
+    id: string;
+    name: string;
+    active: boolean;
+    templateId: number | null;
+    clientCount: number;
+  }>;
+}
 
 export default function Billing() {
-  const [selectedClients, setSelectedClients] = useState<number[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
-  const [selectedInstance, setSelectedInstance] = useState<number | null>(null);
+  const [selectedWhatsApp, setSelectedWhatsApp] = useState<number | null>(null);
+  const [expandedSection, setExpandedSection] = useState<AutomationType | null>(null);
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
-  const { data: instances = [] } = useQuery({
-    queryKey: ["/api/whatsapp/instances"],
-    queryFn: api.getWhatsappInstances,
-  });
-
-  const { data: templates = [] } = useQuery({
-    queryKey: ["/api/templates"],
-    queryFn: api.getMessageTemplates,
-  });
-
-  const { data: expiring3Days = [] } = useQuery({
-    queryKey: ["/api/clients/expiring/3"],
-    queryFn: () => api.getExpiringClients(3),
-  });
-
-  const { data: expiringToday = [] } = useQuery({
-    queryKey: ["/api/clients/expiring/0"],
-    queryFn: () => api.getExpiringClients(0),
-  });
-
-  const { data: overdueClients = [] } = useQuery({
-    queryKey: ["/api/clients/overdue"],
-    queryFn: api.getOverdueClients,
-  });
-
-  const sendMessagesMutation = useMutation({
-    mutationFn: (data: { clientIds: number[]; templateId: number; instanceId: number }) =>
-      api.sendBillingMessages(data),
-    onSuccess: () => {
-      toast({
-        title: "Mensagens enviadas",
-        description: `${selectedClients.length} mensagens foram enviadas com sucesso.`,
-      });
-      setSelectedClients([]);
+  // Local state for automation configurations
+  const [automations, setAutomations] = useState<Record<AutomationType, AutomationSectionState>>({
+    cobrancas: {
+      active: false,
+      time: '09:30',
+      items: [
+        { id: '3days', name: 'Vence em 3 dias', active: false, templateId: null, clientCount: 0 },
+        { id: '1day', name: 'Vence em 1 dia', active: false, templateId: null, clientCount: 0 },
+        { id: 'today', name: 'Vence Hoje', active: false, templateId: null, clientCount: 0 }
+      ]
     },
+    reativacao: {
+      active: false,
+      time: '19:30',
+      items: [
+        { id: '1day', name: 'Vencidos à 1 dia', active: false, templateId: null, clientCount: 0 },
+        { id: '7days', name: 'Vencidos à 7 dias', active: false, templateId: null, clientCount: 0 },
+        { id: '30days', name: 'Vencidos à 30 dias', active: false, templateId: null, clientCount: 0 }
+      ]
+    },
+    novosClientes: {
+      active: false,
+      time: '10:00',
+      items: [
+        { id: '7days', name: 'Ativos há 7 dias', active: false, templateId: null, clientCount: 0 }
+      ]
+    }
   });
 
-  const handleSendMessages = () => {
-    if (!selectedInstance || !selectedTemplate || selectedClients.length === 0) {
-      toast({
-        title: "Erro",
-        description: "Selecione uma instância, template e pelo menos um cliente.",
-        variant: "destructive",
-      });
-      return;
-    }
+  // Fetch WhatsApp instances
+  const { data: instances = [] } = useQuery<WhatsappInstance[]>({
+    queryKey: ["/api/whatsapp/instances"]
+  });
 
-    sendMessagesMutation.mutate({
-      clientIds: selectedClients,
-      templateId: selectedTemplate,
-      instanceId: selectedInstance,
+  // Fetch message templates
+  const { data: templates = [] } = useQuery<MessageTemplate[]>({
+    queryKey: ["/api/templates"]
+  });
+
+  // Fetch automation configs
+  const { data: automationConfigs = [] } = useQuery<AutomationConfig[]>({
+    queryKey: ["/api/automation-configs"]
+  });
+
+  // Load automation configs into local state
+  useEffect(() => {
+    if (automationConfigs.length > 0) {
+      const newAutomations = { ...automations };
+      
+      automationConfigs.forEach((config) => {
+        if (newAutomations[config.automationType]) {
+          newAutomations[config.automationType] = {
+            active: config.isActive,
+            time: config.scheduledTime,
+            items: config.subItems.map(item => ({
+              ...item,
+              clientCount: item.clientCount || 0
+            }))
+          };
+          
+          if (config.whatsappInstanceId && !selectedWhatsApp) {
+            setSelectedWhatsApp(config.whatsappInstanceId);
+          }
+        }
+      });
+      
+      setAutomations(newAutomations);
+    }
+  }, [automationConfigs]);
+
+  // Update automation config mutation
+  const updateConfigMutation = useMutation({
+    mutationFn: async (data: { type: AutomationType; config: Partial<AutomationConfig> }) => {
+      const existing = automationConfigs.find(c => c.automationType === data.type);
+      
+      if (existing) {
+        return apiRequest("PUT", `/api/automation-configs/${data.type}`, data.config);
+      } else {
+        return apiRequest("POST", "/api/automation-configs", {
+          automationType: data.type,
+          webhookUrl: getWebhookUrl(data.type),
+          scheduledTime: automations[data.type].time,
+          ...data.config
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/automation-configs"] });
+    },
+    onError: (error, variables) => {
+      // Rollback state on error
+      queryClient.invalidateQueries({ queryKey: ["/api/automation-configs"] });
+      toast({
+        title: "Erro ao salvar configuração",
+        description: `Não foi possível atualizar a automação. Tente novamente.`,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const getWebhookUrl = (type: AutomationType): string => {
+    const webhooks = {
+      cobrancas: "https://webhook.dev.userxai.online/webhook/send_messages",
+      reativacao: "https://webhook.dev.userxai.online/webhook/gestor_loopag_reativacao",
+      novosClientes: "https://webhook.dev.userxai.online/webhook/gestor_loopag_ativos_7dias"
+    };
+    return webhooks[type];
+  };
+
+  const toggleSection = (section: AutomationType) => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
+
+  const toggleAutomation = async (section: AutomationType) => {
+    const newActive = !automations[section].active;
+    
+    setAutomations(prev => ({
+      ...prev,
+      [section]: { ...prev[section], active: newActive }
+    }));
+
+    await updateConfigMutation.mutateAsync({
+      type: section,
+      config: {
+        isActive: newActive,
+        whatsappInstanceId: selectedWhatsApp,
+        subItems: automations[section].items
+      }
+    });
+
+    toast({
+      title: newActive ? "Automação Ativada" : "Automação Desativada",
+      description: `A automação de ${getSectionTitle(section)} foi ${newActive ? 'ativada' : 'desativada'}.`
     });
   };
 
-  const generatePreview = () => {
-    if (!selectedTemplate) return "";
+  const toggleItem = async (section: AutomationType, itemId: string) => {
+    setAutomations(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        items: prev[section].items.map(item =>
+          item.id === itemId ? { ...item, active: !item.active } : item
+        )
+      }
+    }));
 
-    const template = templates.find((t: MessageTemplate) => t.id === selectedTemplate);
-    if (!template) return "";
+    const updatedItems = automations[section].items.map(item =>
+      item.id === itemId ? { ...item, active: !item.active } : item
+    );
 
-    // Replace variables with sample data
-    return template.content
-      .replace(/{nome}/g, "João Silva")
-      .replace(/{valor}/g, "R$ 89,90")
-      .replace(/{vencimento}/g, "15/12/2024")
-      .replace(/{plano}/g, "IPTV Premium")
-      .replace(/{sistema}/g, "IPTV - Geral");
+    await updateConfigMutation.mutateAsync({
+      type: section,
+      config: {
+        subItems: updatedItems,
+        whatsappInstanceId: selectedWhatsApp
+      }
+    });
   };
 
-  const ClientList = ({ clients, title }: { clients: Client[]; title: string }) => (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-lg">{title} ({clients.length})</h3>
-      <div className="space-y-2 max-h-64 overflow-y-auto">
-        {clients.map((client: Client) => (
-          <div key={client.id} className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-muted/50">
-            <Checkbox
-              checked={selectedClients.includes(client.id)}
-              onCheckedChange={(checked) => {
-                if (checked) {
-                  setSelectedClients([...selectedClients, client.id]);
-                } else {
-                  setSelectedClients(selectedClients.filter(id => id !== client.id));
-                }
-              }}
-            />
-            <div className="flex-1">
-              <p className="font-medium">{client.name}</p>
-              <p className="text-sm text-muted-foreground">{client.phone}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-medium">R$ {client.value}</p>
-              <p className="text-xs text-muted-foreground">
-                {new Date(client.expiryDate).toLocaleDateString('pt-BR')}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  const updateTemplate = async (section: AutomationType, itemId: string, templateId: number) => {
+    setAutomations(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        items: prev[section].items.map(item =>
+          item.id === itemId ? { ...item, templateId } : item
+        )
+      }
+    }));
 
-  return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Central de Cobranças</h1>
-        <p className="text-muted-foreground">
-          Gerencie instâncias WhatsApp e envie cobranças automatizadas
-        </p>
-      </div>
+    const updatedItems = automations[section].items.map(item =>
+      item.id === itemId ? { ...item, templateId } : item
+    );
 
-      {/* Message Template */}
-      <Card className="glassmorphism neon-border">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Eye className="w-5 h-5 text-blue-500" />
-            <span>Template de Mensagem</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Select value={selectedTemplate?.toString()} onValueChange={(value) => setSelectedTemplate(parseInt(value))}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione um template" />
-            </SelectTrigger>
-            <SelectContent>
-              {templates.map((template: MessageTemplate) => (
-                <SelectItem key={template.id} value={template.id.toString()}>
-                  {template.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    await updateConfigMutation.mutateAsync({
+      type: section,
+      config: {
+        subItems: updatedItems,
+        whatsappInstanceId: selectedWhatsApp
+      }
+    });
+  };
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Preview da Mensagem</label>
-            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
-              <div className="whitespace-pre-wrap text-sm">
-                {generatePreview()}
+  const getSectionTitle = (section: AutomationType): string => {
+    const titles = {
+      cobrancas: "Cobranças Automáticas",
+      reativacao: "Campanhas de Reativação",
+      novosClientes: "Novos Clientes"
+    };
+    return titles[section];
+  };
+
+  const getSectionDescription = (section: AutomationType): string => {
+    const descriptions = {
+      cobrancas: `Envio automático diário às ${automations[section].time}`,
+      reativacao: `Envio automático diário às ${automations[section].time}`,
+      novosClientes: `Envio automático diário às ${automations[section].time}`
+    };
+    return descriptions[section];
+  };
+
+  const getSectionIcon = (section: AutomationType) => {
+    const icons = {
+      cobrancas: Clock,
+      reativacao: RefreshCw,
+      novosClientes: Users
+    };
+    return icons[section];
+  };
+
+  const AutomationSection = ({ section }: { section: AutomationType }) => {
+    const data = automations[section];
+    const isExpanded = expandedSection === section;
+    const Icon = getSectionIcon(section);
+
+    return (
+      <div className="bg-card rounded-lg border overflow-hidden" data-testid={`section-${section}`}>
+        {/* Header */}
+        <div className="p-5 border-b">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => toggleSection(section)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                data-testid={`button-toggle-${section}`}
+              >
+                {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+              </button>
+
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-muted rounded-lg">
+                  <Icon className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-medium">{getSectionTitle(section)}</h3>
+                  <p className="text-sm text-muted-foreground">{getSectionDescription(section)}</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="text-xs text-muted-foreground">
-            Variáveis disponíveis: {"{nome}, {valor}, {vencimento}, {plano}, {sistema}"}
-          </div>
-        </CardContent>
-      </Card>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Clock className="w-4 h-4" />
+                <span>{data.time}</span>
+              </div>
 
-      {/* Client Selection */}
-      <Card className="glassmorphism neon-border">
-        <CardHeader>
-          <CardTitle>Envio de Cobranças</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="3days" className="space-y-4">
-            <TabsList className="grid grid-cols-3 w-full">
-              <TabsTrigger value="3days">Vence em 3 dias ({expiring3Days.length})</TabsTrigger>
-              <TabsTrigger value="today">Vence hoje ({expiringToday.length})</TabsTrigger>
-              <TabsTrigger value="overdue">Vencidos ({overdueClients.length})</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="3days">
-              <ClientList clients={expiring3Days} title="Vencendo em 3 dias" />
-            </TabsContent>
-
-            <TabsContent value="today">
-              <ClientList clients={expiringToday} title="Vencendo hoje" />
-            </TabsContent>
-
-            <TabsContent value="overdue">
-              <ClientList clients={overdueClients} title="Vencidos" />
-            </TabsContent>
-          </Tabs>
-
-          {/* Send Controls */}
-          <div className="flex items-center justify-between mt-6 pt-4 border-t">
-            <div className="flex items-center space-x-4">
-              <Select value={selectedInstance?.toString()} onValueChange={(value) => setSelectedInstance(parseInt(value))}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Selecionar instância" />
-                </SelectTrigger>
-                <SelectContent>
-                  {instances
-                    .filter((instance: WhatsappInstance) => instance.status === "connected")
-                    .map((instance: WhatsappInstance) => (
-                      <SelectItem key={instance.id} value={instance.id.toString()}>
-                        {instance.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-              <span className="text-sm text-muted-foreground">
-                {selectedClients.length} clientes selecionados
-              </span>
+              <Button
+                onClick={() => toggleAutomation(section)}
+                variant={data.active ? "default" : "outline"}
+                size="sm"
+                data-testid={`button-activate-${section}`}
+              >
+                <Power className="w-4 h-4 mr-2" />
+                {data.active ? 'Ativo' : 'Inativo'}
+              </Button>
             </div>
-            <Button
-              onClick={handleSendMessages}
-              disabled={selectedClients.length === 0 || !selectedInstance || !selectedTemplate || sendMessagesMutation.isPending}
-            >
-              <Send className="w-4 h-4 mr-2" />
-              Enviar Cobranças
-            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Expanded Content */}
+        {isExpanded && (
+          <div className="p-5 space-y-3 bg-muted/30">
+            {data.items.map(item => (
+              <div
+                key={item.id}
+                className="bg-card rounded-lg border p-4"
+                data-testid={`automation-item-${section}-${item.id}`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${item.active ? 'bg-green-500' : 'bg-muted-foreground'}`} />
+                    <span className="font-medium">{item.name}</span>
+                    <span className="text-sm text-muted-foreground">({item.clientCount} clientes)</span>
+                  </div>
+
+                  <Button
+                    onClick={() => toggleItem(section, item.id)}
+                    variant={item.active ? "default" : "outline"}
+                    size="sm"
+                    data-testid={`button-toggle-item-${section}-${item.id}`}
+                  >
+                    {item.active ? 'Ativo' : 'Inativo'}
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <MessageSquare className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <Select
+                    value={item.templateId?.toString() || ""}
+                    onValueChange={(value) => updateTemplate(section, item.id, parseInt(value))}
+                  >
+                    <SelectTrigger data-testid={`select-template-${section}-${item.id}`}>
+                      <SelectValue placeholder="Selecione um template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.map(tpl => (
+                        <SelectItem key={tpl.id} value={tpl.id.toString()}>
+                          {tpl.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen">
+      {/* Header */}
+      <div className="border-b px-8 py-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold mb-1">Central de Automações</h1>
+            <p className="text-muted-foreground text-sm">
+              Gerencie instâncias WhatsApp e envie cobranças automatizadas
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-8 space-y-6">
+        {/* WhatsApp Instance Selection */}
+        <Card className="glassmorphism neon-border">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-muted rounded-lg">
+                <MessageSquare className="w-5 h-5 text-green-500" />
+              </div>
+              <div>
+                <h2 className="font-medium">Conexão WhatsApp</h2>
+                <p className="text-sm text-muted-foreground">Selecione a instância para envio das mensagens</p>
+              </div>
+            </div>
+
+            <Select
+              value={selectedWhatsApp?.toString() || ""}
+              onValueChange={(value) => setSelectedWhatsApp(parseInt(value))}
+            >
+              <SelectTrigger data-testid="select-whatsapp-instance">
+                <SelectValue placeholder="Selecione uma instância" />
+              </SelectTrigger>
+              <SelectContent>
+                {instances.map(instance => (
+                  <SelectItem key={instance.id} value={instance.id.toString()}>
+                    {instance.name} - {instance.status === 'connected' ? '🟢 Online' : '🔴 Offline'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+
+        {/* Automation Sections */}
+        <div className="space-y-4">
+          <AutomationSection section="cobrancas" />
+          <AutomationSection section="reativacao" />
+          <AutomationSection section="novosClientes" />
+        </div>
+
+        {/* Manual Dispatch */}
+        <Card className="glassmorphism neon-border">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-muted rounded-lg">
+                  <Send className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-medium">Disparo Manual</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Envie mensagens para lista personalizada de clientes ativos
+                  </p>
+                </div>
+              </div>
+              <Button data-testid="button-create-dispatch">
+                Criar Disparo
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Stats */}
+        <div className="grid grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold mb-1">0</div>
+              <div className="text-sm text-muted-foreground">Mensagens Hoje</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold mb-1">
+                {Object.values(automations).reduce((acc, auto) => acc + auto.items.filter(i => i.active).length, 0)}
+              </div>
+              <div className="text-sm text-muted-foreground">Automações Ativas</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold mb-1">0</div>
+              <div className="text-sm text-muted-foreground">Fila de Envio</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold mb-1">--</div>
+              <div className="text-sm text-muted-foreground">Taxa de Entrega</div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

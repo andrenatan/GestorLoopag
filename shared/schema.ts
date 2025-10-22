@@ -104,6 +104,28 @@ export const billingHistory = pgTable("billing_history", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Automation configurations table
+export const automationConfigs = pgTable("automation_configs", {
+  id: serial("id").primaryKey(),
+  automationType: text("automation_type", {
+    enum: ["cobrancas", "reativacao", "novosClientes"]
+  }).notNull().unique(),
+  isActive: boolean("is_active").notNull().default(false),
+  scheduledTime: text("scheduled_time").notNull(),
+  whatsappInstanceId: integer("whatsapp_instance_id").references(() => whatsappInstances.id),
+  subItems: jsonb("sub_items").$type<Array<{
+    id: string;
+    name: string;
+    active: boolean;
+    templateId: number | null;
+    clientCount: number;
+  }>>().notNull().default([]),
+  webhookUrl: text("webhook_url").notNull(),
+  lastRunAt: timestamp("last_run_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -143,6 +165,13 @@ export const insertBillingHistorySchema = createInsertSchema(billingHistory).omi
   createdAt: true,
 });
 
+export const insertAutomationConfigSchema = createInsertSchema(automationConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastRunAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -164,3 +193,6 @@ export type InsertMessageTemplate = z.infer<typeof insertMessageTemplateSchema>;
 
 export type BillingHistory = typeof billingHistory.$inferSelect;
 export type InsertBillingHistory = z.infer<typeof insertBillingHistorySchema>;
+
+export type AutomationConfig = typeof automationConfigs.$inferSelect;
+export type InsertAutomationConfig = z.infer<typeof insertAutomationConfigSchema>;
