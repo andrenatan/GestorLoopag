@@ -82,7 +82,7 @@ export interface IStorage {
   getAllAutomationConfigs(): Promise<AutomationConfig[]>;
   getAutomationConfig(automationType: string): Promise<AutomationConfig | undefined>;
   createAutomationConfig(config: InsertAutomationConfig): Promise<AutomationConfig>;
-  updateAutomationConfig(automationType: string, config: Partial<InsertAutomationConfig>): Promise<AutomationConfig | undefined>;
+  updateAutomationConfig(automationType: string, config: Partial<InsertAutomationConfig> & { lastRunAt?: Date | null }): Promise<AutomationConfig | undefined>;
 
   // Client counting for automations
   getClientsExpiringInDays(days: number): Promise<Client[]>;
@@ -643,7 +643,7 @@ export class MemStorage implements IStorage {
     return config;
   }
 
-  async updateAutomationConfig(automationType: string, updateConfig: Partial<InsertAutomationConfig>): Promise<AutomationConfig | undefined> {
+  async updateAutomationConfig(automationType: string, updateConfig: Partial<InsertAutomationConfig> & { lastRunAt?: Date | null }): Promise<AutomationConfig | undefined> {
     const config = this.automationConfigs.get(automationType);
     if (!config) return undefined;
     
@@ -661,7 +661,7 @@ export class MemStorage implements IStorage {
         clientCount: number;
       }>,
       webhookUrl: updateConfig.webhookUrl ?? config.webhookUrl,
-      lastRunAt: config.lastRunAt,
+      lastRunAt: updateConfig.lastRunAt !== undefined ? updateConfig.lastRunAt : config.lastRunAt,
       createdAt: config.createdAt,
       updatedAt: new Date()
     };
