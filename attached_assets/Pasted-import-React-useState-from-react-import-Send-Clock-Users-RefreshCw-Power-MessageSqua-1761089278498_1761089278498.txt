@@ -1,0 +1,286 @@
+import React, { useState } from 'react';
+import { Send, Clock, Users, RefreshCw, Power, MessageSquare, ChevronDown, ChevronRight } from 'lucide-react';
+
+export default function AutomationDashboard() {
+  const [expandedSection, setExpandedSection] = useState(null);
+  const [selectedWhatsApp, setSelectedWhatsApp] = useState('instance_1');
+  
+  const [automations, setAutomations] = useState({
+    cobrancas: {
+      active: false,
+      time: '09:30',
+      items: [
+        { id: 1, name: 'Vence em 3 dias', active: false, template: '', count: 0 },
+        { id: 2, name: 'Vence em 1 dia', active: false, template: '', count: 0 },
+        { id: 3, name: 'Vence Hoje', active: false, template: '', count: 0 }
+      ]
+    },
+    reativacao: {
+      active: false,
+      time: '19:30',
+      items: [
+        { id: 4, name: 'Últimos 3 dias', active: false, template: '', count: 0 },
+        { id: 5, name: 'Últimos 7 dias', active: false, template: '', count: 0 },
+        { id: 6, name: 'Últimos 30 dias', active: false, template: '', count: 0 }
+      ]
+    },
+    novosClientes: {
+      active: false,
+      time: '10:00',
+      items: [
+        { id: 7, name: 'Ativos há 3 dias', active: false, template: '', count: 0 }
+      ]
+    }
+  });
+
+  const whatsappInstances = [
+    { id: 'instance_1', name: 'WhatsApp Principal', status: 'online' },
+    { id: 'instance_2', name: 'WhatsApp Secundário', status: 'online' },
+    { id: 'instance_3', name: 'WhatsApp Suporte', status: 'offline' }
+  ];
+
+  const messageTemplates = [
+    { id: 'tpl_1', name: 'Lembrete Amigável' },
+    { id: 'tpl_2', name: 'Lembrete Urgente' },
+    { id: 'tpl_3', name: 'Último Aviso' },
+    { id: 'tpl_4', name: 'Volte Conosco' },
+    { id: 'tpl_5', name: 'Sentimos sua Falta' },
+    { id: 'tpl_6', name: 'Oferta Especial' },
+    { id: 'tpl_7', name: 'Indique e Ganhe' }
+  ];
+
+  const toggleSection = (section) => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
+
+  const toggleAutomation = (section) => {
+    setAutomations(prev => ({
+      ...prev,
+      [section]: { ...prev[section], active: !prev[section].active }
+    }));
+  };
+
+  const toggleItem = (section, itemId) => {
+    setAutomations(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        items: prev[section].items.map(item => 
+          item.id === itemId ? { ...item, active: !item.active } : item
+        )
+      }
+    }));
+  };
+
+  const updateTemplate = (section, itemId, templateId) => {
+    setAutomations(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        items: prev[section].items.map(item => 
+          item.id === itemId ? { ...item, template: templateId } : item
+        )
+      }
+    }));
+  };
+
+  const AutomationSection = ({ title, icon: Icon, section, description }) => {
+    const data = automations[section];
+    const isExpanded = expandedSection === section;
+    
+    return (
+      <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+        {/* Header */}
+        <div className="p-5 border-b border-gray-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => toggleSection(section)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+              </button>
+              
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gray-800 rounded-lg">
+                  <Icon className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-white font-medium">{title}</h3>
+                  <p className="text-sm text-gray-500">{description}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <Clock className="w-4 h-4" />
+                <span>{data.time}</span>
+              </div>
+              
+              <button
+                onClick={() => toggleAutomation(section)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  data.active 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                }`}
+              >
+                <Power className="w-4 h-4" />
+                {data.active ? 'Ativo' : 'Inativo'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Expanded Content */}
+        {isExpanded && (
+          <div className="p-5 space-y-3 bg-black/20">
+            {data.items.map(item => (
+              <div
+                key={item.id}
+                className="bg-gray-900 rounded-lg border border-gray-800 p-4"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${item.active ? 'bg-green-500' : 'bg-gray-600'}`} />
+                    <span className="text-white font-medium">{item.name}</span>
+                    <span className="text-sm text-gray-500">({item.count} clientes)</span>
+                  </div>
+                  
+                  <button
+                    onClick={() => toggleItem(section, item.id)}
+                    className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                      item.active 
+                        ? 'bg-green-600 text-white hover:bg-green-700' 
+                        : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                    }`}
+                  >
+                    {item.active ? 'Ativo' : 'Inativo'}
+                  </button>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <MessageSquare className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                  <select
+                    value={item.template}
+                    onChange={(e) => updateTemplate(section, item.id, e.target.value)}
+                    className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">Selecione um template</option>
+                    {messageTemplates.map(tpl => (
+                      <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-black">
+      {/* Header */}
+      <div className="bg-gray-950 border-b border-gray-900 px-8 py-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-white mb-1">Central de Automações</h1>
+            <p className="text-gray-500 text-sm">Gerencie instâncias WhatsApp e envie cobranças automatizadas</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-8 space-y-6">
+        {/* WhatsApp Instance Selection */}
+        <div className="bg-gray-900 rounded-lg border border-gray-800 p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-gray-800 rounded-lg">
+              <MessageSquare className="w-5 h-5 text-green-400" />
+            </div>
+            <div>
+              <h2 className="text-white font-medium">Conexão WhatsApp</h2>
+              <p className="text-sm text-gray-500">Selecione a instância para envio das mensagens</p>
+            </div>
+          </div>
+          
+          <select
+            value={selectedWhatsApp}
+            onChange={(e) => setSelectedWhatsApp(e.target.value)}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500"
+          >
+            {whatsappInstances.map(instance => (
+              <option key={instance.id} value={instance.id}>
+                {instance.name} - {instance.status === 'online' ? '🟢 Online' : '🔴 Offline'}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Automation Sections */}
+        <div className="space-y-4">
+          <AutomationSection
+            title="Cobranças Automáticas"
+            icon={Clock}
+            section="cobrancas"
+            description="Envio automático diário às 09:30"
+          />
+          
+          <AutomationSection
+            title="Campanhas de Reativação"
+            icon={RefreshCw}
+            section="reativacao"
+            description="Envio automático diário às 19:30"
+          />
+          
+          <AutomationSection
+            title="Novos Clientes"
+            icon={Users}
+            section="novosClientes"
+            description="Envio automático diário às 10:00"
+          />
+        </div>
+
+        {/* Manual Dispatch */}
+        <div className="bg-gray-900 rounded-lg border border-gray-800 p-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gray-800 rounded-lg">
+                <Send className="w-5 h-5 text-blue-400" />
+              </div>
+              <div>
+                <h3 className="text-white font-medium">Disparo Manual</h3>
+                <p className="text-sm text-gray-500">Envie mensagens para lista personalizada de clientes ativos</p>
+              </div>
+            </div>
+            <button className="px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors">
+              Criar Disparo
+            </button>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-4 gap-4">
+          <div className="bg-gray-900 rounded-lg border border-gray-800 p-4">
+            <div className="text-2xl font-bold text-white mb-1">0</div>
+            <div className="text-sm text-gray-500">Mensagens Hoje</div>
+          </div>
+          <div className="bg-gray-900 rounded-lg border border-gray-800 p-4">
+            <div className="text-2xl font-bold text-white mb-1">0</div>
+            <div className="text-sm text-gray-500">Automações Ativas</div>
+          </div>
+          <div className="bg-gray-900 rounded-lg border border-gray-800 p-4">
+            <div className="text-2xl font-bold text-white mb-1">0</div>
+            <div className="text-sm text-gray-500">Fila de Envio</div>
+          </div>
+          <div className="bg-gray-900 rounded-lg border border-gray-800 p-4">
+            <div className="text-2xl font-bold text-white mb-1">--</div>
+            <div className="text-sm text-gray-500">Taxa de Entrega</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
