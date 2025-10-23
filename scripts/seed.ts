@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { systems, users, whatsappInstances, messageTemplates, automationConfigs } from "../shared/schema";
+import { systems, users, messageTemplates, automationConfigs } from "../shared/schema";
 
 async function seed() {
   console.log("🌱 Seeding database...");
@@ -22,13 +22,6 @@ async function seed() {
       isActive: true,
     }).returning();
     console.log("✅ Usuário admin criado:", adminUser.username);
-
-    // Create WhatsApp instance
-    const [whatsappInstance] = await db.insert(whatsappInstances).values({
-      name: "WhatsApp Principal",
-      status: "disconnected",
-    }).returning();
-    console.log("✅ Instância WhatsApp criada:", whatsappInstance.name);
 
     // Create message templates
     const templates = [
@@ -70,7 +63,7 @@ async function seed() {
         automationType: "cobrancas" as const,
         isActive: false,
         scheduledTime: "09:30",
-        whatsappInstanceId: whatsappInstance.id,
+        whatsappInstanceId: null,
         webhookUrl: "https://webhook.dev.userxai.online/webhook/send_messages",
         subItems: [
           { id: "3days", name: "Vence em 3 dias", active: false, templateId: null, clientCount: 0 },
@@ -85,7 +78,7 @@ async function seed() {
         automationType: "reativacao" as const,
         isActive: false,
         scheduledTime: "19:30",
-        whatsappInstanceId: whatsappInstance.id,
+        whatsappInstanceId: null,
         webhookUrl: "https://webhook.dev.userxai.online/webhook/gestor_loopag_reativacao",
         subItems: [
           { id: "7days", name: "Inativos há 7 dias", active: false, templateId: null, clientCount: 0 },
@@ -97,7 +90,7 @@ async function seed() {
         automationType: "novosClientes" as const,
         isActive: false,
         scheduledTime: "10:00",
-        whatsappInstanceId: whatsappInstance.id,
+        whatsappInstanceId: null,
         webhookUrl: "https://webhook.dev.userxai.online/webhook/gestor_loopag_ativos_7dias",
         subItems: [
           { id: "7days", name: "Ativos há 7 dias", active: false, templateId: null, clientCount: 0 },
@@ -114,7 +107,6 @@ async function seed() {
     console.log("\n📊 Dados criados:");
     console.log(`   - ${1} Sistema`);
     console.log(`   - ${1} Usuário (admin/admin123)`);
-    console.log(`   - ${1} Instância WhatsApp`);
     console.log(`   - ${templates.length} Templates de mensagens`);
     console.log(`   - ${automations.length} Configurações de automação`);
 
