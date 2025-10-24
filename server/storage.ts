@@ -1031,9 +1031,9 @@ export class DbStorage implements IStorage {
     }
     
     allClients.forEach(client => {
-      const regDate = new Date(client.createdAt);
-      regDate.setHours(0, 0, 0, 0);
-      const diffTime = today.getTime() - regDate.getTime();
+      const activationDate = new Date(client.activationDate);
+      activationDate.setHours(0, 0, 0, 0);
+      const diffTime = today.getTime() - activationDate.getTime();
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       
       if (diffDays >= 0 && diffDays < 30) {
