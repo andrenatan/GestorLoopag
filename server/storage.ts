@@ -520,9 +520,16 @@ export class MemStorage implements IStorage {
       return createdTime >= todayStartTime && createdTime < todayEndTime;
     }).length;
 
-    const totalRevenue = clients
-      .filter(client => client.subscriptionStatus === "Ativa")
-      .reduce((sum, client) => sum + parseFloat(client.value || "0"), 0);
+    // Calculate monthly revenue from payment_history (current month)
+    const payments = Array.from(this.paymentHistory.values());
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    const monthStart = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+    const monthEnd = new Date(currentYear, currentMonth, 0).toISOString().split('T')[0];
+    
+    const totalRevenue = payments
+      .filter(payment => payment.paymentDate >= monthStart && payment.paymentDate <= monthEnd)
+      .reduce((sum, payment) => sum + parseFloat(payment.amount || "0"), 0);
 
     return {
       activeClients,
@@ -578,16 +585,12 @@ export class MemStorage implements IStorage {
   }
 
   async getRevenueByPeriod(period: 'current_month' | 'last_month' | '3_months' | '6_months' | '12_months') {
-    const getBrasiliaDateString = (date: Date) => {
-      const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
-      const brasiliaTime = new Date(utc + (3600000 * -3));
-      return brasiliaTime.toISOString().split('T')[0];
-    };
-
     const now = new Date();
-    const clients = Array.from(this.clients.values()).filter(c => c.subscriptionStatus === "Ativa");
+    const payments = Array.from(this.paymentHistory.values());
+    const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
     if (period === 'current_month' || period === 'last_month') {
+      // Day-by-day revenue for current or last month
       const targetMonth = period === 'current_month' ? now.getMonth() : now.getMonth() - 1;
       const targetYear = targetMonth < 0 ? now.getFullYear() - 1 : now.getFullYear();
       const adjustedMonth = targetMonth < 0 ? 11 : targetMonth;
@@ -599,23 +602,24 @@ export class MemStorage implements IStorage {
         revenueByDay[day] = 0;
       }
       
-      clients.forEach(client => {
-        const createdDate = new Date(client.createdAt);
-        const createdDateStr = getBrasiliaDateString(createdDate);
-        const [year, month, day] = createdDateStr.split('-').map(Number);
-        
-        if (year === targetYear && month === adjustedMonth + 1) {
-          revenueByDay[day] = (revenueByDay[day] || 0) + parseFloat(client.value || "0");
-        }
-      });
+      // Group payments by day
+      const monthStart = `${targetYear}-${String(adjustedMonth + 1).padStart(2, '0')}-01`;
+      const monthEnd = `${targetYear}-${String(adjustedMonth + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+      
+      payments
+        .filter(payment => payment.paymentDate >= monthStart && payment.paymentDate <= monthEnd)
+        .forEach(payment => {
+          const [year, month, day] = payment.paymentDate.split('-').map(Number);
+          revenueByDay[day] = (revenueByDay[day] || 0) + parseFloat(payment.amount || "0");
+        });
       
       return Object.entries(revenueByDay).map(([day, value]) => ({
         label: day,
         value
       }));
     } else {
+      // Monthly revenue for 3, 6, or 12 months
       const monthsToShow = period === '3_months' ? 3 : period === '6_months' ? 6 : 12;
-      const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
       const revenueByMonth: { [key: string]: number } = {};
       
       for (let i = monthsToShow - 1; i >= 0; i--) {
@@ -624,16 +628,14 @@ export class MemStorage implements IStorage {
         revenueByMonth[monthKey] = 0;
       }
       
-      clients.forEach(client => {
-        const createdDate = new Date(client.createdAt);
-        const createdDateStr = getBrasiliaDateString(createdDate);
-        const [year, month] = createdDateStr.split('-').map(Number);
+      payments.forEach(payment => {
+        const [year, month] = payment.paymentDate.split('-').map(Number);
         
         for (let i = monthsToShow - 1; i >= 0; i--) {
           const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
           if (year === targetDate.getFullYear() && month === targetDate.getMonth() + 1) {
             const monthKey = `${monthNames[targetDate.getMonth()]}`;
-            revenueByMonth[monthKey] = (revenueByMonth[monthKey] || 0) + parseFloat(client.value || "0");
+            revenueByMonth[monthKey] = (revenueByMonth[monthKey] || 0) + parseFloat(payment.amount || "0");
           }
         }
       });
@@ -1065,9 +1067,23 @@ export class DbStorage implements IStorage {
       c.createdAt.toISOString().split('T')[0] === todayStr
     ).length;
     
-    const totalRevenue = allClients
-      .filter(c => c.paymentStatus === 'Pago')
-      .reduce((sum, c) => sum + Number(c.value || 0), 0);
+    // Calculate monthly revenue from payment_history (current month)
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1;
+    const monthStart = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+    const monthEnd = new Date(currentYear, currentMonth, 0).toISOString().split('T')[0];
+    
+    const monthlyPayments = await db.select().from(paymentHistory)
+      .where(
+        and(
+          gte(paymentHistory.paymentDate, monthStart),
+          lte(paymentHistory.paymentDate, monthEnd)
+        )
+      );
+    
+    const totalRevenue = monthlyPayments.reduce((sum, payment) => 
+      sum + Number(payment.amount || 0), 0
+    );
     
     return {
       activeClients,
@@ -1119,11 +1135,11 @@ export class DbStorage implements IStorage {
   }
 
   async getRevenueByPeriod(period: 'current_month' | 'last_month' | '3_months' | '6_months' | '12_months'): Promise<{ label: string; value: number }[]> {
-    const allClients = await db.select().from(clients);
     const today = new Date();
     const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     
     if (period === 'current_month' || period === 'last_month') {
+      // Day-by-day revenue for current or last month
       const targetMonth = period === 'current_month' ? today.getMonth() : today.getMonth() - 1;
       const targetYear = targetMonth < 0 ? today.getFullYear() - 1 : today.getFullYear();
       const month = targetMonth < 0 ? 11 : targetMonth;
@@ -1131,20 +1147,36 @@ export class DbStorage implements IStorage {
       const daysInMonth = new Date(targetYear, month + 1, 0).getDate();
       const result: { label: string; value: number }[] = [];
       
+      // Get all payments for the target month
+      const monthStart = `${targetYear}-${String(month + 1).padStart(2, '0')}-01`;
+      const monthEnd = `${targetYear}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+      
+      const monthPayments = await db.select().from(paymentHistory)
+        .where(
+          and(
+            gte(paymentHistory.paymentDate, monthStart),
+            lte(paymentHistory.paymentDate, monthEnd)
+          )
+        );
+      
+      // Group payments by day
+      const revenueByDay: { [key: number]: number } = {};
       for (let day = 1; day <= daysInMonth; day++) {
-        const dayStr = String(day).padStart(2, '0');
-        const value = allClients
-          .filter(c => {
-            const clientDate = c.createdAt.toISOString().split('T')[0];
-            return clientDate.startsWith(`${targetYear}-${String(month + 1).padStart(2, '0')}-${dayStr}`) && c.paymentStatus === 'Pago';
-          })
-          .reduce((sum, c) => sum + Number(c.value || 0), 0);
-        
-        result.push({ label: dayStr, value });
+        revenueByDay[day] = 0;
+      }
+      
+      monthPayments.forEach(payment => {
+        const [year, month, day] = payment.paymentDate.split('-').map(Number);
+        revenueByDay[day] = (revenueByDay[day] || 0) + Number(payment.amount || 0);
+      });
+      
+      for (let day = 1; day <= daysInMonth; day++) {
+        result.push({ label: String(day), value: revenueByDay[day] });
       }
       
       return result;
     } else {
+      // Monthly revenue for 3, 6, or 12 months
       const months = period === '3_months' ? 3 : period === '6_months' ? 6 : 12;
       const result: { label: string; value: number }[] = [];
       
@@ -1154,12 +1186,22 @@ export class DbStorage implements IStorage {
         const month = targetDate.getMonth();
         const year = targetDate.getFullYear();
         
-        const value = allClients
-          .filter(c => {
-            const clientDate = c.createdAt;
-            return clientDate.getMonth() === month && clientDate.getFullYear() === year && c.paymentStatus === 'Pago';
-          })
-          .reduce((sum, c) => sum + Number(c.value || 0), 0);
+        // Get month start and end dates
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const monthStart = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+        const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+        
+        const monthPayments = await db.select().from(paymentHistory)
+          .where(
+            and(
+              gte(paymentHistory.paymentDate, monthStart),
+              lte(paymentHistory.paymentDate, monthEnd)
+            )
+          );
+        
+        const value = monthPayments.reduce((sum, payment) => 
+          sum + Number(payment.amount || 0), 0
+        );
         
         result.push({ label: monthNames[month], value });
       }
