@@ -819,6 +819,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Data Migration: Populate payment_history from existing clients
+  app.post("/api/migrate/populate-payment-history", async (req, res) => {
+    try {
+      const clients = await storage.getAllClients();
+      let created = 0;
+      let skipped = 0;
+      
+      for (const client of clients) {
+        // Check if payment already exists for this client
+        const existingPayments = await storage.getPaymentHistoryByClient(client.id);
+        
+        // Only create if no payment exists yet
+        if (existingPayments.length === 0) {
+          await storage.createPaymentHistory({
+            clientId: client.id,
+            amount: client.value,
+            paymentDate: client.activationDate,
+            type: 'new_client',
+            previousExpiryDate: null,
+            newExpiryDate: client.expiryDate
+          });
+          created++;
+        } else {
+          skipped++;
+        }
+      }
+      
+      res.json({ 
+        message: "Payment history populated successfully",
+        created,
+        skipped,
+        total: clients.length
+      });
+    } catch (error) {
+      console.error("[Migration Error]:", error);
+      res.status(500).json({ message: "Failed to populate payment history", error: String(error) });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
