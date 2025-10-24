@@ -18,6 +18,7 @@ import {
   Download
 } from "lucide-react";
 import type { Client } from "@shared/schema";
+import { getBrasiliaStartOfDay, parseDateString, formatDateString } from "@/lib/timezone";
 
 interface DataTableProps {
   data: Client[];
@@ -72,17 +73,10 @@ export function DataTable({
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
 
-  const formatDateString = (dateStr: string) => {
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year}`;
-  };
-
   const getDaysToExpiry = (expiryDate: string) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const [year, month, day] = expiryDate.split('-').map(Number);
-    const expiry = new Date(year, month - 1, day);
+    // Use Brasília timezone (GMT-3) for consistency with backend
+    const today = getBrasiliaStartOfDay();
+    const expiry = parseDateString(expiryDate);
     
     const diffTime = expiry.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));

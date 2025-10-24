@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileSpreadsheet, AlertTriangle } from "lucide-react";
 import type { Client, System } from "@shared/schema";
+import { getBrasiliaStartOfDay, parseDateString } from "@/lib/timezone";
 
 const countries = [
   { name: "Brasil", code: "+55", flag: "🇧🇷" },
@@ -147,14 +148,11 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   // Watch expiry date for calculation
   const expiryDateWatch = form.watch("expiryDate");
   
-  // Calculate days to expiry
+  // Calculate days to expiry using Brasília timezone (GMT-3)
   useEffect(() => {
     if (expiryDateWatch) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const [year, month, day] = expiryDateWatch.split('-').map(Number);
-      const expiry = new Date(year, month - 1, day);
+      const today = getBrasiliaStartOfDay();
+      const expiry = parseDateString(expiryDateWatch);
       
       const diffTime = expiry.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
