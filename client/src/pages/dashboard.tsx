@@ -218,9 +218,10 @@ export default function Dashboard() {
                   <Line 
                     type="monotone" 
                     dataKey="value" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={3}
-                    dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 4 }}
+                    stroke="#8b5cf6" 
+                    strokeWidth={2}
+                    dot={{ fill: "#8b5cf6", strokeWidth: 2, r: 5 }}
+                    activeDot={{ r: 7 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
