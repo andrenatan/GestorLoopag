@@ -24,6 +24,7 @@ import {
   ArrowLeft
 } from "lucide-react";
 import type { Client } from "@shared/schema";
+import { getBrasiliaStartOfDay, parseDateString } from "@/lib/timezone";
 
 const statusColors = {
   "Ativa": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
@@ -131,8 +132,9 @@ export default function Clients() {
   const paginatedClients = filteredClients.slice(startIndex, startIndex + itemsPerPage);
 
   const getDaysToExpiry = (expiryDate: string) => {
-    const today = new Date();
-    const expiry = new Date(expiryDate);
+    // Use Brasília timezone (GMT-3) for consistency with backend
+    const today = getBrasiliaStartOfDay();
+    const expiry = parseDateString(expiryDate);
     const diffTime = expiry.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
