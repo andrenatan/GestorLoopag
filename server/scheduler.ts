@@ -153,8 +153,56 @@ async function processAutomation(config: AutomationConfig): Promise<void> {
   });
 }
 
+async function updateExpiredClientsStatus(): Promise<void> {
+  try {
+    // Get current date in Brasília timezone (GMT-3)
+    const now = new Date();
+    const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const brasiliaTime = new Date(utcTime + (BRASILIA_OFFSET * 60000));
+    
+    // Set to start of day (00:00:00) for comparison
+    const today = new Date(brasiliaTime.getFullYear(), brasiliaTime.getMonth(), brasiliaTime.getDate());
+    const todayStr = today.toISOString().split('T')[0];
+    
+    // Get all active clients
+    const allClients = await storage.getAllClients();
+    const activeClients = allClients.filter(c => c.subscriptionStatus === "Ativa");
+    
+    console.log(`[Scheduler] Checking ${activeClients.length} active clients for expiration (today: ${todayStr})`);
+    
+    let updatedCount = 0;
+    
+    for (const client of activeClients) {
+      // Parse expiry date
+      const expiryDateStr = client.expiryDate;
+      const [year, month, day] = expiryDateStr.split('-').map(Number);
+      const expiryDate = new Date(year, month - 1, day);
+      
+      // If expiry date is before today, mark as inactive
+      if (expiryDate < today) {
+        await storage.updateClient(client.id, {
+          subscriptionStatus: "Inativa"
+        });
+        updatedCount++;
+        console.log(`[Scheduler] ✓ Client #${client.id} (${client.name}) marked as Inativo - expired on ${expiryDateStr}`);
+      }
+    }
+    
+    if (updatedCount > 0) {
+      console.log(`[Scheduler] ✓ Updated ${updatedCount} expired client(s) to Inativo status`);
+    } else {
+      console.log(`[Scheduler] No expired clients found`);
+    }
+  } catch (error) {
+    console.error('[Scheduler] Error updating expired clients:', error);
+  }
+}
+
 async function checkAndRunAutomations(): Promise<void> {
   const { timeString } = getBrasiliaTime();
+  
+  // First, update expired clients status
+  await updateExpiredClientsStatus();
   
   // Get all automation configs
   const configs = await storage.getAllAutomationConfigs();
