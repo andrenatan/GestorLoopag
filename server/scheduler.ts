@@ -1,20 +1,6 @@
 import { storage } from "./storage";
 import type { AutomationConfig, MessageTemplate, Client } from "@shared/schema";
-
-// Timezone offset for Brasília (GMT-3)
-const BRASILIA_OFFSET = -3 * 60; // minutes
-
-function getBrasiliaTime(): { hours: number; minutes: number; timeString: string } {
-  const now = new Date();
-  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const brasiliaTime = new Date(utcTime + (BRASILIA_OFFSET * 60000));
-  
-  const hours = brasiliaTime.getHours();
-  const minutes = brasiliaTime.getMinutes();
-  const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-  
-  return { hours, minutes, timeString };
-}
+import { getBrasiliaTimeString, getBrasiliaDate, getBrasiliaStartOfDay, getBrasiliaDateString, parseDateString } from "./utils/timezone";
 
 async function sendWebhook(url: string, data: any): Promise<boolean> {
   try {
@@ -156,13 +142,8 @@ async function processAutomation(config: AutomationConfig): Promise<void> {
 async function updateExpiredClientsStatus(): Promise<void> {
   try {
     // Get current date in Brasília timezone (GMT-3)
-    const now = new Date();
-    const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
-    const brasiliaTime = new Date(utcTime + (BRASILIA_OFFSET * 60000));
-    
-    // Set to start of day (00:00:00) for comparison
-    const today = new Date(brasiliaTime.getFullYear(), brasiliaTime.getMonth(), brasiliaTime.getDate());
-    const todayStr = today.toISOString().split('T')[0];
+    const today = getBrasiliaStartOfDay();
+    const todayStr = getBrasiliaDateString();
     
     // Get all active clients
     const allClients = await storage.getAllClients();
@@ -174,9 +155,7 @@ async function updateExpiredClientsStatus(): Promise<void> {
     
     for (const client of activeClients) {
       // Parse expiry date
-      const expiryDateStr = client.expiryDate;
-      const [year, month, day] = expiryDateStr.split('-').map(Number);
-      const expiryDate = new Date(year, month - 1, day);
+      const expiryDate = parseDateString(client.expiryDate);
       
       // If expiry date is before today, mark as inactive
       if (expiryDate < today) {
@@ -184,7 +163,7 @@ async function updateExpiredClientsStatus(): Promise<void> {
           subscriptionStatus: "Inativa"
         });
         updatedCount++;
-        console.log(`[Scheduler] ✓ Client #${client.id} (${client.name}) marked as Inativo - expired on ${expiryDateStr}`);
+        console.log(`[Scheduler] ✓ Client #${client.id} (${client.name}) marked as Inativo - expired on ${client.expiryDate}`);
       }
     }
     
@@ -199,7 +178,7 @@ async function updateExpiredClientsStatus(): Promise<void> {
 }
 
 async function checkAndRunAutomations(): Promise<void> {
-  const { timeString } = getBrasiliaTime();
+  const { timeString } = getBrasiliaTimeString();
   
   // First, update expired clients status
   await updateExpiredClientsStatus();

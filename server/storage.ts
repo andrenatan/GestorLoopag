@@ -10,6 +10,7 @@ import {
   type PaymentHistory, type InsertPaymentHistory,
   type AutomationConfig, type InsertAutomationConfig
 } from "@shared/schema";
+import { getBrasiliaDate, getBrasiliaDateString, getBrasiliaStartOfDay, parseDateString } from "./utils/timezone";
 
 export interface IStorage {
   // Users
@@ -1018,8 +1019,8 @@ export class DbStorage implements IStorage {
     const allClients = await db.select().from(clients);
     const allBilling = await db.select().from(billingHistory);
     
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use Brasília timezone (GMT-3) for all date calculations
+    const today = getBrasiliaStartOfDay();
     
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
@@ -1030,7 +1031,7 @@ export class DbStorage implements IStorage {
     const threeDaysFromNow = new Date(today);
     threeDaysFromNow.setDate(today.getDate() + 3);
     
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = getBrasiliaDateString();
     
     let activeClients = 0;
     let inactiveClients = 0;
@@ -1041,8 +1042,7 @@ export class DbStorage implements IStorage {
     let expiredYesterday = 0;
     
     allClients.forEach(client => {
-      const [year, month, day] = client.expiryDate.split('-').map(Number);
-      const expiryDate = new Date(year, month - 1, day);
+      const expiryDate = parseDateString(client.expiryDate);
       expiryDate.setHours(0, 0, 0, 0);
       
       if (expiryDate >= today) {
@@ -1101,7 +1101,8 @@ export class DbStorage implements IStorage {
 
   async getNewClientsByDay(): Promise<{ day: number; count: number }[]> {
     const allClients = await db.select().from(clients);
-    const today = new Date();
+    // Use Brasília timezone (GMT-3)
+    const today = getBrasiliaDate();
     const currentMonth = today.getMonth(); // 0-11
     const currentYear = today.getFullYear();
     
@@ -1135,7 +1136,8 @@ export class DbStorage implements IStorage {
   }
 
   async getRevenueByPeriod(period: 'current_month' | 'last_month' | '3_months' | '6_months' | '12_months'): Promise<{ label: string; value: number }[]> {
-    const today = new Date();
+    // Use Brasília timezone (GMT-3)
+    const today = getBrasiliaDate();
     const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     
     if (period === 'current_month' || period === 'last_month') {
