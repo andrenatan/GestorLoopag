@@ -858,6 +858,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test automation trigger (manual)
+  app.post("/api/test/trigger-automation/:type", async (req, res) => {
+    try {
+      const automationType = req.params.type;
+      const config = await storage.getAutomationConfig(automationType);
+      
+      if (!config) {
+        return res.status(404).json({ message: "Automation config not found" });
+      }
+      
+      if (!config.isActive) {
+        return res.status(400).json({ message: "Automation is not active" });
+      }
+      
+      // Import the test function from scheduler
+      const { testAutomationTrigger } = await import('./scheduler');
+      const result = await testAutomationTrigger(config);
+      
+      res.json({
+        message: "Automation test completed",
+        automationType: config.automationType,
+        webhookUrl: config.webhookUrl,
+        ...result
+      });
+    } catch (error) {
+      console.error("[Test Automation Error]:", error);
+      res.status(500).json({ message: "Failed to test automation", error: String(error) });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

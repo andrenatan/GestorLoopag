@@ -207,6 +207,12 @@ async function checkAndRunAutomations(): Promise<void> {
   // Get all automation configs
   const configs = await storage.getAllAutomationConfigs();
   
+  // Log active automations for monitoring
+  const activeConfigs = configs.filter(c => c.isActive);
+  if (activeConfigs.length > 0) {
+    console.log(`[Scheduler] Current time: ${timeString} | Active automations: ${activeConfigs.map(c => `${c.automationType}@${c.scheduledTime}`).join(', ')}`);
+  }
+  
   for (const config of configs) {
     // Skip if not active
     if (!config.isActive) {
@@ -256,4 +262,86 @@ export function stopScheduler(): void {
     schedulerInterval = null;
     console.log("[Scheduler] Stopped");
   }
+}
+
+// Test function to manually trigger an automation (for testing)
+export async function testAutomationTrigger(config: AutomationConfig): Promise<any> {
+  console.log(`[Test] Manually triggering automation: ${config.automationType}`);
+  
+  const results: any[] = [];
+  const templates = await storage.getAllMessageTemplates();
+  
+  for (const subItem of config.subItems) {
+    if (!subItem.active || !subItem.templateId) {
+      results.push({
+        subItem: subItem.name,
+        status: 'skipped',
+        reason: subItem.active ? 'No template configured' : 'Inactive'
+      });
+      continue;
+    }
+    
+    const clients = await getClientsForAutomation(config.automationType, subItem.id);
+    const template = templates.find(t => t.id === subItem.templateId);
+    
+    if (!template) {
+      results.push({
+        subItem: subItem.name,
+        status: 'error',
+        reason: 'Template not found'
+      });
+      continue;
+    }
+    
+    if (clients.length === 0) {
+      results.push({
+        subItem: subItem.name,
+        status: 'no_clients',
+        clientCount: 0
+      });
+      continue;
+    }
+    
+    const payload = {
+      automation_type: getAutomationLabel(config.automationType, subItem.id),
+      automation_section: config.automationType,
+      sub_automation_id: subItem.id,
+      sub_automation_name: subItem.name,
+      template_id: template.id,
+      template_title: template.title,
+      template_text: template.content,
+      template_image_url: template.imageUrl,
+      scheduled_time: config.scheduledTime,
+      whatsapp_instance_id: config.whatsappInstanceId,
+      clients: clients.map(client => ({
+        id: client.id,
+        name: client.name,
+        phone: client.phone,
+        expiry_date: client.expiryDate,
+        activation_date: client.activationDate,
+        value: client.value,
+        plan: client.plan,
+        system: client.system
+      })),
+      client_count: clients.length,
+      executed_at: new Date().toISOString(),
+      test_mode: true
+    };
+    
+    const success = await sendWebhook(config.webhookUrl, payload);
+    
+    results.push({
+      subItem: subItem.name,
+      status: success ? 'success' : 'webhook_failed',
+      clientCount: clients.length,
+      webhookUrl: config.webhookUrl,
+      clients: clients.map(c => ({ id: c.id, name: c.name, phone: c.phone }))
+    });
+  }
+  
+  return {
+    totalSubItems: config.subItems.length,
+    activeSubItems: config.subItems.filter(s => s.active).length,
+    results
+  };
 }
