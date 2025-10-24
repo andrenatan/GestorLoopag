@@ -185,7 +185,10 @@ export default function Dashboard() {
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={revenueData || []}>
+                <LineChart 
+                  data={revenueData || []}
+                  margin={{ top: 5, right: 20, left: 40, bottom: 5 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                   <XAxis 
                     dataKey="label" 
@@ -196,7 +199,12 @@ export default function Dashboard() {
                     }}
                   />
                   <YAxis 
-                    label={{ value: 'Faturamento (R$)', angle: -90, position: 'insideLeft' }}
+                    label={{ 
+                      value: 'Faturamento (R$)', 
+                      angle: -90, 
+                      position: 'insideLeft',
+                      style: { textAnchor: 'middle' }
+                    }}
                   />
                   <Tooltip 
                     formatter={(value) => [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, "Faturamento"]}
@@ -230,14 +238,22 @@ export default function Dashboard() {
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={newClientsByDay || []}>
+                <LineChart 
+                  data={newClientsByDay || []}
+                  margin={{ top: 5, right: 20, left: 60, bottom: 5 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                   <XAxis 
                     dataKey="day" 
                     label={{ value: 'Dias do mês', position: 'insideBottom', offset: -5 }}
                   />
                   <YAxis 
-                    label={{ value: 'Total de novos clientes', angle: -90, position: 'insideLeft' }}
+                    label={{ 
+                      value: 'Total de novos clientes', 
+                      angle: -90, 
+                      position: 'insideLeft',
+                      style: { textAnchor: 'middle' }
+                    }}
                     allowDecimals={false}
                   />
                   <Tooltip 
