@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { 
   insertUserSchema, insertEmployeeSchema, insertSystemSchema, insertClientSchema, 
   insertWhatsappInstanceSchema, insertMessageTemplateSchema, insertBillingHistorySchema,
-  insertAutomationConfigSchema
+  insertPaymentHistorySchema, insertAutomationConfigSchema
 } from "@shared/schema";
 import multer from "multer";
 import { Client } from "@replit/object-storage";
@@ -301,6 +301,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertClientSchema.parse(req.body);
       const client = await storage.createClient(validatedData);
+      
+      // Register initial payment in payment_history
+      await storage.createPaymentHistory({
+        clientId: client.id,
+        amount: validatedData.value,
+        paymentDate: validatedData.activationDate,
+        type: "new_client",
+        newExpiryDate: validatedData.expiryDate,
+        previousExpiryDate: null
+      });
+      
       res.status(201).json(client);
     } catch (error) {
       res.status(400).json({ message: "Invalid client data", error });
@@ -311,10 +322,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const validatedData = insertClientSchema.partial().parse(req.body);
-      const client = await storage.updateClient(id, validatedData);
       
+      // Get current client data before update
+      const oldClient = await storage.getClient(id);
+      if (!oldClient) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      
+      // Update client
+      const client = await storage.updateClient(id, validatedData);
       if (!client) {
         return res.status(404).json({ message: "Client not found" });
+      }
+      
+      // Check if expiryDate changed (renewal detected)
+      if (validatedData.expiryDate && validatedData.expiryDate !== oldClient.expiryDate) {
+        // Get current date in Brasília timezone for payment date
+        const getBrasiliaDateString = () => {
+          const now = new Date();
+          const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+          const brasiliaTime = new Date(utc + (3600000 * -3));
+          return brasiliaTime.toISOString().split('T')[0];
+        };
+        
+        // Register renewal payment
+        await storage.createPaymentHistory({
+          clientId: client.id,
+          amount: client.value, // Use current client value
+          paymentDate: getBrasiliaDateString(),
+          type: "renewal",
+          previousExpiryDate: oldClient.expiryDate,
+          newExpiryDate: validatedData.expiryDate
+        });
       }
       
       res.json(client);
