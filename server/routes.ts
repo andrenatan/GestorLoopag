@@ -94,7 +94,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stats = await storage.getDashboardStats();
       res.json(stats);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch dashboard stats" });
+      console.error("[Dashboard Stats Error]:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard stats", error: String(error) });
     }
   });
 
@@ -116,7 +117,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = await storage.getRevenueByPeriod(period);
       res.json(data);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch revenue by period" });
+      console.error("[Revenue By Period Error]:", error);
+      res.status(500).json({ message: "Failed to fetch revenue by period", error: String(error) });
     }
   });
 
@@ -336,24 +338,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if expiryDate changed (renewal detected)
-      if (validatedData.expiryDate && validatedData.expiryDate !== oldClient.expiryDate) {
-        // Get current date in Brasília timezone for payment date
-        const getBrasiliaDateString = () => {
-          const now = new Date();
-          const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-          const brasiliaTime = new Date(utc + (3600000 * -3));
-          return brasiliaTime.toISOString().split('T')[0];
+      if (validatedData.expiryDate) {
+        // Normalize dates to YYYY-MM-DD string format for comparison
+        const normalizeDate = (date: string | Date): string => {
+          if (typeof date === 'string') {
+            // Already a string in YYYY-MM-DD format
+            return date;
+          }
+          // Convert Date object to YYYY-MM-DD string
+          const d = new Date(date);
+          return d.toISOString().split('T')[0];
         };
         
-        // Register renewal payment
-        await storage.createPaymentHistory({
-          clientId: client.id,
-          amount: client.value, // Use current client value
-          paymentDate: getBrasiliaDateString(),
-          type: "renewal",
-          previousExpiryDate: oldClient.expiryDate,
-          newExpiryDate: validatedData.expiryDate
-        });
+        const oldDateNormalized = normalizeDate(oldClient.expiryDate);
+        const newDateNormalized = normalizeDate(validatedData.expiryDate);
+        
+        // Only register renewal if dates actually changed
+        if (newDateNormalized !== oldDateNormalized) {
+          // Get current date in Brasília timezone for payment date
+          const getBrasiliaDateString = () => {
+            const now = new Date();
+            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const brasiliaTime = new Date(utc + (3600000 * -3));
+            return brasiliaTime.toISOString().split('T')[0];
+          };
+          
+          // Register renewal payment
+          await storage.createPaymentHistory({
+            clientId: client.id,
+            amount: client.value, // Use current client value
+            paymentDate: getBrasiliaDateString(),
+            type: "renewal",
+            previousExpiryDate: oldDateNormalized,
+            newExpiryDate: newDateNormalized
+          });
+        }
       }
       
       res.json(client);
