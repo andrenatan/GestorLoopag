@@ -104,6 +104,20 @@ export const billingHistory = pgTable("billing_history", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Payment history table - tracks actual revenue from new clients and renewals
+export const paymentHistory = pgTable("payment_history", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull().references(() => clients.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentDate: date("payment_date").notNull(),
+  type: text("type", {
+    enum: ["new_client", "renewal"]
+  }).notNull(),
+  previousExpiryDate: date("previous_expiry_date"),
+  newExpiryDate: date("new_expiry_date").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Automation configurations table
 export const automationConfigs = pgTable("automation_configs", {
   id: serial("id").primaryKey(),
@@ -165,6 +179,11 @@ export const insertBillingHistorySchema = createInsertSchema(billingHistory).omi
   createdAt: true,
 });
 
+export const insertPaymentHistorySchema = createInsertSchema(paymentHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertAutomationConfigSchema = createInsertSchema(automationConfigs).omit({
   id: true,
   createdAt: true,
@@ -193,6 +212,9 @@ export type InsertMessageTemplate = z.infer<typeof insertMessageTemplateSchema>;
 
 export type BillingHistory = typeof billingHistory.$inferSelect;
 export type InsertBillingHistory = z.infer<typeof insertBillingHistorySchema>;
+
+export type PaymentHistory = typeof paymentHistory.$inferSelect;
+export type InsertPaymentHistory = z.infer<typeof insertPaymentHistorySchema>;
 
 export type AutomationConfig = typeof automationConfigs.$inferSelect;
 export type InsertAutomationConfig = z.infer<typeof insertAutomationConfigSchema>;

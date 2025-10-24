@@ -1,5 +1,5 @@
 import { 
-  users, employees, systems, clients, whatsappInstances, messageTemplates, billingHistory, automationConfigs,
+  users, employees, systems, clients, whatsappInstances, messageTemplates, billingHistory, paymentHistory, automationConfigs,
   type User, type InsertUser,
   type Employee, type InsertEmployee,
   type System, type InsertSystem,
@@ -7,6 +7,7 @@ import {
   type WhatsappInstance, type InsertWhatsappInstance,
   type MessageTemplate, type InsertMessageTemplate,
   type BillingHistory, type InsertBillingHistory,
+  type PaymentHistory, type InsertPaymentHistory,
   type AutomationConfig, type InsertAutomationConfig
 } from "@shared/schema";
 
@@ -62,6 +63,12 @@ export interface IStorage {
   createBillingHistory(billing: InsertBillingHistory): Promise<BillingHistory>;
   updateBillingHistory(id: number, billing: Partial<InsertBillingHistory>): Promise<BillingHistory | undefined>;
 
+  // Payment History
+  getAllPaymentHistory(): Promise<PaymentHistory[]>;
+  getPaymentHistoryByClient(clientId: number): Promise<PaymentHistory[]>;
+  createPaymentHistory(payment: InsertPaymentHistory): Promise<PaymentHistory>;
+  getPaymentHistoryByDateRange(startDate: string, endDate: string): Promise<PaymentHistory[]>;
+
   // Dashboard Stats
   getDashboardStats(): Promise<{
     activeClients: number;
@@ -98,6 +105,7 @@ export class MemStorage implements IStorage {
   private whatsappInstances: Map<number, WhatsappInstance> = new Map();
   private messageTemplates: Map<number, MessageTemplate> = new Map();
   private billingHistory: Map<number, BillingHistory> = new Map();
+  private paymentHistory: Map<number, PaymentHistory> = new Map();
   private automationConfigs: Map<string, AutomationConfig> = new Map();
   
   private currentUserId = 1;
@@ -107,6 +115,7 @@ export class MemStorage implements IStorage {
   private currentWhatsappInstanceId = 1;
   private currentMessageTemplateId = 1;
   private currentBillingHistoryId = 1;
+  private currentPaymentHistoryId = 1;
   private currentAutomationConfigId = 1;
 
   // Users
@@ -408,6 +417,32 @@ export class MemStorage implements IStorage {
     const updatedBilling = { ...billing, ...updateBilling };
     this.billingHistory.set(id, updatedBilling);
     return updatedBilling;
+  }
+
+  // Payment History
+  async getAllPaymentHistory(): Promise<PaymentHistory[]> {
+    return Array.from(this.paymentHistory.values());
+  }
+
+  async getPaymentHistoryByClient(clientId: number): Promise<PaymentHistory[]> {
+    return Array.from(this.paymentHistory.values()).filter(payment => payment.clientId === clientId);
+  }
+
+  async createPaymentHistory(insertPayment: InsertPaymentHistory): Promise<PaymentHistory> {
+    const id = this.currentPaymentHistoryId++;
+    const payment: PaymentHistory = { 
+      ...insertPayment, 
+      id, 
+      createdAt: new Date()
+    };
+    this.paymentHistory.set(id, payment);
+    return payment;
+  }
+
+  async getPaymentHistoryByDateRange(startDate: string, endDate: string): Promise<PaymentHistory[]> {
+    return Array.from(this.paymentHistory.values()).filter(payment => {
+      return payment.paymentDate >= startDate && payment.paymentDate <= endDate;
+    });
   }
 
   // Dashboard Stats
@@ -936,6 +971,33 @@ export class DbStorage implements IStorage {
   async updateBillingHistory(id: number, updateData: Partial<InsertBillingHistory>): Promise<BillingHistory | undefined> {
     const result = await db.update(billingHistory).set(updateData).where(eq(billingHistory.id, id)).returning();
     return result[0];
+  }
+
+  // Payment History
+  async getAllPaymentHistory(): Promise<PaymentHistory[]> {
+    return await db.select().from(paymentHistory).orderBy(desc(paymentHistory.createdAt));
+  }
+
+  async getPaymentHistoryByClient(clientId: number): Promise<PaymentHistory[]> {
+    return await db.select().from(paymentHistory)
+      .where(eq(paymentHistory.clientId, clientId))
+      .orderBy(desc(paymentHistory.createdAt));
+  }
+
+  async createPaymentHistory(insertPayment: InsertPaymentHistory): Promise<PaymentHistory> {
+    const result = await db.insert(paymentHistory).values(insertPayment).returning();
+    return result[0];
+  }
+
+  async getPaymentHistoryByDateRange(startDate: string, endDate: string): Promise<PaymentHistory[]> {
+    return await db.select().from(paymentHistory)
+      .where(
+        and(
+          gte(paymentHistory.paymentDate, startDate),
+          lte(paymentHistory.paymentDate, endDate)
+        )
+      )
+      .orderBy(paymentHistory.paymentDate);
   }
 
   // Dashboard Stats
