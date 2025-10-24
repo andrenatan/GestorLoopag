@@ -387,7 +387,16 @@ export default function Clients() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button variant="ghost" size="icon" title="Editar">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          title="Editar"
+                          onClick={() => {
+                            setEditingClient(client);
+                            setShowForm(true);
+                          }}
+                          data-testid={`button-edit-${client.id}`}
+                        >
                           <Edit2 className="w-4 h-4" />
                         </Button>
                         <Button variant="ghost" size="icon" className="text-green-600" title="WhatsApp">
@@ -399,6 +408,7 @@ export default function Clients() {
                           className="text-red-600" 
                           title="Excluir"
                           onClick={() => deleteClientMutation.mutate(client.id)}
+                          data-testid={`button-delete-${client.id}`}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
