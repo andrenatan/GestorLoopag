@@ -1024,26 +1024,36 @@ export class DbStorage implements IStorage {
   async getNewClientsByDay(): Promise<{ day: number; count: number }[]> {
     const allClients = await db.select().from(clients);
     const today = new Date();
-    const stats = new Map<number, number>();
+    const currentMonth = today.getMonth(); // 0-11
+    const currentYear = today.getFullYear();
     
-    for (let i = 29; i >= 0; i--) {
-      stats.set(i, 0);
+    // Get number of days in current month
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    
+    // Initialize stats for each day of the month
+    const clientsByDay: { [key: number]: number } = {};
+    for (let day = 1; day <= daysInMonth; day++) {
+      clientsByDay[day] = 0;
     }
     
+    // Count clients by activation date
     allClients.forEach(client => {
-      const activationDate = new Date(client.activationDate);
-      activationDate.setHours(0, 0, 0, 0);
-      const diffTime = today.getTime() - activationDate.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      if (!client.activationDate) return;
       
-      if (diffDays >= 0 && diffDays < 30) {
-        stats.set(diffDays, (stats.get(diffDays) || 0) + 1);
+      const activationDateStr = client.activationDate;
+      const [year, month, day] = activationDateStr.split('-').map(Number);
+      
+      // Only count if it's in the current month and year
+      if (year === currentYear && month === currentMonth + 1) {
+        clientsByDay[day] = (clientsByDay[day] || 0) + 1;
       }
     });
     
-    return Array.from(stats.entries())
-      .map(([day, count]) => ({ day, count }))
-      .sort((a, b) => b.day - a.day);
+    // Return array sorted by day (ascending)
+    return Object.entries(clientsByDay).map(([day, count]) => ({
+      day: parseInt(day),
+      count
+    }));
   }
 
   async getRevenueByPeriod(period: 'current_month' | 'last_month' | '3_months' | '6_months' | '12_months'): Promise<{ label: string; value: number }[]> {
