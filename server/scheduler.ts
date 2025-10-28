@@ -180,34 +180,29 @@ async function updateExpiredClientsStatus(): Promise<void> {
 async function checkAndRunAutomations(): Promise<void> {
   const { timeString } = getBrasiliaTimeString();
   
-  // First, update expired clients status
+  // First, update expired clients status (runs only once per check)
   await updateExpiredClientsStatus();
   
   // Get all automation configs
   const configs = await storage.getAllAutomationConfigs();
-  
-  // Log active automations for monitoring
   const activeConfigs = configs.filter(c => c.isActive);
-  if (activeConfigs.length > 0) {
-    console.log(`[Scheduler] Current time: ${timeString} | Active automations: ${activeConfigs.map(c => `${c.automationType}@${c.scheduledTime}`).join(', ')}`);
-  }
   
-  for (const config of configs) {
-    // Skip if not active
-    if (!config.isActive) {
-      continue;
-    }
-
+  console.log(`[Scheduler] Checking automations at ${timeString}`);
+  
+  for (const config of activeConfigs) {
     // Check if it's time to run this automation
     if (config.scheduledTime === timeString) {
-      // Check if already ran in the last minute (avoid duplicate runs)
+      // Check if already ran today (avoid duplicate runs on the same day)
       if (config.lastRunAt) {
-        const lastRun = new Date(config.lastRunAt);
-        const now = new Date();
-        const diffMinutes = (now.getTime() - lastRun.getTime()) / 60000;
+        const lastRun = getBrasiliaDate();
+        lastRun.setTime(new Date(config.lastRunAt).getTime());
+        const now = getBrasiliaDate();
         
-        if (diffMinutes < 1) {
-          console.log(`[Scheduler] Skipping ${config.automationType} - already ran recently`);
+        const lastRunDate = getBrasiliaDateString(lastRun);
+        const todayDate = getBrasiliaDateString(now);
+        
+        if (lastRunDate === todayDate) {
+          console.log(`[Scheduler] ⏭️  Skipping ${config.automationType} - already ran today at ${config.lastRunAt}`);
           continue;
         }
       }
@@ -219,6 +214,56 @@ async function checkAndRunAutomations(): Promise<void> {
 }
 
 let schedulerInterval: NodeJS.Timeout | null = null;
+let lastCheckedMinute: string | null = null;
+
+// Scheduled times to check (GMT-3)
+const SCHEDULED_TIMES = ['09:30', '10:00', '19:30'];
+
+function calculateNextCheckDelay(): number {
+  const { timeString, hours, minutes } = getBrasiliaTimeString();
+  
+  // Find next scheduled time
+  let nextScheduledMinutes = Infinity;
+  const currentTotalMinutes = hours * 60 + minutes;
+  
+  for (const scheduledTime of SCHEDULED_TIMES) {
+    const [schedHours, schedMinutes] = scheduledTime.split(':').map(Number);
+    const scheduledTotalMinutes = schedHours * 60 + schedMinutes;
+    
+    if (scheduledTotalMinutes > currentTotalMinutes) {
+      nextScheduledMinutes = Math.min(nextScheduledMinutes, scheduledTotalMinutes);
+    }
+  }
+  
+  // If no time today, schedule for first time tomorrow
+  if (nextScheduledMinutes === Infinity) {
+    const [firstHours, firstMinutes] = SCHEDULED_TIMES[0].split(':').map(Number);
+    nextScheduledMinutes = (24 * 60) + (firstHours * 60 + firstMinutes);
+  }
+  
+  const delayMinutes = nextScheduledMinutes - currentTotalMinutes;
+  const delayMs = delayMinutes * 60 * 1000;
+  
+  const nextTime = new Date(Date.now() + delayMs);
+  const nextTimeStr = `${nextTime.getHours().toString().padStart(2, '0')}:${nextTime.getMinutes().toString().padStart(2, '0')}`;
+  
+  console.log(`[Scheduler] Current: ${timeString}, Next check: ${nextTimeStr} (in ${delayMinutes} minutes)`);
+  
+  return delayMs;
+}
+
+function scheduleNextCheck(): void {
+  if (schedulerInterval) {
+    clearTimeout(schedulerInterval);
+  }
+  
+  const delay = calculateNextCheckDelay();
+  
+  schedulerInterval = setTimeout(async () => {
+    await checkAndRunAutomations();
+    scheduleNextCheck(); // Schedule next check after this one completes
+  }, delay);
+}
 
 export function startScheduler(): void {
   if (schedulerInterval) {
@@ -226,18 +271,24 @@ export function startScheduler(): void {
     return;
   }
 
-  console.log("[Scheduler] Starting automation scheduler (checks every minute)");
+  console.log(`[Scheduler] Starting smart scheduler - will run only at: ${SCHEDULED_TIMES.join(', ')} (GMT-3)`);
   
-  // Run immediately on start (for testing)
-  // checkAndRunAutomations();
-  
-  // Then run every minute
-  schedulerInterval = setInterval(checkAndRunAutomations, 60000); // Every 60 seconds
+  // Check if current time matches any scheduled time and run immediately if so
+  const { timeString } = getBrasiliaTimeString();
+  if (SCHEDULED_TIMES.includes(timeString)) {
+    console.log(`[Scheduler] Current time ${timeString} matches scheduled time - running now`);
+    checkAndRunAutomations().then(() => {
+      scheduleNextCheck();
+    });
+  } else {
+    // Schedule first check
+    scheduleNextCheck();
+  }
 }
 
 export function stopScheduler(): void {
   if (schedulerInterval) {
-    clearInterval(schedulerInterval);
+    clearTimeout(schedulerInterval);
     schedulerInterval = null;
     console.log("[Scheduler] Stopped");
   }
