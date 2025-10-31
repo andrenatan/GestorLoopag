@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { User as SupabaseUser } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 import { useLocation } from "wouter";
+import { apiRequest } from "@/lib/queryClient";
 
-interface User {
+interface UserMetadata {
   id: number;
   name: string | null;
   username: string;
@@ -14,7 +15,8 @@ interface User {
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: UserMetadata | null;
+  supabaseUser: SupabaseUser | null;
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
@@ -34,64 +36,117 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
+  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
+  const [user, setUser] = useState<UserMetadata | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { data: user, isLoading } = useQuery<User>({
-    queryKey: ["/api/auth/me"],
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
+  // Initialize auth state
+  useEffect(() => {
+    // Get current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSupabaseUser(session?.user ?? null);
+      if (session?.user) {
+        fetchUserMetadata(session.user.id);
+      } else {
+        setIsLoading(false);
+      }
+    });
 
-  const loginMutation = useMutation({
-    mutationFn: async (credentials: { username: string; password: string }) => {
-      const response = await apiRequest("/api/auth/login", "POST", credentials);
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-    },
-  });
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSupabaseUser(session?.user ?? null);
+      if (session?.user) {
+        fetchUserMetadata(session.user.id);
+      } else {
+        setUser(null);
+        setIsLoading(false);
+      }
+    });
 
-  const registerMutation = useMutation({
-    mutationFn: async (data: RegisterData) => {
-      const response = await apiRequest("/api/auth/register", "POST", data);
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-    },
-  });
+    return () => subscription.unsubscribe();
+  }, []);
 
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      await apiRequest("/api/auth/logout", "POST", {});
-    },
-    onSuccess: () => {
-      queryClient.clear();
-      setLocation("/");
-    },
-  });
-
-  const login = async (username: string, password: string) => {
-    await loginMutation.mutateAsync({ username, password });
+  const fetchUserMetadata = async (authUserId: string) => {
+    try {
+      const response = await fetch(`/api/users/by-auth-id/${authUserId}`);
+      if (response.ok) {
+        const metadata = await response.json();
+        setUser(metadata);
+      }
+    } catch (error) {
+      console.error("Error fetching user metadata:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const register = async (data: RegisterData) => {
-    await registerMutation.mutateAsync(data);
+    try {
+      // 1. Create Supabase auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            name: data.name,
+            username: data.username,
+            phone: data.phone,
+          },
+        },
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Failed to create user");
+
+      // 2. Create user metadata in our database
+      await apiRequest("/api/users/metadata", "POST", {
+        authUserId: authData.user.id,
+        name: data.name,
+        username: data.username,
+        email: data.email,
+        phone: data.phone,
+      });
+
+      // User will be automatically logged in by Supabase
+    } catch (error: any) {
+      throw new Error(error.message || "Erro ao criar conta");
+    }
+  };
+
+  const login = async (email: string, password: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+    } catch (error: any) {
+      throw new Error(error.message || "Erro ao fazer login");
+    }
   };
 
   const logout = async () => {
-    await logoutMutation.mutateAsync();
+    try {
+      await supabase.auth.signOut();
+      setLocation("/");
+    } catch (error: any) {
+      throw new Error(error.message || "Erro ao fazer logout");
+    }
   };
 
   return (
     <AuthContext.Provider
       value={{
-        user: user || null,
+        user,
+        supabaseUser,
         isLoading,
         login,
         register,
         logout,
-        isAuthenticated: !!user,
+        isAuthenticated: !!supabaseUser,
       }}
     >
       {children}

@@ -19,11 +19,12 @@ export const plans = pgTable("plans", {
 // Users table for authentication and access control
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(),
+  authUserId: text("auth_user_id").unique(),
+  name: text("name"),
   username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  email: text("email").notNull().unique(),
-  phone: text("phone").notNull(),
+  password: text("password"),
+  email: text("email"),
+  phone: text("phone"),
   planId: integer("plan_id").references(() => plans.id),
   role: text("role", { enum: ["admin", "operator", "viewer"] }).notNull().default("operator"),
   isActive: boolean("is_active").notNull().default(true),

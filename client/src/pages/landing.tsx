@@ -13,7 +13,7 @@ export default function Landing() {
   const { login, register } = useAuth();
   const { toast } = useToast();
   
-  const [loginData, setLoginData] = useState({ username: "", password: "" });
+  const [loginData, setLoginData] = useState({ email: "", password: "" });
   const [registerData, setRegisterData] = useState({
     name: "",
     username: "",
@@ -27,7 +27,7 @@ export default function Landing() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await login(loginData.username, loginData.password);
+      await login(loginData.email, loginData.password);
       setLocation("/dashboard");
     } catch (error: any) {
       toast({
@@ -115,10 +115,11 @@ export default function Landing() {
                   <form onSubmit={handleLogin} className="space-y-4">
                     <div>
                       <Input
-                        data-testid="input-login-username"
-                        placeholder="Usuário"
-                        value={loginData.username}
-                        onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
+                        data-testid="input-login-email"
+                        type="email"
+                        placeholder="E-mail"
+                        value={loginData.email}
+                        onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                         required
                         className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                       />

@@ -22,6 +22,14 @@ declare module 'express-session' {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
+  // Supabase config endpoint (anon key is public by design)
+  app.get("/api/config/supabase", (req, res) => {
+    res.json({
+      url: process.env.SUPABASE_URL || '',
+      anonKey: process.env.SUPABASE_ANON_KEY || '',
+    });
+  });
+  
   // Configure PostgreSQL session store
   const PgSession = connectPgSimple(session);
   
@@ -190,6 +198,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("[Plans Error]:", error);
       res.status(500).json({ message: "Erro ao buscar planos" });
+    }
+  });
+  
+  // Supabase Auth - Get user metadata by auth_user_id
+  app.get("/api/users/by-auth-id/:authUserId", async (req, res) => {
+    try {
+      const { authUserId } = req.params;
+      const user = await storage.getUserByAuthId(authUserId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      console.error("[Get User by Auth ID Error]:", error);
+      res.status(500).json({ message: "Erro ao buscar usuário" });
+    }
+  });
+  
+  // Supabase Auth - Create user metadata after Supabase signup
+  app.post("/api/users/metadata", async (req, res) => {
+    try {
+      const { authUserId, name, username, email, phone } = req.body;
+      
+      if (!authUserId || !username) {
+        return res.status(400).json({ message: "authUserId e username são obrigatórios" });
+      }
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByAuthId(authUserId);
+      if (existingUser) {
+        return res.json(existingUser);
+      }
+      
+      // Create user metadata
+      const user = await storage.createUser({
+        authUserId,
+        name,
+        username,
+        email,
+        phone,
+        role: 'operator',
+        isActive: true,
+      });
+      
+      res.json(user);
+    } catch (error) {
+      console.error("[Create User Metadata Error]:", error);
+      res.status(500).json({ message: "Erro ao criar metadata do usuário" });
     }
   });
   
