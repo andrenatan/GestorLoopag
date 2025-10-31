@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { User as SupabaseUser } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -42,30 +42,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize auth state
   useEffect(() => {
-    // Get current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSupabaseUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserMetadata(session.user.id);
-      } else {
+    const initAuth = async () => {
+      try {
+        const supabase = await getSupabase();
+        
+        // Get current session
+        const { data: { session } } = await supabase.auth.getSession();
+        setSupabaseUser(session?.user ?? null);
+        if (session?.user) {
+          fetchUserMetadata(session.user.id);
+        } else {
+          setIsLoading(false);
+        }
+
+        // Listen for auth changes
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event, session) => {
+          setSupabaseUser(session?.user ?? null);
+          if (session?.user) {
+            fetchUserMetadata(session.user.id);
+          } else {
+            setUser(null);
+            setIsLoading(false);
+          }
+        });
+
+        return subscription;
+      } catch (error) {
+        console.error("Failed to initialize auth:", error);
         setIsLoading(false);
+        return null;
       }
+    };
+
+    let subscription: { unsubscribe: () => void } | null = null;
+    
+    initAuth().then((sub) => {
+      subscription = sub;
     });
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSupabaseUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserMetadata(session.user.id);
-      } else {
-        setUser(null);
-        setIsLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const fetchUserMetadata = async (authUserId: string) => {
@@ -84,6 +103,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (data: RegisterData) => {
     try {
+      const supabase = await getSupabase();
+      
       // 1. Create Supabase auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
@@ -133,6 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
+      const supabase = await getSupabase();
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -146,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      const supabase = await getSupabase();
       await supabase.auth.signOut();
       setLocation("/");
     } catch (error: any) {

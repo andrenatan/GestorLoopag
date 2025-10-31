@@ -11,14 +11,14 @@ const initializeSupabase = async () => {
     
     if (!config.url || !config.anonKey) {
       console.error('Missing Supabase configuration from server');
-      return null;
+      throw new Error('Missing Supabase configuration');
     }
     
     supabaseInstance = createClient(config.url, config.anonKey);
     return supabaseInstance;
   } catch (error) {
     console.error('Failed to initialize Supabase:', error);
-    return null;
+    throw error;
   }
 };
 
@@ -29,11 +29,3 @@ export const getSupabase = async () => {
   }
   return await initializeSupabase();
 };
-
-// Export promise-based getter
-export const supabase = await initializeSupabase().then(client => {
-  if (!client) {
-    throw new Error('Failed to initialize Supabase client');
-  }
-  return client;
-});
