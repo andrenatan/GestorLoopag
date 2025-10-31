@@ -12,6 +12,12 @@ import bcrypt from "bcryptjs";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { db } from "../db";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.SUPABASE_URL || '',
+  process.env.SUPABASE_ANON_KEY || ''
+);
 
 // Extend Express session types
 declare module 'express-session' {
@@ -221,27 +227,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Supabase Auth - Create user metadata after Supabase signup
   app.post("/api/users/metadata", async (req, res) => {
     try {
-      const { authUserId, name, username, email, phone } = req.body;
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: "Token de autenticação não fornecido" });
+      }
+
+      const token = authHeader.substring(7);
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
       
-      if (!authUserId || !username) {
-        return res.status(400).json({ message: "authUserId e username são obrigatórios" });
+      if (authError || !authUser) {
+        console.error("[Auth Verification Error]:", authError);
+        return res.status(401).json({ message: "Token inválido ou expirado" });
+      }
+
+      const { name, username, email, phone } = req.body;
+      const authUserId = authUser.id;
+      
+      if (!username) {
+        return res.status(400).json({ message: "username é obrigatório" });
       }
       
-      // Check if user already exists
+      // Check if user already exists by authUserId
       const existingUser = await storage.getUserByAuthId(authUserId);
       if (existingUser) {
         return res.json(existingUser);
       }
+
+      // Check for duplicate username
+      const duplicateUsername = await storage.getUserByUsername(username);
+      if (duplicateUsername) {
+        return res.status(409).json({ message: "Nome de usuário já está em uso" });
+      }
+
+      // Check for duplicate email
+      if (email) {
+        const duplicateEmail = await storage.getUserByEmail(email);
+        if (duplicateEmail) {
+          return res.status(409).json({ message: "Email já está em uso" });
+        }
+      }
       
-      // Create user metadata
+      // Create user metadata with normalized nullable fields
       const user = await storage.createUser({
         authUserId,
-        name,
+        name: name ?? null,
         username,
-        email,
-        phone,
+        email: email ?? null,
+        phone: phone ?? null,
+        password: null,
         role: 'operator',
         isActive: true,
+        planId: null,
       });
       
       res.json(user);

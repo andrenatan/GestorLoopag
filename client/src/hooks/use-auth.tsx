@@ -101,13 +101,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!authData.user) throw new Error("Failed to create user");
 
       // 2. Create user metadata in our database
-      await apiRequest("/api/users/metadata", "POST", {
-        authUserId: authData.user.id,
-        name: data.name,
-        username: data.username,
-        email: data.email,
-        phone: data.phone,
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Falha ao obter token de autenticação");
+      }
+
+      const response = await fetch("/api/users/metadata", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          name: data.name,
+          username: data.username,
+          email: data.email,
+          phone: data.phone,
+        }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Erro ao criar metadata do usuário");
+      }
 
       // User will be automatically logged in by Supabase
     } catch (error: any) {
