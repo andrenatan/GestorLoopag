@@ -1,5 +1,6 @@
 import { 
-  users, employees, systems, clients, whatsappInstances, messageTemplates, billingHistory, paymentHistory, automationConfigs,
+  plans, users, employees, systems, clients, whatsappInstances, messageTemplates, billingHistory, paymentHistory, automationConfigs,
+  type Plan, type InsertPlan,
   type User, type InsertUser,
   type Employee, type InsertEmployee,
   type System, type InsertSystem,
@@ -13,9 +14,16 @@ import {
 import { getBrasiliaDate, getBrasiliaDateString, getBrasiliaStartOfDay, parseDateString } from "./utils/timezone";
 
 export interface IStorage {
+  // Plans
+  getAllPlans(): Promise<Plan[]>;
+  getPlan(id: number): Promise<Plan | undefined>;
+  createPlan(plan: InsertPlan): Promise<Plan>;
+  updatePlan(id: number, plan: Partial<InsertPlan>): Promise<Plan | undefined>;
+
   // Users
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
@@ -758,6 +766,26 @@ import { db } from "../db";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 
 export class DbStorage implements IStorage {
+  // Plans
+  async getAllPlans(): Promise<Plan[]> {
+    return await db.select().from(plans);
+  }
+
+  async getPlan(id: number): Promise<Plan | undefined> {
+    const result = await db.select().from(plans).where(eq(plans.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createPlan(insertPlan: InsertPlan): Promise<Plan> {
+    const result = await db.insert(plans).values(insertPlan).returning();
+    return result[0];
+  }
+
+  async updatePlan(id: number, updateData: Partial<InsertPlan>): Promise<Plan | undefined> {
+    const result = await db.update(plans).set(updateData).where(eq(plans.id, id)).returning();
+    return result[0];
+  }
+
   // Users
   async getUser(id: number): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
@@ -766,6 +794,11 @@ export class DbStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
+    return result[0];
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
     return result[0];
   }
 

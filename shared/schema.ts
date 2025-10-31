@@ -2,12 +2,29 @@ import { pgTable, text, serial, integer, boolean, timestamp, decimal, varchar, d
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Plans table for subscription plans
+export const plans = pgTable("plans", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  billingPeriod: text("billing_period", {
+    enum: ["monthly", "quarterly", "yearly"]
+  }).notNull(),
+  features: jsonb("features").$type<string[]>().notNull().default([]),
+  isPopular: boolean("is_popular").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Users table for authentication and access control
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
+  name: text("name").notNull(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email").notNull().unique(),
+  phone: text("phone").notNull(),
+  planId: integer("plan_id").references(() => plans.id),
   role: text("role", { enum: ["admin", "operator", "viewer"] }).notNull().default("operator"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -141,6 +158,11 @@ export const automationConfigs = pgTable("automation_configs", {
 });
 
 // Insert schemas
+export const insertPlanSchema = createInsertSchema(plans).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -192,6 +214,9 @@ export const insertAutomationConfigSchema = createInsertSchema(automationConfigs
 });
 
 // Types
+export type Plan = typeof plans.$inferSelect;
+export type InsertPlan = z.infer<typeof insertPlanSchema>;
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
