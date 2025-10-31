@@ -27,6 +27,7 @@ Preferred communication style: Simple, everyday language.
 - **Database Provider**: Neon Database (serverless PostgreSQL)
 - **Schema Validation**: Zod for runtime type checking
 - **Session Management**: PostgreSQL-based session storage
+- **Authentication**: Supabase Auth with JWT verification
 
 ### Design System
 - **Theme**: Dual mode (dark/light) with glassmorphism effects
@@ -37,8 +38,16 @@ Preferred communication style: Simple, everyday language.
 
 ## Key Components
 
-### 1. Database Schema
-- **Users**: Authentication and role-based access control (admin/operator/viewer)
+### 1. Authentication System
+- **Supabase Auth**: Email/password authentication with JWT tokens
+- **User Metadata**: Additional user data stored in application database
+- **Auth Flow**: Supabase handles authentication, app stores metadata linked by authUserId
+- **Security**: JWT verification on protected endpoints, duplicate username/email validation
+- **Role-Based Access**: Admin, operator, and viewer roles with granular permissions
+
+### 2. Database Schema
+- **Users**: Extended user metadata linked to Supabase Auth via authUserId (UUID)
+- **Plans**: Subscription plans (Mensal R$60, Trimestral R$150, Anual R$890)
 - **Clients**: IPTV subscriber management with comprehensive tracking
 - **Employees**: Staff management and payroll information
 - **WhatsApp Instances**: Integration for automated messaging
@@ -119,6 +128,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Integration Services
 - **Neon Database**: Serverless PostgreSQL hosting
+- **Supabase**: Authentication service with JWT tokens
 - **WhatsApp Business API**: Messaging integration (planned)
 
 ## Deployment Strategy
@@ -137,6 +147,8 @@ Preferred communication style: Simple, everyday language.
 
 ### Environment Configuration
 - **DATABASE_URL**: PostgreSQL connection string (required)
+- **SUPABASE_URL**: Supabase project URL (required)
+- **SUPABASE_ANON_KEY**: Supabase anonymous key (required)
 - **NODE_ENV**: Environment mode (development/production)
 - **PORT**: Server port configuration
 
