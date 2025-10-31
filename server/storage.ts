@@ -926,6 +926,13 @@ export class DbStorage implements IStorage {
   }
 
   async deleteWhatsappInstance(id: number): Promise<boolean> {
+    // First, update all automation configs that reference this instance to null
+    await db
+      .update(automationConfigs)
+      .set({ whatsappInstanceId: null })
+      .where(eq(automationConfigs.whatsappInstanceId, id));
+    
+    // Then delete the instance
     const result = await db.delete(whatsappInstances).where(eq(whatsappInstances.id, id)).returning();
     return result.length > 0;
   }
