@@ -15,6 +15,13 @@
       "when": 1761276969204,
       "tag": "0001_daffy_silver_surfer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1761887471799,
+      "tag": "0002_crazy_frightful_four",
+      "breakpoints": true
     }
   ]
 }
