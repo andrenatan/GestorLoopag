@@ -4,12 +4,217 @@ import { storage } from "./storage";
 import { 
   insertUserSchema, insertEmployeeSchema, insertSystemSchema, insertClientSchema, 
   insertWhatsappInstanceSchema, insertMessageTemplateSchema, insertBillingHistorySchema,
-  insertPaymentHistorySchema, insertAutomationConfigSchema
+  insertPaymentHistorySchema, insertAutomationConfigSchema, insertPlanSchema
 } from "@shared/schema";
 import multer from "multer";
 import { Client } from "@replit/object-storage";
+import bcrypt from "bcryptjs";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import { db } from "../db";
+
+// Extend Express session types
+declare module 'express-session' {
+  interface SessionData {
+    userId: number;
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // Configure PostgreSQL session store
+  const PgSession = connectPgSimple(session);
+  
+  app.use(
+    session({
+      store: new PgSession({
+        conObject: {
+          connectionString: process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL,
+        },
+        createTableIfMissing: true,
+      }),
+      secret: process.env.SESSION_SECRET || 'loopag-secret-key-change-in-production',
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+      },
+    })
+  );
+
+  // Authentication routes
+  
+  // Register new user
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { name, username, email, phone, password } = req.body;
+      
+      // Validation
+      if (!name || !username || !email || !phone || !password) {
+        return res.status(400).json({ message: "Todos os campos são obrigatórios" });
+      }
+      
+      // Check if username already exists
+      const existingUserByUsername = await storage.getUserByUsername(username);
+      if (existingUserByUsername) {
+        return res.status(400).json({ message: "Nome de usuário já está em uso" });
+      }
+      
+      // Check if email already exists
+      const existingUserByEmail = await storage.getUserByEmail(email);
+      if (existingUserByEmail) {
+        return res.status(400).json({ message: "E-mail já está cadastrado" });
+      }
+      
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      // Create user
+      const user = await storage.createUser({
+        name,
+        username,
+        email,
+        phone,
+        password: hashedPassword,
+        role: 'operator',
+        isActive: true,
+      });
+      
+      // Set session
+      req.session.userId = user.id;
+      
+      res.json({ 
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        phone: user.phone,
+        planId: user.planId,
+        role: user.role 
+      });
+    } catch (error) {
+      console.error("[Register Error]:", error);
+      res.status(500).json({ message: "Erro ao criar conta" });
+    }
+  });
+  
+  // Login
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ message: "Usuário e senha são obrigatórios" });
+      }
+      
+      // Find user
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ message: "Usuário ou senha incorretos" });
+      }
+      
+      // Verify password
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Usuário ou senha incorretos" });
+      }
+      
+      // Check if user is active
+      if (!user.isActive) {
+        return res.status(401).json({ message: "Conta desativada" });
+      }
+      
+      // Set session
+      req.session.userId = user.id;
+      
+      res.json({
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        phone: user.phone,
+        planId: user.planId,
+        role: user.role
+      });
+    } catch (error) {
+      console.error("[Login Error]:", error);
+      res.status(500).json({ message: "Erro ao fazer login" });
+    }
+  });
+  
+  // Get current user
+  app.get("/api/auth/me", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ message: "Não autenticado" });
+      }
+      
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        req.session.destroy(() => {});
+        return res.status(401).json({ message: "Usuário não encontrado" });
+      }
+      
+      res.json({
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        phone: user.phone,
+        planId: user.planId,
+        role: user.role
+      });
+    } catch (error) {
+      console.error("[Me Error]:", error);
+      res.status(500).json({ message: "Erro ao buscar usuário" });
+    }
+  });
+  
+  // Logout
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Erro ao fazer logout" });
+      }
+      res.json({ message: "Logout realizado com sucesso" });
+    });
+  });
+  
+  // Plans routes
+  app.get("/api/plans", async (req, res) => {
+    try {
+      const plans = await storage.getAllPlans();
+      res.json(plans);
+    } catch (error) {
+      console.error("[Plans Error]:", error);
+      res.status(500).json({ message: "Erro ao buscar planos" });
+    }
+  });
+  
+  // Update user plan
+  app.patch("/api/users/:id/plan", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { planId } = req.body;
+      
+      // Check if user is authorized
+      if (req.session.userId !== userId) {
+        return res.status(403).json({ message: "Não autorizado" });
+      }
+      
+      const user = await storage.updateUser(userId, { planId });
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      console.error("[Update Plan Error]:", error);
+      res.status(500).json({ message: "Erro ao atualizar plano" });
+    }
+  });
   
   // Configure multer for memory storage
   const upload = multer({ 
