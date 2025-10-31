@@ -86,7 +86,7 @@ export default function Plans() {
                 <CardTitle className="text-2xl text-white">{plan.name}</CardTitle>
                 <CardDescription className="text-white/70">
                   <span className="text-4xl font-bold text-white">
-                    R$ {plan.price.toFixed(2)}
+                    R$ {Number(plan.price).toFixed(2)}
                   </span>
                   <span className="text-white/60">
                     {plan.billingPeriod === "monthly" && "/mês"}
