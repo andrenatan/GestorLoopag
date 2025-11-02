@@ -89,7 +89,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserMetadata = async (authUserId: string) => {
     try {
-      const response = await fetch(`/api/users/by-auth-id/${authUserId}`);
+      const supabase = await getSupabase();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const headers: HeadersInit = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
+      const response = await fetch(`/api/users/by-auth-id/${authUserId}`, { headers });
       if (response.ok) {
         const metadata = await response.json();
         setUser(metadata);

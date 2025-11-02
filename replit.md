@@ -38,21 +38,34 @@ Preferred communication style: Simple, everyday language.
 
 ## Key Components
 
-### 1. Authentication System
+### 1. Multi-Tenant SaaS Architecture
+- **Complete Data Isolation**: Each user sees only their own data across all entities
+- **Tenant Scoping**: All multi-tenant tables include `auth_user_id` foreign key to users.authUserId
+- **Automatic Filtering**: Storage layer enforces tenant-scoped queries on all operations
+- **Multi-Tenant Tables**: clients, employees, systems, whatsapp_instances, message_templates, billing_history, payment_history, automation_configs
+- **Global Tables**: plans (shared subscription tiers for all tenants)
+- **Security**: JWT-based authentication required for all protected endpoints, owner-only access verification
+
+### 2. Authentication System
 - **Supabase Auth**: Email/password authentication with JWT tokens
 - **User Metadata**: Additional user data stored in application database
 - **Auth Flow**: Supabase handles authentication, app stores metadata linked by authUserId
 - **Security**: JWT verification on protected endpoints, duplicate username/email validation
-- **Role-Based Access**: Admin, operator, and viewer roles with granular permissions
+- **Token Management**: Frontend automatically includes Authorization header with Bearer token on all API requests
+- **Middleware**: Server middleware verifies Supabase JWT and populates req.user for tenant-scoped operations
+- **Role-Based Access**: Admin, operator, and viewer roles with granular permissions (future enhancement)
 
-### 2. Database Schema
-- **Users**: Extended user metadata linked to Supabase Auth via authUserId (UUID)
-- **Plans**: Subscription plans (Mensal R$60, Trimestral R$150, Anual R$890)
-- **Clients**: IPTV subscriber management with comprehensive tracking
-- **Employees**: Staff management and payroll information
-- **WhatsApp Instances**: Integration for automated messaging
-- **Message Templates**: Customizable billing and notification templates
-- **Billing History**: Transaction and payment tracking
+### 3. Database Schema
+- **Users**: Extended user metadata linked to Supabase Auth via authUserId (UUID, unique)
+- **Plans**: Subscription plans - global table shared across all tenants (Mensal R$60, Trimestral R$150, Anual R$890)
+- **Clients**: IPTV subscriber management with auth_user_id scoping
+- **Employees**: Staff management with auth_user_id scoping
+- **Systems**: Available systems per tenant with auth_user_id scoping
+- **WhatsApp Instances**: Messaging integration with auth_user_id scoping
+- **Message Templates**: Customizable templates with auth_user_id scoping
+- **Billing History**: Transaction tracking with auth_user_id scoping
+- **Payment History**: Revenue tracking with auth_user_id scoping
+- **Automation Configs**: Automation settings with auth_user_id scoping
 
 ### 2. Dashboard
 - Real-time metrics with animated cards
