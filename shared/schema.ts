@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, varchar, date, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, varchar, date, jsonb, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -19,7 +19,7 @@ export const plans = pgTable("plans", {
 // Users table for authentication and access control
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  authUserId: text("auth_user_id").unique(),
+  authUserId: uuid("auth_user_id").unique(),
   name: text("name"),
   username: text("username").notNull().unique(),
   password: text("password"),
