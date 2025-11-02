@@ -8,8 +8,9 @@ export const plans = pgTable("plans", {
   name: text("name").notNull().unique(),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   billingPeriod: text("billing_period", {
-    enum: ["monthly", "quarterly", "yearly"]
+    enum: ["monthly", "semiannual", "yearly", "lifetime"]
   }).notNull(),
+  stripePriceId: text("stripe_price_id"),
   features: jsonb("features").$type<string[]>().notNull().default([]),
   isPopular: boolean("is_popular").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
@@ -26,6 +27,12 @@ export const users = pgTable("users", {
   email: text("email"),
   phone: text("phone"),
   planId: integer("plan_id").references(() => plans.id),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  subscriptionStatus: text("subscription_status", {
+    enum: ["active", "inactive", "trialing", "past_due", "canceled"]
+  }).default("inactive"),
+  subscriptionExpiresAt: timestamp("subscription_expires_at"),
   role: text("role", { enum: ["admin", "operator", "viewer"] }).notNull().default("operator"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
