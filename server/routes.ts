@@ -98,6 +98,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   });
 
+  // Subscription check middleware - use for protected routes that require active subscription
+  const requireActiveSubscription = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Autenticação necessária" });
+    }
+    
+    // Check if user has active subscription
+    if (req.user.subscriptionStatus !== 'active') {
+      return res.status(403).json({ 
+        message: "Assinatura inativa", 
+        subscriptionStatus: req.user.subscriptionStatus,
+        requiresSubscription: true
+      });
+    }
+    
+    // Check if subscription has expired (for recurring subscriptions)
+    if (req.user.subscriptionExpiresAt) {
+      const now = new Date();
+      const expiresAt = new Date(req.user.subscriptionExpiresAt);
+      if (now > expiresAt) {
+        return res.status(403).json({ 
+          message: "Assinatura expirada", 
+          subscriptionStatus: 'expired',
+          requiresSubscription: true
+        });
+      }
+    }
+    
+    next();
+  };
+
   // Authentication routes
   
   // Register new user
