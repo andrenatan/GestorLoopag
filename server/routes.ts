@@ -1,10 +1,11 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
   insertUserSchema, insertEmployeeSchema, insertSystemSchema, insertClientSchema, 
   insertWhatsappInstanceSchema, insertMessageTemplateSchema, insertBillingHistorySchema,
-  insertPaymentHistorySchema, insertAutomationConfigSchema, insertPlanSchema
+  insertPaymentHistorySchema, insertAutomationConfigSchema, insertPlanSchema,
+  type User
 } from "@shared/schema";
 import multer from "multer";
 import { Client } from "@replit/object-storage";
@@ -19,10 +20,18 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY || ''
 );
 
-// Extend Express session types
+// Extend Express types
 declare module 'express-session' {
   interface SessionData {
     userId: number;
+  }
+}
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: User;
+    }
   }
 }
 
@@ -57,6 +66,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       },
     })
   );
+
+  // Middleware to attach user object to request
+  app.use(async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Try Supabase JWT token first (from Authorization header)
+      const authHeader = req.headers.authorization;
+      
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        const { data: { user: supabaseUser }, error } = await supabase.auth.getUser(token);
+        
+        if (!error && supabaseUser) {
+          // Get user metadata from database using authUserId
+          const user = await storage.getUserByAuthId(supabaseUser.id);
+          if (user) {
+            req.user = user;
+          }
+        }
+      }
+      // Fallback to session-based auth (legacy)
+      else if (req.session.userId) {
+        const user = await storage.getUser(req.session.userId);
+        if (user) {
+          req.user = user;
+        }
+      }
+    } catch (error) {
+      console.error("[Auth Middleware Error]:", error);
+    }
+    next();
+  });
 
   // Authentication routes
   
@@ -211,6 +251,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/users/by-auth-id/:authUserId", async (req, res) => {
     try {
       const { authUserId } = req.params;
+      
+      // Security: Require authentication
+      if (!req.user) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      // Security: Only allow users to fetch their own metadata
+      if (req.user.authUserId !== authUserId) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      
       const user = await storage.getUserByAuthId(authUserId);
       
       if (!user) {
@@ -390,7 +441,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard Stats
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
-      const stats = await storage.getDashboardStats();
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const stats = await storage.getDashboardStats(authUserId);
       res.json(stats);
     } catch (error) {
       console.error("[Dashboard Stats Error]:", error);
@@ -400,7 +456,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/dashboard/new-clients-by-day", async (req, res) => {
     try {
-      const data = await storage.getNewClientsByDay();
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const data = await storage.getNewClientsByDay(authUserId);
       res.json(data);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch new clients by day" });
@@ -409,11 +470,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/dashboard/revenue-by-period", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const period = req.query.period as 'current_month' | 'last_month' | '3_months' | '6_months' | '12_months';
       if (!['current_month', 'last_month', '3_months', '6_months', '12_months'].includes(period)) {
         return res.status(400).json({ message: "Invalid period" });
       }
-      const data = await storage.getRevenueByPeriod(period);
+      const data = await storage.getRevenueByPeriod(authUserId, period);
       res.json(data);
     } catch (error) {
       console.error("[Revenue By Period Error]:", error);
@@ -460,7 +526,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Employees Routes
   app.get("/api/employees", async (req, res) => {
     try {
-      const employees = await storage.getAllEmployees();
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const employees = await storage.getAllEmployees(authUserId);
       res.json(employees);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch employees" });
@@ -469,8 +540,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/employees", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const validatedData = insertEmployeeSchema.parse(req.body);
-      const employee = await storage.createEmployee(validatedData);
+      const employee = await storage.createEmployee(authUserId, validatedData);
       res.status(201).json(employee);
     } catch (error) {
       res.status(400).json({ message: "Invalid employee data", error });
@@ -479,9 +555,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/employees/:id", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const id = parseInt(req.params.id);
       const validatedData = insertEmployeeSchema.partial().parse(req.body);
-      const employee = await storage.updateEmployee(id, validatedData);
+      const employee = await storage.updateEmployee(authUserId, id, validatedData);
       
       if (!employee) {
         return res.status(404).json({ message: "Employee not found" });
@@ -495,8 +576,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/employees/:id", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const id = parseInt(req.params.id);
-      const deleted = await storage.deleteEmployee(id);
+      const deleted = await storage.deleteEmployee(authUserId, id);
       
       if (!deleted) {
         return res.status(404).json({ message: "Employee not found" });
@@ -511,7 +597,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Systems Routes
   app.get("/api/systems", async (req, res) => {
     try {
-      const systems = await storage.getAllSystems();
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const systems = await storage.getAllSystems(authUserId);
       res.json(systems);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch systems" });
@@ -520,8 +611,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/systems", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const validatedData = insertSystemSchema.parse(req.body);
-      const system = await storage.createSystem(validatedData);
+      const system = await storage.createSystem(authUserId, validatedData);
       res.status(201).json(system);
     } catch (error) {
       res.status(400).json({ message: "Invalid system data", error });
@@ -530,9 +626,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/systems/:id", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const id = parseInt(req.params.id);
       const validatedData = insertSystemSchema.partial().parse(req.body);
-      const system = await storage.updateSystem(id, validatedData);
+      const system = await storage.updateSystem(authUserId, id, validatedData);
       
       if (!system) {
         return res.status(404).json({ message: "System not found" });
@@ -546,8 +647,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/systems/:id", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const id = parseInt(req.params.id);
-      const deleted = await storage.deleteSystem(id);
+      const deleted = await storage.deleteSystem(authUserId, id);
       
       if (!deleted) {
         return res.status(404).json({ message: "System not found" });
@@ -562,7 +668,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Clients Routes
   app.get("/api/clients", async (req, res) => {
     try {
-      const clients = await storage.getAllClients();
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const clients = await storage.getAllClients(authUserId);
       res.json(clients);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch clients" });
@@ -571,8 +682,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/clients/expiring/:days", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const days = parseInt(req.params.days);
-      const clients = await storage.getExpiringClients(days);
+      const clients = await storage.getExpiringClients(authUserId, days);
       res.json(clients);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch expiring clients" });
@@ -581,7 +697,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/clients/overdue", async (req, res) => {
     try {
-      const clients = await storage.getOverdueClients();
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const clients = await storage.getOverdueClients(authUserId);
       res.json(clients);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch overdue clients" });
@@ -590,8 +711,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/clients/rankings", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const days = req.query.days ? parseInt(req.query.days as string) : undefined;
-      const rankings = await storage.getReferralRankings(days);
+      const rankings = await storage.getReferralRankings(authUserId, days);
       res.json(rankings);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch referral rankings" });
@@ -600,11 +726,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/clients", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const validatedData = insertClientSchema.parse(req.body);
-      const client = await storage.createClient(validatedData);
+      const client = await storage.createClient(authUserId, validatedData);
       
       // Register initial payment in payment_history
-      await storage.createPaymentHistory({
+      await storage.createPaymentHistory(authUserId, {
+        authUserId,
         clientId: client.id,
         amount: validatedData.value,
         paymentDate: validatedData.activationDate,
@@ -621,17 +753,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/clients/:id", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const id = parseInt(req.params.id);
       const validatedData = insertClientSchema.partial().parse(req.body);
       
       // Get current client data before update
-      const oldClient = await storage.getClient(id);
+      const oldClient = await storage.getClient(authUserId, id);
       if (!oldClient) {
         return res.status(404).json({ message: "Client not found" });
       }
       
       // Update client
-      const client = await storage.updateClient(id, validatedData);
+      const client = await storage.updateClient(authUserId, id, validatedData);
       if (!client) {
         return res.status(404).json({ message: "Client not found" });
       }
@@ -663,7 +800,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
           
           // Register renewal payment
-          await storage.createPaymentHistory({
+          await storage.createPaymentHistory(authUserId, {
+            authUserId,
             clientId: client.id,
             amount: client.value, // Use current client value
             paymentDate: getBrasiliaDateString(),
@@ -682,8 +820,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/clients/:id", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const id = parseInt(req.params.id);
-      const deleted = await storage.deleteClient(id);
+      const deleted = await storage.deleteClient(authUserId, id);
       
       if (!deleted) {
         return res.status(404).json({ message: "Client not found" });
@@ -698,7 +841,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // WhatsApp Instances Routes
   app.get("/api/whatsapp/instances", async (req, res) => {
     try {
-      const instances = await storage.getAllWhatsappInstances();
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const instances = await storage.getAllWhatsappInstances(authUserId);
       res.json(instances);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch WhatsApp instances" });
@@ -707,8 +855,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/whatsapp/instances", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const validatedData = insertWhatsappInstanceSchema.parse(req.body);
-      const instance = await storage.createWhatsappInstance(validatedData);
+      const instance = await storage.createWhatsappInstance(authUserId, validatedData);
       
       console.log(`[WhatsApp] Creating instance: ${instance.name} (ID: ${instance.id})`);
       
@@ -767,7 +920,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Update instance with QR code
-          await storage.updateWhatsappInstance(instance.id, {
+          await storage.updateWhatsappInstance(authUserId, instance.id, {
             qrCode,
             status: "connecting",
           });
@@ -799,9 +952,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/whatsapp/instances/:id", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const id = parseInt(req.params.id);
       const validatedData = insertWhatsappInstanceSchema.partial().parse(req.body);
-      const instance = await storage.updateWhatsappInstance(id, validatedData);
+      const instance = await storage.updateWhatsappInstance(authUserId, id, validatedData);
       
       if (!instance) {
         return res.status(404).json({ message: "WhatsApp instance not found" });
@@ -815,10 +973,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/whatsapp/instances/:id", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const id = parseInt(req.params.id);
       
       // Get instance to retrieve the name for webhook call
-      const instance = await storage.getWhatsappInstance(id);
+      const instance = await storage.getWhatsappInstance(authUserId, id);
       if (!instance) {
         return res.status(404).json({ message: "WhatsApp instance not found" });
       }
@@ -858,7 +1021,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Delete instance from storage
-      await storage.deleteWhatsappInstance(id);
+      await storage.deleteWhatsappInstance(authUserId, id);
       console.log(`[WhatsApp] Instance deleted successfully from storage`);
 
       res.status(204).send();
@@ -870,10 +1033,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/whatsapp/instances/:id/status", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const id = parseInt(req.params.id);
       
       // Get instance to retrieve the name
-      const instance = await storage.getWhatsappInstance(id);
+      const instance = await storage.getWhatsappInstance(authUserId, id);
       if (!instance) {
         return res.status(404).json({ message: "WhatsApp instance not found" });
       }
@@ -920,7 +1088,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           newStatus = "connected";
         }
 
-        const updatedInstance = await storage.updateWhatsappInstance(id, {
+        const updatedInstance = await storage.updateWhatsappInstance(authUserId, id, {
           status: newStatus,
         });
 
@@ -942,6 +1110,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/whatsapp/instances/:id/connect", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const id = parseInt(req.params.id);
       
       // Call external WhatsApp API
@@ -960,7 +1133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = await response.json();
       
       // Update instance with QR code
-      const updatedInstance = await storage.updateWhatsappInstance(id, {
+      const updatedInstance = await storage.updateWhatsappInstance(authUserId, id, {
         qrCode: data.qrCode,
         status: "connecting",
         instanceId: data.instanceId,
@@ -975,7 +1148,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Message Templates Routes
   app.get("/api/templates", async (req, res) => {
     try {
-      const templates = await storage.getAllMessageTemplates();
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const templates = await storage.getAllMessageTemplates(authUserId);
       res.json(templates);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch message templates" });
@@ -984,8 +1162,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/templates", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const validatedData = insertMessageTemplateSchema.parse(req.body);
-      const template = await storage.createMessageTemplate(validatedData);
+      const template = await storage.createMessageTemplate(authUserId, validatedData);
       res.status(201).json(template);
     } catch (error) {
       res.status(400).json({ message: "Invalid template data", error });
@@ -994,9 +1177,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/templates/:id", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const id = parseInt(req.params.id);
       const validatedData = insertMessageTemplateSchema.partial().parse(req.body);
-      const template = await storage.updateMessageTemplate(id, validatedData);
+      const template = await storage.updateMessageTemplate(authUserId, id, validatedData);
       
       if (!template) {
         return res.status(404).json({ message: "Template not found" });
@@ -1010,8 +1198,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/templates/:id", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const id = parseInt(req.params.id);
-      const deleted = await storage.deleteMessageTemplate(id);
+      const deleted = await storage.deleteMessageTemplate(authUserId, id);
       
       if (!deleted) {
         return res.status(404).json({ message: "Template not found" });
@@ -1026,7 +1219,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Billing History Routes
   app.get("/api/billing/history", async (req, res) => {
     try {
-      const history = await storage.getAllBillingHistory();
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const history = await storage.getAllBillingHistory(authUserId);
       res.json(history);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch billing history" });
@@ -1035,13 +1233,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/billing/send", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const { clientIds, templateId, instanceId } = req.body;
       
       const results = [];
       
       for (const clientId of clientIds) {
-        const client = await storage.getClient(clientId);
-        const template = await storage.getMessageTemplate(templateId);
+        const client = await storage.getClient(authUserId, clientId);
+        const template = await storage.getMessageTemplate(authUserId, templateId);
         
         if (!client || !template) {
           continue;
@@ -1056,7 +1259,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .replace(/{sistema}/g, client.system);
 
         // Create billing history record
-        const billingRecord = await storage.createBillingHistory({
+        const billingRecord = await storage.createBillingHistory(authUserId, {
+          authUserId,
           clientId,
           instanceId,
           templateId,
@@ -1077,7 +1281,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Automation Config Routes
   app.get("/api/automation-configs", async (req, res) => {
     try {
-      const configs = await storage.getAllAutomationConfigs();
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const configs = await storage.getAllAutomationConfigs(authUserId);
       res.json(configs);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch automation configs" });
@@ -1086,7 +1295,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/automation-configs/:type", async (req, res) => {
     try {
-      const config = await storage.getAutomationConfig(req.params.type);
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const config = await storage.getAutomationConfig(authUserId, req.params.type);
       if (!config) {
         return res.status(404).json({ message: "Automation config not found" });
       }
@@ -1098,8 +1312,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/automation-configs", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const validatedData = insertAutomationConfigSchema.parse(req.body);
-      const config = await storage.createAutomationConfig(validatedData);
+      const config = await storage.createAutomationConfig(authUserId, validatedData);
       res.status(201).json(config);
     } catch (error) {
       res.status(400).json({ message: "Invalid automation config data", error });
@@ -1108,7 +1327,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/automation-configs/:type", async (req, res) => {
     try {
-      const config = await storage.updateAutomationConfig(req.params.type, req.body);
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const config = await storage.updateAutomationConfig(authUserId, req.params.type, req.body);
       if (!config) {
         return res.status(404).json({ message: "Automation config not found" });
       }
@@ -1121,17 +1345,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Data Migration: Populate payment_history from existing clients
   app.post("/api/migrate/populate-payment-history", async (req, res) => {
     try {
-      const clients = await storage.getAllClients();
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const clients = await storage.getAllClients(authUserId);
       let created = 0;
       let skipped = 0;
       
       for (const client of clients) {
         // Check if payment already exists for this client
-        const existingPayments = await storage.getPaymentHistoryByClient(client.id);
+        const existingPayments = await storage.getPaymentHistoryByClient(authUserId, client.id);
         
         // Only create if no payment exists yet
         if (existingPayments.length === 0) {
-          await storage.createPaymentHistory({
+          await storage.createPaymentHistory(authUserId, {
+            authUserId,
             clientId: client.id,
             amount: client.value,
             paymentDate: client.activationDate,
@@ -1160,8 +1390,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Test automation trigger (manual)
   app.post("/api/test/trigger-automation/:type", async (req, res) => {
     try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const automationType = req.params.type;
-      const config = await storage.getAutomationConfig(automationType);
+      const config = await storage.getAutomationConfig(authUserId, automationType);
       
       if (!config) {
         return res.status(404).json({ message: "Automation config not found" });

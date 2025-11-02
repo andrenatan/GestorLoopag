@@ -34,6 +34,7 @@ export const users = pgTable("users", {
 // Employees table
 export const employees = pgTable("employees", {
   id: serial("id").primaryKey(),
+  authUserId: uuid("auth_user_id").notNull().references(() => users.authUserId),
   name: text("name").notNull(),
   phone: text("phone").notNull(),
   email: text("email").notNull().unique(),
@@ -50,7 +51,8 @@ export const employees = pgTable("employees", {
 // Systems table
 export const systems = pgTable("systems", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull().unique(),
+  authUserId: uuid("auth_user_id").notNull().references(() => users.authUserId),
+  name: text("name").notNull(),
   description: text("description"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -59,6 +61,7 @@ export const systems = pgTable("systems", {
 // Clients table for IPTV subscribers
 export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
+  authUserId: uuid("auth_user_id").notNull().references(() => users.authUserId),
   name: text("name").notNull(),
   phone: text("phone").notNull(),
   username: text("username").notNull(),
@@ -85,6 +88,7 @@ export const clients = pgTable("clients", {
 // WhatsApp instances table
 export const whatsappInstances = pgTable("whatsapp_instances", {
   id: serial("id").primaryKey(),
+  authUserId: uuid("auth_user_id").notNull().references(() => users.authUserId),
   name: text("name").notNull(),
   instanceId: text("instance_id").unique(),
   qrCode: text("qr_code"),
@@ -99,6 +103,7 @@ export const whatsappInstances = pgTable("whatsapp_instances", {
 // Message templates table
 export const messageTemplates = pgTable("message_templates", {
   id: serial("id").primaryKey(),
+  authUserId: uuid("auth_user_id").notNull().references(() => users.authUserId),
   title: text("title").notNull(),
   content: text("content").notNull(),
   imageUrl: text("image_url"),
@@ -110,6 +115,7 @@ export const messageTemplates = pgTable("message_templates", {
 // Billing history table
 export const billingHistory = pgTable("billing_history", {
   id: serial("id").primaryKey(),
+  authUserId: uuid("auth_user_id").notNull().references(() => users.authUserId),
   clientId: integer("client_id").notNull().references(() => clients.id),
   instanceId: integer("instance_id").notNull().references(() => whatsappInstances.id),
   templateId: integer("template_id").notNull().references(() => messageTemplates.id),
@@ -125,6 +131,7 @@ export const billingHistory = pgTable("billing_history", {
 // Payment history table - tracks actual revenue from new clients and renewals
 export const paymentHistory = pgTable("payment_history", {
   id: serial("id").primaryKey(),
+  authUserId: uuid("auth_user_id").notNull().references(() => users.authUserId),
   clientId: integer("client_id").notNull().references(() => clients.id),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   paymentDate: date("payment_date").notNull(),
@@ -139,9 +146,10 @@ export const paymentHistory = pgTable("payment_history", {
 // Automation configurations table
 export const automationConfigs = pgTable("automation_configs", {
   id: serial("id").primaryKey(),
+  authUserId: uuid("auth_user_id").notNull().references(() => users.authUserId),
   automationType: text("automation_type", {
     enum: ["cobrancas", "reativacao", "novosClientes"]
-  }).notNull().unique(),
+  }).notNull(),
   isActive: boolean("is_active").notNull().default(false),
   scheduledTime: text("scheduled_time").notNull(),
   whatsappInstanceId: integer("whatsapp_instance_id").references(() => whatsappInstances.id),
