@@ -20,6 +20,7 @@ import Templates from "@/pages/templates";
 import WhatsApp from "@/pages/whatsapp";
 import Landing from "@/pages/landing";
 import Plans from "@/pages/plans";
+import Success from "@/pages/success";
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -47,6 +48,13 @@ function Router() {
       <Route path="/plans">
         <ProtectedRoute>
           <Plans />
+        </ProtectedRoute>
+      </Route>
+
+      {/* Success page after Stripe checkout */}
+      <Route path="/success">
+        <ProtectedRoute>
+          <Success />
         </ProtectedRoute>
       </Route>
 

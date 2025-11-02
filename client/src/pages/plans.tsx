@@ -26,22 +26,19 @@ export default function Plans() {
     queryKey: ["/api/plans"],
   });
 
-  const selectPlanMutation = useMutation({
+  const checkoutMutation = useMutation({
     mutationFn: async (planId: number) => {
-      await apiRequest(`/api/users/${user?.id}/plan`, "PATCH", { planId });
+      const response = await apiRequest("/api/stripe/create-checkout-session", "POST", { planId });
+      return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      toast({
-        title: "Plano selecionado!",
-        description: "Bem-vindo ao Loopag!",
-      });
-      setLocation("/dashboard");
+    onSuccess: (data: { url: string }) => {
+      // Redirect to Stripe checkout
+      window.location.href = data.url;
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
-        title: "Erro ao selecionar plano",
-        description: "Tente novamente mais tarde",
+        title: "Erro ao processar pagamento",
+        description: error.message || "Tente novamente mais tarde",
         variant: "destructive",
       });
     },
@@ -67,7 +64,7 @@ export default function Plans() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
           {plans?.map((plan) => (
             <Card
               key={plan.id}
@@ -90,31 +87,32 @@ export default function Plans() {
                   </span>
                   <span className="text-white/60">
                     {plan.billingPeriod === "monthly" && "/mês"}
-                    {plan.billingPeriod === "quarterly" && "/trimestre"}
+                    {plan.billingPeriod === "semiannual" && "/semestre"}
                     {plan.billingPeriod === "yearly" && "/ano"}
+                    {plan.billingPeriod === "lifetime" && " único"}
                   </span>
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <ul className="space-y-3">
                   {plan.features.map((feature, index) => (
-                    <li key={index} className="flex items-center text-white">
-                      <Check className="h-5 w-5 mr-2 text-green-400" />
+                    <li key={index} className="flex items-center text-white text-sm">
+                      <Check className="h-5 w-5 mr-2 text-green-400 flex-shrink-0" />
                       <span>{feature}</span>
                     </li>
                   ))}
                 </ul>
                 <Button
                   data-testid={`button-select-plan-${plan.id}`}
-                  onClick={() => selectPlanMutation.mutate(plan.id)}
-                  disabled={selectPlanMutation.isPending}
+                  onClick={() => checkoutMutation.mutate(plan.id)}
+                  disabled={checkoutMutation.isPending}
                   className="w-full"
                   variant={plan.isPopular ? "default" : "outline"}
                 >
-                  {selectPlanMutation.isPending && (
+                  {checkoutMutation.isPending && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  Selecionar Plano
+                  Assinar Agora
                 </Button>
               </CardContent>
             </Card>
