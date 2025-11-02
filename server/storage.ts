@@ -107,6 +107,10 @@ export interface IStorage {
   getClientsExpiringInDays(authUserId: string, days: number): Promise<Client[]>;
   getClientsExpiredForDays(authUserId: string, days: number): Promise<Client[]>;
   getClientsActiveForDays(authUserId: string, days: number): Promise<Client[]>;
+
+  // Stripe subscription methods
+  updateUserStripeInfo(userId: number, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User | undefined>;
+  updateUserSubscriptionStatus(userId: number, status: string, expiresAt?: Date | null): Promise<User | undefined>;
 }
 
 
@@ -719,6 +723,26 @@ export class DbStorage implements IStorage {
       const activationDate = new Date(year, month - 1, day);
       return activationDate.getTime() === targetDate.getTime();
     });
+  }
+
+  // Stripe subscription methods
+  async updateUserStripeInfo(userId: number, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User | undefined> {
+    const result = await db.update(users)
+      .set({ stripeCustomerId, stripeSubscriptionId })
+      .where(eq(users.id, userId))
+      .returning();
+    return result[0];
+  }
+
+  async updateUserSubscriptionStatus(userId: number, status: string, expiresAt?: Date | null): Promise<User | undefined> {
+    const result = await db.update(users)
+      .set({ 
+        subscriptionStatus: status as "active" | "inactive" | "trialing" | "past_due" | "canceled",
+        subscriptionExpiresAt: expiresAt
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return result[0];
   }
 }
 

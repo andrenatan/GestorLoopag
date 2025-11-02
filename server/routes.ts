@@ -1422,6 +1422,178 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stripe checkout endpoint - reference from blueprint:javascript_stripe
+  app.post("/api/stripe/create-checkout-session", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Autenticação necessária" });
+      }
+
+      const { planId } = req.body;
+      if (!planId) {
+        return res.status(400).json({ message: "Plan ID é obrigatório" });
+      }
+
+      const plan = await storage.getPlan(planId);
+      if (!plan) {
+        return res.status(404).json({ message: "Plano não encontrado" });
+      }
+
+      if (!process.env.STRIPE_SECRET_KEY) {
+        return res.status(500).json({ message: "Stripe não configurado" });
+      }
+
+      const Stripe = (await import('stripe')).default;
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+        apiVersion: "2024-11-20.acacia",
+      });
+
+      // Create or get Stripe customer
+      let customerId = req.user.stripeCustomerId;
+      if (!customerId && req.user.email) {
+        const customer = await stripe.customers.create({
+          email: req.user.email,
+          name: req.user.name || req.user.username,
+          metadata: {
+            userId: req.user.id.toString(),
+            authUserId: req.user.authUserId || '',
+          },
+        });
+        customerId = customer.id;
+        await storage.updateUserStripeInfo(req.user.id, customerId, '');
+      }
+
+      // Create checkout session
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'brl',
+              product_data: {
+                name: plan.name,
+                description: `Plano ${plan.name} - Loopag IPTV`,
+              },
+              unit_amount: Math.round(parseFloat(plan.price) * 100),
+              recurring: plan.billingPeriod === 'lifetime' ? undefined : {
+                interval: plan.billingPeriod === 'monthly' ? 'month' : 
+                          plan.billingPeriod === 'semiannual' ? 'month' : 
+                          'year',
+                interval_count: plan.billingPeriod === 'semiannual' ? 6 : 1,
+              },
+            },
+            quantity: 1,
+          },
+        ],
+        mode: plan.billingPeriod === 'lifetime' ? 'payment' : 'subscription',
+        success_url: `${req.headers.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${req.headers.origin}/plans`,
+        metadata: {
+          userId: req.user.id.toString(),
+          authUserId: req.user.authUserId || '',
+          planId: plan.id.toString(),
+        },
+      });
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("[Stripe Checkout Error]:", error);
+      res.status(500).json({ message: "Erro ao criar sessão de pagamento", error: error.message });
+    }
+  });
+
+  // Stripe webhook endpoint - reference from blueprint:javascript_stripe
+  app.post("/api/stripe/webhook", async (req, res) => {
+    try {
+      if (!process.env.STRIPE_SECRET_KEY) {
+        return res.status(500).json({ message: "Stripe não configurado" });
+      }
+
+      const Stripe = (await import('stripe')).default;
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+        apiVersion: "2024-11-20.acacia",
+      });
+
+      const sig = req.headers['stripe-signature'];
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+      let event;
+
+      if (webhookSecret && sig) {
+        try {
+          event = stripe.webhooks.constructEvent(req.body, sig as string, webhookSecret);
+        } catch (err: any) {
+          console.error('[Webhook Signature Error]:', err.message);
+          return res.status(400).send(`Webhook Error: ${err.message}`);
+        }
+      } else {
+        event = req.body;
+      }
+
+      // Handle different event types
+      switch (event.type) {
+        case 'checkout.session.completed': {
+          const session = event.data.object as any;
+          const userId = parseInt(session.metadata?.userId || '0');
+          
+          if (userId && session.subscription) {
+            await storage.updateUserStripeInfo(userId, session.customer as string, session.subscription as string);
+            await storage.updateUserSubscriptionStatus(userId, 'active');
+          } else if (userId && session.mode === 'payment') {
+            await storage.updateUserSubscriptionStatus(userId, 'active');
+          }
+          break;
+        }
+
+        case 'invoice.payment_succeeded': {
+          const invoice = event.data.object as any;
+          if (invoice.subscription) {
+            const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
+            const userId = parseInt(subscription.metadata?.userId || '0');
+            
+            if (userId) {
+              const expiresAt = new Date(subscription.current_period_end * 1000);
+              await storage.updateUserSubscriptionStatus(userId, 'active', expiresAt);
+            }
+          }
+          break;
+        }
+
+        case 'invoice.payment_failed': {
+          const invoice = event.data.object as any;
+          if (invoice.subscription) {
+            const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
+            const userId = parseInt(subscription.metadata?.userId || '0');
+            
+            if (userId) {
+              await storage.updateUserSubscriptionStatus(userId, 'past_due');
+            }
+          }
+          break;
+        }
+
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object as any;
+          const userId = parseInt(subscription.metadata?.userId || '0');
+          
+          if (userId) {
+            await storage.updateUserSubscriptionStatus(userId, 'canceled');
+          }
+          break;
+        }
+
+        default:
+          console.log(`Unhandled event type: ${event.type}`);
+      }
+
+      res.json({ received: true });
+    } catch (error: any) {
+      console.error("[Stripe Webhook Error]:", error);
+      res.status(500).json({ message: "Erro ao processar webhook", error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
