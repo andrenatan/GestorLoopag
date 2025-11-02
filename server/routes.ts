@@ -13,6 +13,7 @@ import bcrypt from "bcryptjs";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { db } from "../db";
+import { sql } from "drizzle-orm";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -267,6 +268,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
+  // Migration endpoint - run once to add Stripe columns  
+  app.post("/api/migrate/stripe-columns", async (req, res) => {
+    try {
+      // Create plans table if it doesn't exist
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS plans (
+          id SERIAL PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          price NUMERIC(10, 2) NOT NULL,
+          billing_period TEXT NOT NULL,
+          stripe_price_id TEXT,
+          features JSONB NOT NULL DEFAULT '[]',
+          is_popular BOOLEAN NOT NULL DEFAULT FALSE,
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      
+      // Add Stripe columns to users if not exist
+      await db.execute(sql`
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT,
+        ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT,
+        ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'inactive',
+        ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMP
+      `);
+      
+      // Insert plans using ON CONFLICT to avoid duplicates
+      await db.execute(sql`
+        INSERT INTO plans (name, price, billing_period, features, is_popular, is_active)
+        VALUES 
+          ('Mensal', 60.00, 'monthly', '["Acesso completo ao sistema", "Suporte por email", "Atualizações automáticas"]'::jsonb, false, true),
+          ('Semestral', 300.00, 'semiannual', '["Acesso completo ao sistema", "Suporte por email", "Atualizações automáticas", "15% de desconto"]'::jsonb, true, true),
+          ('Anual', 600.00, 'yearly', '["Acesso completo ao sistema", "Suporte prioritário", "Atualizações automáticas", "17% de desconto"]'::jsonb, false, true),
+          ('Vitalício', 1490.00, 'lifetime', '["Acesso completo ao sistema", "Suporte prioritário vitalício", "Atualizações automáticas", "Acesso permanente"]'::jsonb, false, true)
+        ON CONFLICT (name) DO NOTHING
+      `);
+      
+      res.json({ message: "Migration completed successfully" });
+    } catch (error: any) {
+      console.error("[Migration Error]:", error);
+      res.status(500).json({ message: "Migration failed", error: error.message });
+    }
+  });
+
   // Plans routes
   app.get("/api/plans", async (req, res) => {
     try {
