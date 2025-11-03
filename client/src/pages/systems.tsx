@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   Plus, 
   Search, 
@@ -37,13 +37,8 @@ export default function Systems() {
 
   const createSystemMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const response = await fetch("/api/systems", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to create system");
-      return response.json();
+      const res = await apiRequest("/api/systems", "POST", data);
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/systems"] });
@@ -65,13 +60,8 @@ export default function Systems() {
 
   const updateSystemMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: typeof formData }) => {
-      const response = await fetch(`/api/systems/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to update system");
-      return response.json();
+      const res = await apiRequest(`/api/systems/${id}`, "PATCH", data);
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/systems"] });
@@ -93,11 +83,8 @@ export default function Systems() {
 
   const deleteSystemMutation = useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`/api/systems/${id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Failed to delete system");
-      return response.status === 204 ? null : response.json();
+      await apiRequest(`/api/systems/${id}`, "DELETE");
+      return null;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/systems"] });
