@@ -312,6 +312,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Migration failed", error: error.message });
     }
   });
+  
+  // Update Stripe Price IDs for existing plans
+  app.post("/api/migrate/update-stripe-price-ids", async (req, res) => {
+    try {
+      await db.execute(sql`
+        UPDATE plans SET stripe_price_id = 'price_1SPD23ASuJTfpFioFwFru9X6' WHERE name = 'Mensal';
+      `);
+      await db.execute(sql`
+        UPDATE plans SET stripe_price_id = 'price_1SPD3oASuJTfpFioihb9I0zm' WHERE name = 'Semestral';
+      `);
+      await db.execute(sql`
+        UPDATE plans SET stripe_price_id = 'price_1SPD4UASuJTfpFiow91XcPvH' WHERE name = 'Anual';
+      `);
+      await db.execute(sql`
+        UPDATE plans SET stripe_price_id = 'price_1SPD5jASuJTfpFioUSGEjekN' WHERE name = 'Vitalício';
+      `);
+      
+      const updatedPlans = await storage.getAllPlans();
+      res.json({ 
+        message: "Stripe Price IDs updated successfully",
+        plans: updatedPlans
+      });
+    } catch (error: any) {
+      console.error("[Price ID Update Error]:", error);
+      res.status(500).json({ message: "Failed to update Price IDs", error: error.message });
+    }
+  });
 
   // Plans routes
   app.get("/api/plans", async (req, res) => {
@@ -1516,6 +1543,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Plano não encontrado" });
       }
 
+      if (!plan.stripePriceId) {
+        return res.status(400).json({ message: "Plano não configurado com Stripe Price ID" });
+      }
+
       if (!process.env.STRIPE_SECRET_KEY) {
         return res.status(500).json({ message: "Stripe não configurado" });
       }
@@ -1540,26 +1571,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateUserStripeInfo(req.user.id, customerId, '');
       }
 
-      // Create checkout session
+      // Create checkout session using configured Price ID
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         payment_method_types: ['card'],
         line_items: [
           {
-            price_data: {
-              currency: 'brl',
-              product_data: {
-                name: plan.name,
-                description: `Plano ${plan.name} - Loopag IPTV`,
-              },
-              unit_amount: Math.round(parseFloat(plan.price) * 100),
-              recurring: plan.billingPeriod === 'lifetime' ? undefined : {
-                interval: plan.billingPeriod === 'monthly' ? 'month' : 
-                          plan.billingPeriod === 'semiannual' ? 'month' : 
-                          'year',
-                interval_count: plan.billingPeriod === 'semiannual' ? 6 : 1,
-              },
-            },
+            price: plan.stripePriceId,
             quantity: 1,
           },
         ],
