@@ -903,16 +903,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return brasiliaTime.toISOString().split('T')[0];
           };
           
-          // Register renewal payment
-          await storage.createPaymentHistory(authUserId, {
+          // Upsert renewal payment (atomic: update if exists, insert if not)
+          const currentBrasiliaDate = getBrasiliaDateString();
+          await storage.upsertRenewalPayment(
             authUserId,
-            clientId: client.id,
-            amount: client.value, // Use current client value
-            paymentDate: getBrasiliaDateString(),
-            type: "renewal",
-            previousExpiryDate: oldDateNormalized,
-            newExpiryDate: newDateNormalized
-          });
+            client.id,
+            client.value,
+            oldDateNormalized,
+            newDateNormalized,
+            currentBrasiliaDate
+          );
         }
       }
       
