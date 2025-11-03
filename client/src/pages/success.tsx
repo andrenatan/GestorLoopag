@@ -8,13 +8,13 @@ export default function Success() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    // Refresh user data after successful payment
+    // Redirect to dashboard after successful payment
     const timer = setTimeout(() => {
-      window.location.reload();
+      setLocation("/dashboard");
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [setLocation]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 dark:from-green-900 dark:via-emerald-900 dark:to-teal-900 flex items-center justify-center p-4">
