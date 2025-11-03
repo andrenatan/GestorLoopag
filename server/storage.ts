@@ -107,6 +107,10 @@ export interface IStorage {
   getClientsExpiringInDays(authUserId: string, days: number): Promise<Client[]>;
   getClientsExpiredForDays(authUserId: string, days: number): Promise<Client[]>;
   getClientsActiveForDays(authUserId: string, days: number): Promise<Client[]>;
+  
+  // Scheduler helpers
+  getAllUsersWithActiveAutomations(): Promise<string[]>;
+  getAllActiveUsers(): Promise<User[]>;
 
   // Stripe subscription methods
   updateUserStripeInfo(userId: number, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User | undefined>;
@@ -723,6 +727,18 @@ export class DbStorage implements IStorage {
       const activationDate = new Date(year, month - 1, day);
       return activationDate.getTime() === targetDate.getTime();
     });
+  }
+  
+  // Scheduler helpers
+  async getAllUsersWithActiveAutomations(): Promise<string[]> {
+    const configs = await db.select().from(automationConfigs).where(eq(automationConfigs.isActive, true));
+    const authUserIdSet = new Set<string>();
+    configs.forEach(c => authUserIdSet.add(c.authUserId));
+    return Array.from(authUserIdSet);
+  }
+  
+  async getAllActiveUsers(): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.subscriptionStatus, 'active'));
   }
 
   // Stripe subscription methods

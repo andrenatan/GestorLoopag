@@ -20,23 +20,24 @@ async function sendWebhook(url: string, data: any): Promise<boolean> {
 }
 
 async function getClientsForAutomation(
+  authUserId: string,
   automationType: string,
   subItemId: string
 ): Promise<Client[]> {
   // Map automation type and sub-item to client fetching logic
-  const mappings: Record<string, Record<string, () => Promise<Client[]>>> = {
+  const mappings: Record<string, Record<string, (authUserId: string) => Promise<Client[]>>> = {
     cobrancas: {
-      '3days': () => storage.getClientsExpiringInDays(3),
-      '1day': () => storage.getClientsExpiringInDays(1),
-      'today': () => storage.getClientsExpiringInDays(0),
+      '3days': (uid) => storage.getClientsExpiringInDays(uid, 3),
+      '1day': (uid) => storage.getClientsExpiringInDays(uid, 1),
+      'today': (uid) => storage.getClientsExpiringInDays(uid, 0),
     },
     reativacao: {
-      '1day': () => storage.getClientsExpiredForDays(1),
-      '7days': () => storage.getClientsExpiredForDays(7),
-      '30days': () => storage.getClientsExpiredForDays(30),
+      '1day': (uid) => storage.getClientsExpiredForDays(uid, 1),
+      '7days': (uid) => storage.getClientsExpiredForDays(uid, 7),
+      '30days': (uid) => storage.getClientsExpiredForDays(uid, 30),
     },
     novosClientes: {
-      '7days': () => storage.getClientsActiveForDays(7),
+      '7days': (uid) => storage.getClientsActiveForDays(uid, 7),
     }
   };
 
@@ -46,7 +47,7 @@ async function getClientsForAutomation(
     return [];
   }
 
-  return fetcher();
+  return fetcher(authUserId);
 }
 
 function getAutomationLabel(automationType: string, subItemId: string): string {
@@ -69,11 +70,11 @@ function getAutomationLabel(automationType: string, subItemId: string): string {
   return labels[automationType]?.[subItemId] || `${automationType}/${subItemId}`;
 }
 
-async function processAutomation(config: AutomationConfig): Promise<void> {
-  console.log(`[Scheduler] Processing automation: ${config.automationType}`);
+async function processAutomation(authUserId: string, config: AutomationConfig): Promise<void> {
+  console.log(`[Scheduler] Processing automation: ${config.automationType} for user ${authUserId}`);
 
   // Get all templates for reference
-  const templates = await storage.getAllMessageTemplates();
+  const templates = await storage.getAllMessageTemplates(authUserId);
 
   for (const subItem of config.subItems) {
     if (!subItem.active || !subItem.templateId) {
@@ -82,7 +83,7 @@ async function processAutomation(config: AutomationConfig): Promise<void> {
     }
 
     // Get clients for this automation
-    const clients = await getClientsForAutomation(config.automationType, subItem.id);
+    const clients = await getClientsForAutomation(authUserId, config.automationType, subItem.id);
     
     if (clients.length === 0) {
       console.log(`[Scheduler] No clients found for ${subItem.name}`);
@@ -134,7 +135,7 @@ async function processAutomation(config: AutomationConfig): Promise<void> {
   }
 
   // Update last run time
-  await storage.updateAutomationConfig(config.automationType, {
+  await storage.updateAutomationConfig(authUserId, config.automationType, {
     lastRunAt: new Date()
   });
 }
@@ -145,25 +146,32 @@ async function updateExpiredClientsStatus(): Promise<void> {
     const today = getBrasiliaStartOfDay();
     const todayStr = getBrasiliaDateString();
     
-    // Get all active clients
-    const allClients = await storage.getAllClients();
-    const activeClients = allClients.filter(c => c.subscriptionStatus === "Ativa");
+    // Get all active users
+    const users = await storage.getAllActiveUsers();
     
-    console.log(`[Scheduler] Checking ${activeClients.length} active clients for expiration (today: ${todayStr})`);
+    console.log(`[Scheduler] Checking expired clients for ${users.length} active users (today: ${todayStr})`);
     
     let updatedCount = 0;
     
-    for (const client of activeClients) {
-      // Parse expiry date
-      const expiryDate = parseDateString(client.expiryDate);
+    // Process each user's clients
+    for (const user of users) {
+      if (!user.authUserId) continue;
       
-      // If expiry date is before today, mark as inactive
-      if (expiryDate < today) {
-        await storage.updateClient(client.id, {
-          subscriptionStatus: "Inativa"
-        });
-        updatedCount++;
-        console.log(`[Scheduler] ✓ Client #${client.id} (${client.name}) marked as Inativo - expired on ${client.expiryDate}`);
+      const allClients = await storage.getAllClients(user.authUserId);
+      const activeClients = allClients.filter(c => c.subscriptionStatus === "Ativa");
+      
+      for (const client of activeClients) {
+        // Parse expiry date
+        const expiryDate = parseDateString(client.expiryDate);
+        
+        // If expiry date is before today, mark as inactive
+        if (expiryDate < today) {
+          await storage.updateClient(client.authUserId, client.id, {
+            subscriptionStatus: "Inativa"
+          });
+          updatedCount++;
+          console.log(`[Scheduler] ✓ Client #${client.id} (${client.name}) marked as Inativo - expired on ${client.expiryDate}`);
+        }
       }
     }
     
@@ -183,32 +191,37 @@ async function checkAndRunAutomations(): Promise<void> {
   // First, update expired clients status (runs only once per check)
   await updateExpiredClientsStatus();
   
-  // Get all automation configs
-  const configs = await storage.getAllAutomationConfigs();
-  const activeConfigs = configs.filter(c => c.isActive);
+  // Get all users with active automations
+  const userAuthIds = await storage.getAllUsersWithActiveAutomations();
   
-  console.log(`[Scheduler] Checking automations at ${timeString}`);
+  console.log(`[Scheduler] Checking automations at ${timeString} for ${userAuthIds.length} users`);
   
-  for (const config of activeConfigs) {
-    // Check if it's time to run this automation
-    if (config.scheduledTime === timeString) {
-      // Check if already ran today (avoid duplicate runs on the same day)
-      if (config.lastRunAt) {
-        const lastRun = getBrasiliaDate();
-        lastRun.setTime(new Date(config.lastRunAt).getTime());
-        const now = getBrasiliaDate();
-        
-        const lastRunDate = getBrasiliaDateString(lastRun);
-        const todayDate = getBrasiliaDateString(now);
-        
-        if (lastRunDate === todayDate) {
-          console.log(`[Scheduler] ⏭️  Skipping ${config.automationType} - already ran today at ${config.lastRunAt}`);
-          continue;
+  // Process each user's automations
+  for (const authUserId of userAuthIds) {
+    const configs = await storage.getAllAutomationConfigs(authUserId);
+    const activeConfigs = configs.filter(c => c.isActive);
+    
+    for (const config of activeConfigs) {
+      // Check if it's time to run this automation
+      if (config.scheduledTime === timeString) {
+        // Check if already ran today (avoid duplicate runs on the same day)
+        if (config.lastRunAt) {
+          const lastRun = getBrasiliaDate();
+          lastRun.setTime(new Date(config.lastRunAt).getTime());
+          const now = getBrasiliaDate();
+          
+          const lastRunDate = getBrasiliaDateString(lastRun);
+          const todayDate = getBrasiliaDateString(now);
+          
+          if (lastRunDate === todayDate) {
+            console.log(`[Scheduler] ⏭️  Skipping ${config.automationType} for user ${authUserId} - already ran today`);
+            continue;
+          }
         }
-      }
 
-      console.log(`[Scheduler] 🚀 Triggering automation: ${config.automationType} at ${timeString}`);
-      await processAutomation(config);
+        console.log(`[Scheduler] 🚀 Triggering automation: ${config.automationType} for user ${authUserId} at ${timeString}`);
+        await processAutomation(authUserId, config);
+      }
     }
   }
 }
@@ -220,41 +233,46 @@ async function runMissedAutomations(): Promise<void> {
   // First, update expired clients status
   await updateExpiredClientsStatus();
   
-  // Get all automation configs
-  const configs = await storage.getAllAutomationConfigs();
-  const activeConfigs = configs.filter(c => c.isActive);
+  // Get all users with active automations
+  const userAuthIds = await storage.getAllUsersWithActiveAutomations();
   
-  console.log(`[Scheduler] Checking for missed automations (current time: ${timeString})`);
+  console.log(`[Scheduler] Checking for missed automations for ${userAuthIds.length} users (current time: ${timeString})`);
   
-  for (const config of activeConfigs) {
-    const [schedHours, schedMinutes] = config.scheduledTime.split(':').map(Number);
-    const scheduledTotalMinutes = schedHours * 60 + schedMinutes;
+  // Process each user's automations
+  for (const authUserId of userAuthIds) {
+    const configs = await storage.getAllAutomationConfigs(authUserId);
+    const activeConfigs = configs.filter(c => c.isActive);
     
-    // Only consider automations that were scheduled before current time
-    if (scheduledTotalMinutes >= currentTotalMinutes) {
-      continue;
-    }
-    
-    // Check if already ran today
-    const now = getBrasiliaDate();
-    const todayDate = getBrasiliaDateString(now);
-    
-    let alreadyRanToday = false;
-    if (config.lastRunAt) {
-      const lastRun = getBrasiliaDate();
-      lastRun.setTime(new Date(config.lastRunAt).getTime());
-      const lastRunDate = getBrasiliaDateString(lastRun);
+    for (const config of activeConfigs) {
+      const [schedHours, schedMinutes] = config.scheduledTime.split(':').map(Number);
+      const scheduledTotalMinutes = schedHours * 60 + schedMinutes;
       
-      if (lastRunDate === todayDate) {
-        console.log(`[Scheduler] ✓ ${config.automationType} (${config.scheduledTime}) already ran today`);
-        alreadyRanToday = true;
+      // Only consider automations that were scheduled before current time
+      if (scheduledTotalMinutes >= currentTotalMinutes) {
+        continue;
       }
-    }
-    
-    // Run if it hasn't run today
-    if (!alreadyRanToday) {
-      console.log(`[Scheduler] 🔄 Catching up: ${config.automationType} (scheduled for ${config.scheduledTime})`);
-      await processAutomation(config);
+      
+      // Check if already ran today
+      const now = getBrasiliaDate();
+      const todayDate = getBrasiliaDateString(now);
+      
+      let alreadyRanToday = false;
+      if (config.lastRunAt) {
+        const lastRun = getBrasiliaDate();
+        lastRun.setTime(new Date(config.lastRunAt).getTime());
+        const lastRunDate = getBrasiliaDateString(lastRun);
+        
+        if (lastRunDate === todayDate) {
+          console.log(`[Scheduler] ✓ ${config.automationType} (${config.scheduledTime}) for user ${authUserId} already ran today`);
+          alreadyRanToday = true;
+        }
+      }
+      
+      // Run if it hasn't run today
+      if (!alreadyRanToday) {
+        console.log(`[Scheduler] 🔄 Catching up: ${config.automationType} (scheduled for ${config.scheduledTime}) for user ${authUserId}`);
+        await processAutomation(authUserId, config);
+      }
     }
   }
 }
@@ -363,11 +381,11 @@ export function stopScheduler(): void {
 }
 
 // Test function to manually trigger an automation (for testing)
-export async function testAutomationTrigger(config: AutomationConfig): Promise<any> {
-  console.log(`[Test] Manually triggering automation: ${config.automationType}`);
+export async function testAutomationTrigger(authUserId: string, config: AutomationConfig): Promise<any> {
+  console.log(`[Test] Manually triggering automation: ${config.automationType} for user ${authUserId}`);
   
   const results: any[] = [];
-  const templates = await storage.getAllMessageTemplates();
+  const templates = await storage.getAllMessageTemplates(authUserId);
   
   for (const subItem of config.subItems) {
     if (!subItem.active || !subItem.templateId) {
@@ -379,7 +397,7 @@ export async function testAutomationTrigger(config: AutomationConfig): Promise<a
       continue;
     }
     
-    const clients = await getClientsForAutomation(config.automationType, subItem.id);
+    const clients = await getClientsForAutomation(authUserId, config.automationType, subItem.id);
     const template = templates.find(t => t.id === subItem.templateId);
     
     if (!template) {

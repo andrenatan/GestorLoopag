@@ -1485,7 +1485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Import the test function from scheduler
       const { testAutomationTrigger } = await import('./scheduler');
-      const result = await testAutomationTrigger(config);
+      const result = await testAutomationTrigger(authUserId, config);
       
       res.json({
         message: "Automation test completed",
