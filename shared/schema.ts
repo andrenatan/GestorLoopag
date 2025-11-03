@@ -186,6 +186,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
 
 export const insertEmployeeSchema = createInsertSchema(employees).omit({
   id: true,
+  authUserId: true,
   createdAt: true,
 });
 
@@ -197,34 +198,40 @@ export const insertSystemSchema = createInsertSchema(systems).omit({
 
 export const insertClientSchema = createInsertSchema(clients).omit({
   id: true,
+  authUserId: true,
   createdAt: true,
   updatedAt: true,
 });
 
 export const insertWhatsappInstanceSchema = createInsertSchema(whatsappInstances).omit({
   id: true,
+  authUserId: true,
   createdAt: true,
   updatedAt: true,
 });
 
 export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).omit({
   id: true,
+  authUserId: true,
   createdAt: true,
   updatedAt: true,
 });
 
 export const insertBillingHistorySchema = createInsertSchema(billingHistory).omit({
   id: true,
+  authUserId: true,
   createdAt: true,
 });
 
 export const insertPaymentHistorySchema = createInsertSchema(paymentHistory).omit({
   id: true,
+  authUserId: true,
   createdAt: true,
 });
 
 export const insertAutomationConfigSchema = createInsertSchema(automationConfigs).omit({
   id: true,
+  authUserId: true,
   createdAt: true,
   updatedAt: true,
   lastRunAt: true,
