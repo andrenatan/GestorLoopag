@@ -191,6 +191,7 @@ export const insertEmployeeSchema = createInsertSchema(employees).omit({
 
 export const insertSystemSchema = createInsertSchema(systems).omit({
   id: true,
+  authUserId: true,
   createdAt: true,
 });
 
