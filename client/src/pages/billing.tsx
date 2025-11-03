@@ -103,9 +103,9 @@ export default function Billing() {
       const existing = automationConfigs.find(c => c.automationType === data.type);
       
       if (existing) {
-        return apiRequest("PUT", `/api/automation-configs/${data.type}`, data.config);
+        return apiRequest(`/api/automation-configs/${data.type}`, "PUT", data.config);
       } else {
-        return apiRequest("POST", "/api/automation-configs", {
+        return apiRequest("/api/automation-configs", "POST", {
           automationType: data.type,
           webhookUrl: getWebhookUrl(data.type),
           scheduledTime: automations[data.type].time,

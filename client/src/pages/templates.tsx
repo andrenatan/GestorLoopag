@@ -32,7 +32,7 @@ export default function Templates() {
 
   const createMutation = useMutation({
     mutationFn: async (data: { title: string; content: string; imageUrl?: string }) => {
-      return await apiRequest("POST", "/api/templates", data);
+      return await apiRequest("/api/templates", "POST", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
@@ -55,7 +55,7 @@ export default function Templates() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await apiRequest("DELETE", `/api/templates/${id}`);
+      return await apiRequest(`/api/templates/${id}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/templates"] });

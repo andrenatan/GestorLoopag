@@ -25,8 +25,8 @@ async function getAuthHeaders(): Promise<HeadersInit> {
 }
 
 export async function apiRequest(
-  method: string,
   url: string,
+  method: string,
   data?: unknown | undefined,
 ): Promise<Response> {
   const authHeaders = await getAuthHeaders();
