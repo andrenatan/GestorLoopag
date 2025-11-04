@@ -1689,6 +1689,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Utility endpoint to backfill payment history for imported clients
+  app.post("/api/admin/backfill-payment-history", async (req, res) => {
+    try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      // Get all clients for this user
+      const clients = await storage.getAllClients(authUserId);
+      
+      // Get existing payment history records
+      const existingPayments = await storage.getAllPaymentHistory(authUserId);
+      const clientsWithPayments = new Set(
+        existingPayments
+          .filter(p => p.type === 'new_client')
+          .map(p => p.clientId)
+      );
+
+      // Create payment history for clients that don't have one
+      const clientsToBackfill = clients.filter(c => !clientsWithPayments.has(c.id));
+      
+      let created = 0;
+      for (const client of clientsToBackfill) {
+        await storage.createPaymentHistory(authUserId, {
+          authUserId,
+          clientId: client.id,
+          amount: client.value,
+          paymentDate: client.paymentDate,
+          type: "new_client",
+          previousExpiryDate: client.startDate,
+          newExpiryDate: client.expiryDate
+        });
+        created++;
+      }
+
+      res.json({
+        message: "Payment history backfilled successfully",
+        totalClients: clients.length,
+        clientsWithoutHistory: clientsToBackfill.length,
+        recordsCreated: created
+      });
+    } catch (error) {
+      console.error("Error backfilling payment history:", error);
+      res.status(500).json({ message: "Failed to backfill payment history", error });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
