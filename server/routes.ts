@@ -1718,10 +1718,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return brasiliaTime.toISOString().split('T')[0];
       };
       
+      // Helper to calculate payment date based on plan duration
+      const calculatePaymentDate = (activationDate: string | null, expiryDate: string | null): string => {
+        if (!activationDate || !expiryDate) {
+          return getCurrentBrasiliaDate();
+        }
+        
+        // Parse dates
+        const activation = new Date(activationDate);
+        const expiry = new Date(expiryDate);
+        
+        // Calculate difference in months
+        const monthsDiff = (expiry.getFullYear() - activation.getFullYear()) * 12 + 
+                          (expiry.getMonth() - activation.getMonth());
+        
+        // Determine plan duration (closest match)
+        let planMonths = 1; // Default to monthly
+        if (monthsDiff >= 11 && monthsDiff <= 13) {
+          planMonths = 12; // Anual
+        } else if (monthsDiff >= 5 && monthsDiff <= 7) {
+          planMonths = 6; // Semestral
+        } else if (monthsDiff >= 2 && monthsDiff <= 4) {
+          planMonths = 3; // Trimestral
+        }
+        
+        // Calculate last payment date: expiry_date - plan duration
+        const lastPayment = new Date(expiry);
+        lastPayment.setMonth(lastPayment.getMonth() - planMonths);
+        
+        return lastPayment.toISOString().split('T')[0];
+      };
+      
       let created = 0;
       for (const client of clientsToBackfill) {
-        // Use paymentDate, or startDate, or current date as fallback
-        const paymentDate = client.paymentDate || client.startDate || getCurrentBrasiliaDate();
+        // Calculate the correct payment date based on plan
+        const paymentDate = calculatePaymentDate(client.startDate, client.expiryDate);
         
         await storage.createPaymentHistory(authUserId, {
           authUserId,
@@ -1730,7 +1761,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           paymentDate,
           type: "new_client",
           previousExpiryDate: client.startDate || getCurrentBrasiliaDate(),
-          newExpiryDate: client.expiryDate
+          newExpiryDate: client.expiryDate || getCurrentBrasiliaDate()
         });
         created++;
       }
