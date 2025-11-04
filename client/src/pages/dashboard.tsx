@@ -1,13 +1,10 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { ChartCard } from "@/components/dashboard/chart-card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
-import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   AlertCircle, 
   Clock, 
@@ -50,7 +47,6 @@ const getPeriodLabel = (period: string) => {
 
 export default function Dashboard() {
   const [revenuePeriod, setRevenuePeriod] = useState<'current_month' | 'last_month' | '3_months' | '6_months' | '12_months'>('6_months');
-  const { toast } = useToast();
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ["/api/dashboard/stats"],
@@ -72,28 +68,6 @@ export default function Dashboard() {
 
   const currentMonth = getMonthName(new Date().getMonth());
   const isDayPeriod = revenuePeriod === 'current_month' || revenuePeriod === 'last_month';
-
-  const backfillPaymentHistoryMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("/api/admin/backfill-payment-history", "POST");
-      return res.json();
-    },
-    onSuccess: (data) => {
-      toast({
-        title: "Histórico Preenchido!",
-        description: `${data.recordsCreated} registros de pagamento criados para ${data.clientsWithoutHistory} clientes.`,
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/revenue-by-period"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Não foi possível preencher o histórico de pagamentos.",
-        variant: "destructive",
-      });
-    },
-  });
 
   if (isLoading) {
     return (
@@ -306,35 +280,6 @@ export default function Dashboard() {
           </div>
         </ChartCard>
       </div>
-
-      {/* Admin Tool: Backfill Payment History */}
-      <Card className="glassmorphism neon-border border-yellow-500/30">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <AlertCircle className="w-5 h-5 text-yellow-500" />
-            <span>Ferramenta Administrativa</span>
-          </CardTitle>
-          <CardDescription>
-            Use este botão UMA ÚNICA VEZ para popular o histórico de pagamentos dos clientes importados
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            onClick={() => backfillPaymentHistoryMutation.mutate()}
-            disabled={backfillPaymentHistoryMutation.isPending}
-            className="bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700"
-            data-testid="button-backfill-payment-history"
-          >
-            {backfillPaymentHistoryMutation.isPending 
-              ? "Processando..." 
-              : "Popular Histórico de Pagamentos"}
-          </Button>
-          <p className="text-sm text-muted-foreground mt-2">
-            Esta ação vai criar registros de pagamento para todos os clientes que não possuem histórico,
-            permitindo que o gráfico de faturamento seja exibido corretamente.
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }
