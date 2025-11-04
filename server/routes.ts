@@ -1711,15 +1711,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create payment history for clients that don't have one
       const clientsToBackfill = clients.filter(c => !clientsWithPayments.has(c.id));
       
+      // Helper to get current date in Brasília timezone as YYYY-MM-DD
+      const getCurrentBrasiliaDate = () => {
+        const utc = Date.now();
+        const brasiliaTime = new Date(utc + (3600000 * -3));
+        return brasiliaTime.toISOString().split('T')[0];
+      };
+      
       let created = 0;
       for (const client of clientsToBackfill) {
+        // Use paymentDate, or startDate, or current date as fallback
+        const paymentDate = client.paymentDate || client.startDate || getCurrentBrasiliaDate();
+        
         await storage.createPaymentHistory(authUserId, {
           authUserId,
           clientId: client.id,
           amount: client.value,
-          paymentDate: client.paymentDate || client.startDate,
+          paymentDate,
           type: "new_client",
-          previousExpiryDate: client.startDate,
+          previousExpiryDate: client.startDate || getCurrentBrasiliaDate(),
           newExpiryDate: client.expiryDate
         });
         created++;
