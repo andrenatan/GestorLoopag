@@ -1717,7 +1717,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           authUserId,
           clientId: client.id,
           amount: client.value,
-          paymentDate: client.paymentDate,
+          paymentDate: client.paymentDate || client.startDate,
           type: "new_client",
           previousExpiryDate: client.startDate,
           newExpiryDate: client.expiryDate
