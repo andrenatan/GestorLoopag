@@ -47,7 +47,7 @@ export default function Clients() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | undefined>();
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -426,7 +426,13 @@ export default function Clients() {
           <div className="flex items-center justify-between mt-6 pt-4 border-t">
             <div className="flex items-center space-x-2">
               <span className="text-sm text-muted-foreground">Mostrando</span>
-              <Select value={itemsPerPage.toString()}>
+              <Select 
+                value={itemsPerPage.toString()}
+                onValueChange={(value) => {
+                  setItemsPerPage(Number(value));
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger className="w-16">
                   <SelectValue />
                 </SelectTrigger>
