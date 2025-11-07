@@ -170,13 +170,13 @@ async function updateExpiredClientsStatus(): Promise<void> {
             subscriptionStatus: "Inativa"
           });
           updatedCount++;
-          console.log(`[Scheduler] ✓ Client #${client.id} (${client.name}) marked as Inativo - expired on ${client.expiryDate}`);
+          console.log(`[Scheduler] ✓ Client #${client.id} (${client.name}) marked as Inativa - expired on ${client.expiryDate}`);
         }
       }
     }
     
     if (updatedCount > 0) {
-      console.log(`[Scheduler] ✓ Updated ${updatedCount} expired client(s) to Inativo status`);
+      console.log(`[Scheduler] ✓ Updated ${updatedCount} expired client(s) to Inativa status`);
     } else {
       console.log(`[Scheduler] No expired clients found`);
     }
