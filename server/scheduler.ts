@@ -281,7 +281,7 @@ let schedulerInterval: NodeJS.Timeout | null = null;
 let lastCheckedMinute: string | null = null;
 
 // Scheduled times to check (GMT-3)
-const SCHEDULED_TIMES = ['09:30', '10:00', '19:30'];
+const SCHEDULED_TIMES = ['00:00', '09:30', '10:00', '19:30'];
 
 function calculateNextCheckDelay(): number {
   const { timeString, hours, minutes } = getBrasiliaTimeString();

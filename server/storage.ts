@@ -786,7 +786,8 @@ export class DbStorage implements IStorage {
   }
   
   async getAllActiveUsers(): Promise<User[]> {
-    return await db.select().from(users).where(eq(users.subscriptionStatus, 'active'));
+    // Return all users that have an authUserId (are registered users)
+    return await db.select().from(users).where(sql`${users.authUserId} IS NOT NULL`);
   }
 
   // Stripe subscription methods
