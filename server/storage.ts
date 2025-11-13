@@ -555,7 +555,7 @@ export class DbStorage implements IStorage {
     ).length;
     
     const newClientsToday = allClients.filter(c => 
-      c.createdAt.toISOString().split('T')[0] === todayStr
+      c.activationDate === todayStr
     ).length;
     
     // Calculate monthly revenue from payment_history (current month)
