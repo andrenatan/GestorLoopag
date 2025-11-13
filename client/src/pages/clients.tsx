@@ -351,7 +351,7 @@ export default function Clients() {
                         onCheckedChange={(checked) => handleSelectClient(client.id, !!checked)}
                       />
                     </TableCell>
-                    <TableCell className="font-mono text-sm">#{client.id}</TableCell>
+                    <TableCell className="font-mono text-sm">#{client.clientNumber}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium">

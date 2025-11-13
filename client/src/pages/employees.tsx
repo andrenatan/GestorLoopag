@@ -404,6 +404,9 @@ export default function Employees() {
         {filteredEmployees.map((employee: Employee) => (
           <Card key={employee.id} className="glassmorphism neon-border hover:scale-[1.02] transition-all duration-200">
             <CardHeader className="pb-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="font-mono text-sm text-muted-foreground">#{employee.employeeNumber}</span>
+              </div>
               <div className="flex items-center space-x-4">
                 <Avatar className="w-16 h-16">
                   <AvatarImage src={employee.photo || undefined} alt={employee.name} />

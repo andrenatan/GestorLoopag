@@ -257,7 +257,7 @@ export default function Systems() {
             <TableBody>
               {filteredSystems.map((system: System) => (
                 <TableRow key={system.id} className="hover:bg-muted/50" data-testid={`row-system-${system.id}`}>
-                  <TableCell className="font-mono text-sm">#{system.id}</TableCell>
+                  <TableCell className="font-mono text-sm">#{system.systemNumber}</TableCell>
                   <TableCell>
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-white">
