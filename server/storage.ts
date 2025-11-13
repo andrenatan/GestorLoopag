@@ -186,8 +186,16 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  private async getNextSystemNumber(authUserId: string): Promise<number> {
+    const result = await db.select({ maxNumber: sql<number>`COALESCE(MAX(${systems.systemNumber}), 0)` })
+      .from(systems)
+      .where(eq(systems.authUserId, authUserId));
+    return (result[0]?.maxNumber || 0) + 1;
+  }
+
   async createSystem(authUserId: string, insertSystem: InsertSystem): Promise<System> {
-    const result = await db.insert(systems).values({ ...insertSystem, authUserId }).returning();
+    const systemNumber = await this.getNextSystemNumber(authUserId);
+    const result = await db.insert(systems).values({ ...insertSystem, authUserId, systemNumber }).returning();
     return result[0];
   }
 
@@ -218,8 +226,16 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  private async getNextEmployeeNumber(authUserId: string): Promise<number> {
+    const result = await db.select({ maxNumber: sql<number>`COALESCE(MAX(${employees.employeeNumber}), 0)` })
+      .from(employees)
+      .where(eq(employees.authUserId, authUserId));
+    return (result[0]?.maxNumber || 0) + 1;
+  }
+
   async createEmployee(authUserId: string, insertEmployee: InsertEmployee): Promise<Employee> {
-    const result = await db.insert(employees).values({ ...insertEmployee, authUserId }).returning();
+    const employeeNumber = await this.getNextEmployeeNumber(authUserId);
+    const result = await db.insert(employees).values({ ...insertEmployee, authUserId, employeeNumber }).returning();
     return result[0];
   }
 
@@ -252,8 +268,16 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  private async getNextClientNumber(authUserId: string): Promise<number> {
+    const result = await db.select({ maxNumber: sql<number>`COALESCE(MAX(${clients.clientNumber}), 0)` })
+      .from(clients)
+      .where(eq(clients.authUserId, authUserId));
+    return (result[0]?.maxNumber || 0) + 1;
+  }
+
   async createClient(authUserId: string, insertClient: InsertClient): Promise<Client> {
-    const result = await db.insert(clients).values({ ...insertClient, authUserId }).returning();
+    const clientNumber = await this.getNextClientNumber(authUserId);
+    const result = await db.insert(clients).values({ ...insertClient, authUserId, clientNumber }).returning();
     return result[0];
   }
 
