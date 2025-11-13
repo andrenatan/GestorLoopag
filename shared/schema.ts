@@ -42,6 +42,7 @@ export const users = pgTable("users", {
 export const employees = pgTable("employees", {
   id: serial("id").primaryKey(),
   authUserId: uuid("auth_user_id").notNull().references(() => users.authUserId),
+  employeeNumber: integer("employee_number").notNull(),
   name: text("name").notNull(),
   phone: text("phone").notNull(),
   email: text("email").notNull().unique(),
@@ -59,6 +60,7 @@ export const employees = pgTable("employees", {
 export const systems = pgTable("systems", {
   id: serial("id").primaryKey(),
   authUserId: uuid("auth_user_id").notNull().references(() => users.authUserId),
+  systemNumber: integer("system_number").notNull(),
   name: text("name").notNull(),
   description: text("description"),
   isActive: boolean("is_active").notNull().default(true),
@@ -69,6 +71,7 @@ export const systems = pgTable("systems", {
 export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
   authUserId: uuid("auth_user_id").notNull().references(() => users.authUserId),
+  clientNumber: integer("client_number").notNull(),
   name: text("name").notNull(),
   phone: text("phone").notNull(),
   username: text("username").notNull(),
@@ -187,18 +190,21 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export const insertEmployeeSchema = createInsertSchema(employees).omit({
   id: true,
   authUserId: true,
+  employeeNumber: true,
   createdAt: true,
 });
 
 export const insertSystemSchema = createInsertSchema(systems).omit({
   id: true,
   authUserId: true,
+  systemNumber: true,
   createdAt: true,
 });
 
 export const insertClientSchema = createInsertSchema(clients).omit({
   id: true,
   authUserId: true,
+  clientNumber: true,
   createdAt: true,
   updatedAt: true,
 });
