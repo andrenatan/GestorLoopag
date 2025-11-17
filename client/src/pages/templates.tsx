@@ -199,7 +199,7 @@ export default function Templates() {
               Criar Novo Template
             </CardTitle>
             <CardDescription>
-              Use as variáveis {"{nome}"}, {"{dias para vencimento}"}, {"{vencimento}"}, {"{valor}"} para personalizar a mensagem
+              Use as variáveis para integração com n8n: name, value, expiry_date
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -233,8 +233,8 @@ export default function Templates() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    data-testid="button-insert-nome"
-                    onClick={() => insertVariable("{nome}")}
+                    data-testid="button-insert-name"
+                    onClick={() => insertVariable("{{ $json.name }}")}
                     className="bg-slate-800/50 border-slate-700 hover:bg-slate-700"
                   >
                     Inserir {"{nome}"}
@@ -243,31 +243,21 @@ export default function Templates() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    data-testid="button-insert-dias"
-                    onClick={() => insertVariable("{dias para vencimento}")}
-                    className="bg-slate-800/50 border-slate-700 hover:bg-slate-700"
-                  >
-                    Inserir {"{dias para vencimento}"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    data-testid="button-insert-vencimento"
-                    onClick={() => insertVariable("{vencimento}")}
-                    className="bg-slate-800/50 border-slate-700 hover:bg-slate-700"
-                  >
-                    Inserir {"{vencimento}"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    data-testid="button-insert-valor"
-                    onClick={() => insertVariable("{valor}")}
+                    data-testid="button-insert-value"
+                    onClick={() => insertVariable("{{ $json.value }}")}
                     className="bg-slate-800/50 border-slate-700 hover:bg-slate-700"
                   >
                     Inserir {"{valor}"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    data-testid="button-insert-expiry-date"
+                    onClick={() => insertVariable("{{ $json.expiry_date }}")}
+                    className="bg-slate-800/50 border-slate-700 hover:bg-slate-700"
+                  >
+                    Inserir {"{vencimento}"}
                   </Button>
                   <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
                     <PopoverTrigger asChild>
