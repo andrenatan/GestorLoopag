@@ -42,7 +42,7 @@ const clientFormSchema = z.object({
   password: z.string().min(1, "Senha é obrigatória"),
   system: z.string().min(1, "Sistema é obrigatório"),
   subscriptionStatus: z.enum(["Ativa", "Inativa", "Aguardando", "Teste"]).default("Ativa"),
-  paymentMethods: z.array(z.string()).default([]),
+  paymentMethod: z.string().default("pix"),
   activationDate: z.string().min(1, "Data de ativação é obrigatória"),
   expiryDate: z.string().min(1, "Data de vencimento é obrigatória"),
   paymentStatus: z.enum(["Pago", "Vencido", "A Pagar"]).default("Pago"),
@@ -99,7 +99,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
       password: initialData?.password || "",
       system: initialData?.system || "",
       subscriptionStatus: initialData?.subscriptionStatus || "Ativa",
-      paymentMethods: initialData?.paymentMethods || [],
+      paymentMethod: initialData?.paymentMethod || "pix",
       activationDate: initialData?.activationDate || new Date().toISOString().split('T')[0],
       expiryDate: initialData?.expiryDate || "",
       paymentStatus: initialData?.paymentStatus || "Pago",
@@ -401,47 +401,30 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                 <div className="mt-4">
                   <FormField
                     control={form.control}
-                    name="paymentMethods"
-                    render={() => (
+                    name="paymentMethod"
+                    render={({ field }) => (
                       <FormItem>
                         <div className="mb-4">
-                          <FormLabel>Métodos de Pagamento</FormLabel>
+                          <FormLabel>Método de Pagamento</FormLabel>
                         </div>
                         <div className="flex space-x-4">
                           {paymentMethodOptions.map((method) => (
-                            <FormField
+                            <div
                               key={method.id}
-                              control={form.control}
-                              name="paymentMethods"
-                              render={({ field }) => {
-                                return (
-                                  <FormItem
-                                    key={method.id}
-                                    className="flex flex-row items-start space-x-3 space-y-0"
-                                  >
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={field.value?.includes(method.id)}
-                                        onCheckedChange={(checked) => {
-                                          return checked
-                                            ? field.onChange([...field.value, method.id])
-                                            : field.onChange(
-                                                field.value?.filter(
-                                                  (value) => value !== method.id
-                                                )
-                                              )
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormLabel className="font-normal">
-                                      <Badge className={method.color}>
-                                        {method.label}
-                                      </Badge>
-                                    </FormLabel>
-                                  </FormItem>
-                                )
-                              }}
-                            />
+                              className="flex flex-row items-start space-x-3 space-y-0 cursor-pointer"
+                              onClick={() => field.onChange(method.id)}
+                            >
+                              <Checkbox
+                                checked={field.value === method.id}
+                                onCheckedChange={() => field.onChange(method.id)}
+                                data-testid={`checkbox-${method.id}`}
+                              />
+                              <FormLabel className="font-normal cursor-pointer">
+                                <Badge className={method.color}>
+                                  {method.label}
+                                </Badge>
+                              </FormLabel>
+                            </div>
                           ))}
                         </div>
                         <FormMessage />

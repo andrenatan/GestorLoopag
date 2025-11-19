@@ -80,7 +80,7 @@ export const clients = pgTable("clients", {
   subscriptionStatus: text("subscription_status", {
     enum: ["Ativa", "Inativa", "Aguardando", "Teste"]
   }).notNull().default("Ativa"),
-  paymentMethods: jsonb("payment_methods").$type<string[]>().notNull().default([]),
+  paymentMethod: text("payment_method").notNull().default("pix"),
   activationDate: date("activation_date").notNull(),
   expiryDate: date("expiry_date").notNull(),
   paymentStatus: text("payment_status", {
