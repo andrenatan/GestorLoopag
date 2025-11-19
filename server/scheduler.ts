@@ -75,6 +75,15 @@ async function processAutomation(authUserId: string, config: AutomationConfig): 
 
   // Get all templates for reference
   const templates = await storage.getAllMessageTemplates(authUserId);
+  
+  // Get WhatsApp instance name
+  let whatsappInstanceName = "Unknown";
+  if (config.whatsappInstanceId) {
+    const instance = await storage.getWhatsappInstance(authUserId, config.whatsappInstanceId);
+    if (instance) {
+      whatsappInstanceName = instance.name;
+    }
+  }
 
   for (const subItem of config.subItems) {
     if (!subItem.active || !subItem.templateId) {
@@ -108,7 +117,7 @@ async function processAutomation(authUserId: string, config: AutomationConfig): 
       template_text: template.content,
       template_image_url: template.imageUrl,
       scheduled_time: config.scheduledTime,
-      whatsapp_instance_id: config.whatsappInstanceId,
+      whatsapp_instance_name: whatsappInstanceName,
       clients: clients.map(client => ({
         id: client.id,
         name: client.name,
@@ -387,6 +396,15 @@ export async function testAutomationTrigger(authUserId: string, config: Automati
   const results: any[] = [];
   const templates = await storage.getAllMessageTemplates(authUserId);
   
+  // Get WhatsApp instance name
+  let whatsappInstanceName = "Unknown";
+  if (config.whatsappInstanceId) {
+    const instance = await storage.getWhatsappInstance(authUserId, config.whatsappInstanceId);
+    if (instance) {
+      whatsappInstanceName = instance.name;
+    }
+  }
+  
   for (const subItem of config.subItems) {
     if (!subItem.active || !subItem.templateId) {
       results.push({
@@ -428,7 +446,7 @@ export async function testAutomationTrigger(authUserId: string, config: Automati
       template_text: template.content,
       template_image_url: template.imageUrl,
       scheduled_time: config.scheduledTime,
-      whatsapp_instance_id: config.whatsappInstanceId,
+      whatsapp_instance_name: whatsappInstanceName,
       clients: clients.map(client => ({
         id: client.id,
         name: client.name,
