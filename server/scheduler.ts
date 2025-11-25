@@ -287,8 +287,10 @@ function calculateNextCheckDelay(): number {
   const delayMinutes = nextScheduledMinutes - currentTotalMinutes;
   const delayMs = delayMinutes * 60 * 1000;
   
-  const nextTime = new Date(Date.now() + delayMs);
-  const nextTimeStr = `${nextTime.getHours().toString().padStart(2, '0')}:${nextTime.getMinutes().toString().padStart(2, '0')}`;
+  // Calculate next time in Brasilia timezone
+  const nextHours = Math.floor(nextScheduledMinutes / 60) % 24;
+  const nextMinutes = nextScheduledMinutes % 60;
+  const nextTimeStr = `${nextHours.toString().padStart(2, '0')}:${nextMinutes.toString().padStart(2, '0')}`;
   
   console.log(`[Scheduler] Current: ${timeString}, Next check: ${nextTimeStr} (in ${delayMinutes} minutes)`);
   
