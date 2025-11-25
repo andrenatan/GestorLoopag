@@ -195,7 +195,8 @@ async function updateExpiredClientsStatus(): Promise<void> {
 }
 
 async function checkAndRunAutomations(): Promise<void> {
-  const { timeString } = getBrasiliaTimeString();
+  const { timeString, hours, minutes } = getBrasiliaTimeString();
+  const currentTotalMinutes = hours * 60 + minutes;
   
   // First, update expired clients status (runs only once per check)
   await updateExpiredClientsStatus();
@@ -211,75 +212,44 @@ async function checkAndRunAutomations(): Promise<void> {
     const activeConfigs = configs.filter(c => c.isActive);
     
     for (const config of activeConfigs) {
-      // Check if it's time to run this automation
-      if (config.scheduledTime === timeString) {
-        // Check if already ran today (avoid duplicate runs on the same day)
-        if (config.lastRunAt) {
-          const lastRun = getBrasiliaDate();
-          lastRun.setTime(new Date(config.lastRunAt).getTime());
-          const now = getBrasiliaDate();
-          
-          const lastRunDate = getBrasiliaDateString(lastRun);
-          const todayDate = getBrasiliaDateString(now);
-          
-          if (lastRunDate === todayDate) {
-            console.log(`[Scheduler] ⏭️  Skipping ${config.automationType} for user ${authUserId} - already ran today`);
-            continue;
-          }
-        }
-
-        console.log(`[Scheduler] 🚀 Triggering automation: ${config.automationType} for user ${authUserId} at ${timeString}`);
-        await processAutomation(authUserId, config);
-      }
-    }
-  }
-}
-
-async function runMissedAutomations(): Promise<void> {
-  const { timeString, hours, minutes } = getBrasiliaTimeString();
-  const currentTotalMinutes = hours * 60 + minutes;
-  
-  // First, update expired clients status
-  await updateExpiredClientsStatus();
-  
-  // Get all users with active automations
-  const userAuthIds = await storage.getAllUsersWithActiveAutomations();
-  
-  console.log(`[Scheduler] Checking for missed automations for ${userAuthIds.length} users (current time: ${timeString})`);
-  
-  // Process each user's automations
-  for (const authUserId of userAuthIds) {
-    const configs = await storage.getAllAutomationConfigs(authUserId);
-    const activeConfigs = configs.filter(c => c.isActive);
-    
-    for (const config of activeConfigs) {
       const [schedHours, schedMinutes] = config.scheduledTime.split(':').map(Number);
       const scheduledTotalMinutes = schedHours * 60 + schedMinutes;
       
-      // Only consider automations that were scheduled before current time
-      if (scheduledTotalMinutes >= currentTotalMinutes) {
-        continue;
-      }
+      // Run automation if:
+      // 1. Current time matches exactly the scheduled time, OR
+      // 2. We're past the scheduled time today AND it hasn't run yet today (catch-up)
+      const isExactTime = config.scheduledTime === timeString;
+      const isPastScheduledTime = currentTotalMinutes >= scheduledTotalMinutes;
       
-      // Check if already ran today
-      const now = getBrasiliaDate();
-      const todayDate = getBrasiliaDateString(now);
-      
-      let alreadyRanToday = false;
-      if (config.lastRunAt) {
-        const lastRun = getBrasiliaDate();
-        lastRun.setTime(new Date(config.lastRunAt).getTime());
-        const lastRunDate = getBrasiliaDateString(lastRun);
+      if (isExactTime || isPastScheduledTime) {
+        // Check if already ran today (avoid duplicate runs on the same day)
+        const now = getBrasiliaDate();
+        const todayDate = getBrasiliaDateString(now);
         
-        if (lastRunDate === todayDate) {
-          console.log(`[Scheduler] ✓ ${config.automationType} (${config.scheduledTime}) for user ${authUserId} already ran today`);
-          alreadyRanToday = true;
+        let alreadyRanToday = false;
+        if (config.lastRunAt) {
+          const lastRun = getBrasiliaDate();
+          lastRun.setTime(new Date(config.lastRunAt).getTime());
+          const lastRunDate = getBrasiliaDateString(lastRun);
+          
+          if (lastRunDate === todayDate) {
+            alreadyRanToday = true;
+          }
         }
-      }
-      
-      // Run if it hasn't run today
-      if (!alreadyRanToday) {
-        console.log(`[Scheduler] 🔄 Catching up: ${config.automationType} (scheduled for ${config.scheduledTime}) for user ${authUserId}`);
+        
+        if (alreadyRanToday) {
+          if (isExactTime) {
+            console.log(`[Scheduler] ⏭️  Skipping ${config.automationType} for user ${authUserId} - already ran today`);
+          }
+          continue;
+        }
+
+        // Run the automation
+        if (isExactTime) {
+          console.log(`[Scheduler] 🚀 Triggering automation: ${config.automationType} (${config.scheduledTime}) for user ${authUserId}`);
+        } else {
+          console.log(`[Scheduler] 🔄 Catching up automation: ${config.automationType} (scheduled ${config.scheduledTime}, running now at ${timeString}) for user ${authUserId}`);
+        }
         await processAutomation(authUserId, config);
       }
     }
@@ -346,8 +316,7 @@ export function startScheduler(): void {
 
   console.log(`[Scheduler] Starting smart scheduler - will run only at: ${SCHEDULED_TIMES.join(', ')} (GMT-3)`);
   
-  const { timeString, hours, minutes } = getBrasiliaTimeString();
-  const currentTotalMinutes = hours * 60 + minutes;
+  const { timeString } = getBrasiliaTimeString();
   
   // Check if current time matches any scheduled time and run immediately if so
   if (SCHEDULED_TIMES.includes(timeString)) {
@@ -358,27 +327,9 @@ export function startScheduler(): void {
     return;
   }
   
-  // Check if we missed any scheduled time today
-  let missedSchedule = false;
-  for (const scheduledTime of SCHEDULED_TIMES) {
-    const [schedHours, schedMinutes] = scheduledTime.split(':').map(Number);
-    const scheduledTotalMinutes = schedHours * 60 + schedMinutes;
-    
-    if (currentTotalMinutes > scheduledTotalMinutes) {
-      missedSchedule = true;
-      break;
-    }
-  }
-  
-  if (missedSchedule) {
-    console.log(`[Scheduler] Server started after scheduled time - checking for missed automations`);
-    runMissedAutomations().then(() => {
-      scheduleNextCheck();
-    });
-  } else {
-    // Schedule first check
-    scheduleNextCheck();
-  }
+  // Otherwise, just schedule the next check - don't run missed automations
+  console.log(`[Scheduler] Waiting for next scheduled time. Automations will only run at configured times.`);
+  scheduleNextCheck();
 }
 
 export function stopScheduler(): void {
