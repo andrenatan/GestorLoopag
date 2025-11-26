@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -23,15 +23,8 @@ import {
 
 export default function Landing() {
   const [, setLocation] = useLocation();
-  const { login, register, isAuthenticated } = useAuth();
+  const { login, register } = useAuth();
   const { toast } = useToast();
-  
-  // Redirect to dashboard when authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      setLocation("/dashboard");
-    }
-  }, [isAuthenticated, setLocation]);
   
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [loginData, setLoginData] = useState({ email: "", password: "" });
@@ -49,13 +42,14 @@ export default function Landing() {
     setIsLoading(true);
     try {
       await login(loginData.email, loginData.password);
-      // Navigation is handled by useEffect when isAuthenticated becomes true
+      setLocation("/dashboard");
     } catch (error: any) {
       toast({
         title: "Erro ao fazer login",
         description: error.message || "Verifique suas credenciais",
         variant: "destructive",
       });
+    } finally {
       setIsLoading(false);
     }
   };
