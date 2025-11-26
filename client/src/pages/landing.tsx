@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -148,23 +148,35 @@ export default function Landing() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-8"
+          className="flex items-center justify-between mb-8"
         >
-          <div className="inline-flex items-center gap-2 mb-4">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-              className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25"
-            >
-              <Tv className="w-6 h-6 text-white" />
-            </motion.div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Loopag
-            </h1>
+          <Link href="/" data-testid="link-back-home">
+            <div className="inline-flex items-center gap-2 cursor-pointer group">
+              <motion.div
+                whileHover={{ rotate: 360 }}
+                transition={{ duration: 0.5 }}
+                className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25"
+              >
+                <Tv className="w-6 h-6 text-white" />
+              </motion.div>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent group-hover:from-blue-300 group-hover:to-pink-300 transition-all">
+                  Loopag
+                </h1>
+                <p className="text-gray-500 text-xs">
+                  Voltar ao início
+                </p>
+              </div>
+            </div>
+          </Link>
+          <div className="text-right hidden sm:block">
+            <p className="text-gray-400 text-sm">
+              Acesse sua conta
+            </p>
+            <p className="text-gray-500 text-xs">
+              Sistema de Gestão IPTV
+            </p>
           </div>
-          <p className="text-gray-400 text-lg">
-            Sistema Completo de Gestão IPTV
-          </p>
         </motion.header>
 
         {/* Main Content */}

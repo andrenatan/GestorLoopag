@@ -19,6 +19,7 @@ import Users from "@/pages/users";
 import Templates from "@/pages/templates";
 import WhatsApp from "@/pages/whatsapp";
 import Landing from "@/pages/landing";
+import Sales from "@/pages/sales";
 import Plans from "@/pages/plans";
 import Success from "@/pages/success";
 
@@ -37,8 +38,8 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
 function Router() {
   return (
     <Switch>
-      {/* Public routes */}
-      <Route path="/">
+      {/* Login page - public only for non-authenticated */}
+      <Route path="/login">
         <PublicRoute>
           <Landing />
         </PublicRoute>
@@ -129,6 +130,11 @@ function Router() {
             <WhatsApp />
           </DashboardLayout>
         </ProtectedRoute>
+      </Route>
+
+      {/* Sales landing page - public (must be before 404) */}
+      <Route path="/">
+        <Sales />
       </Route>
 
       {/* 404 */}
