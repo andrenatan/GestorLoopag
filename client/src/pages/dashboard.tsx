@@ -5,6 +5,7 @@ import { ChartCard } from "@/components/dashboard/chart-card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api } from "@/lib/api";
+import { useAuth } from "@/hooks/use-auth";
 import { 
   AlertCircle, 
   Clock, 
@@ -46,30 +47,34 @@ const getPeriodLabel = (period: string) => {
 };
 
 export default function Dashboard() {
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [revenuePeriod, setRevenuePeriod] = useState<'current_month' | 'last_month' | '3_months' | '6_months' | '12_months'>('6_months');
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ["/api/dashboard/stats"],
     queryFn: api.getDashboardStats,
     refetchInterval: 30000,
+    enabled: isAuthenticated && !isAuthLoading,
   });
 
   const { data: newClientsByDay, isLoading: isLoadingNewClients } = useQuery({
     queryKey: ["/api/dashboard/new-clients-by-day"],
     queryFn: api.getNewClientsByDay,
     refetchInterval: 30000,
+    enabled: isAuthenticated && !isAuthLoading,
   });
 
   const { data: revenueData, isLoading: isLoadingRevenue } = useQuery({
     queryKey: ["/api/dashboard/revenue-by-period", revenuePeriod],
     queryFn: () => api.getRevenueByPeriod(revenuePeriod),
     refetchInterval: 30000,
+    enabled: isAuthenticated && !isAuthLoading,
   });
 
   const currentMonth = getMonthName(new Date().getMonth());
   const isDayPeriod = revenuePeriod === 'current_month' || revenuePeriod === 'last_month';
 
-  if (isLoading) {
+  if (isAuthLoading || isLoading) {
     return (
       <div className="p-6 space-y-8">
         <div className="animate-pulse">
