@@ -1,0 +1,15 @@
+[variables]
+NODE_ENV = 'production'
+NIXPACKS_NODE_VERSION = '20'
+
+[phases.setup]
+nixPkgs = ['...', 'postgresql']
+
+[phases.install]
+cmds = ['npm ci']
+
+[phases.build]
+cmds = ['npm run build']
+
+[start]
+cmd = 'npm run start'

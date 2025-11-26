@@ -38,6 +38,15 @@ declare global {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
+  // Health check endpoint for Railway monitoring
+  app.get("/health", (req, res) => {
+    res.status(200).json({ 
+      status: "healthy", 
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString()
+    });
+  });
+  
   // Supabase config endpoint (anon key is public by design)
   app.get("/api/config/supabase", (req, res) => {
     res.json({
