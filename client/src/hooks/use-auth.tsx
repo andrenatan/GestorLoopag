@@ -18,6 +18,7 @@ interface AuthContextType {
   user: UserMetadata | null;
   supabaseUser: SupabaseUser | null;
   isLoading: boolean;
+  isReady: boolean;
   login: (username: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
@@ -39,6 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [user, setUser] = useState<UserMetadata | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isReady, setIsReady] = useState(false);
 
   // Initialize auth state
   useEffect(() => {
@@ -53,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           fetchUserMetadata(session.user.id);
         } else {
           setIsLoading(false);
+          setIsReady(true);
         }
 
         // Listen for auth changes
@@ -65,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } else {
             setUser(null);
             setIsLoading(false);
+            setIsReady(true);
           }
         });
 
@@ -72,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error("Failed to initialize auth:", error);
         setIsLoading(false);
+        setIsReady(true);
         return null;
       }
     };
@@ -106,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Error fetching user metadata:", error);
     } finally {
       setIsLoading(false);
+      setIsReady(true);
     }
   };
 
@@ -176,10 +182,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      // Limpar estado local PRIMEIRO para evitar redirecionamentos prematuros
+      setUser(null);
+      setSupabaseUser(null);
+      
+      // Limpar qualquer dado de sessão do localStorage do Supabase
       const supabase = await getSupabase();
+      
+      // Fazer signOut no Supabase (isso limpa a sessão no servidor e localStorage)
       await supabase.auth.signOut();
+      
+      // Redirecionar para a página inicial
       setLocation("/");
     } catch (error: any) {
+      // Mesmo em caso de erro, garantir que o usuário local está limpo
+      setUser(null);
+      setSupabaseUser(null);
       throw new Error(error.message || "Erro ao fazer logout");
     }
   };
@@ -190,6 +208,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         supabaseUser,
         isLoading,
+        isReady,
         login,
         register,
         logout,

@@ -7,9 +7,9 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isReady } = useAuth();
 
-  if (isLoading) {
+  if (isLoading || !isReady) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -25,9 +25,9 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 }
 
 export function PublicRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isReady } = useAuth();
 
-  if (isLoading) {
+  if (isLoading || !isReady) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
