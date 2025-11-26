@@ -42,14 +42,16 @@ export default function Landing() {
     setIsLoading(true);
     try {
       await login(loginData.email, loginData.password);
-      setLocation("/dashboard");
+      toast({
+        title: "Login realizado com sucesso!",
+        description: "Redirecionando...",
+      });
     } catch (error: any) {
       toast({
         title: "Erro ao fazer login",
         description: error.message || "Verifique suas credenciais",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   };
@@ -59,6 +61,10 @@ export default function Landing() {
     setIsLoading(true);
     try {
       await register(registerData);
+      toast({
+        title: "Conta criada com sucesso!",
+        description: "Redirecionando para seleção de plano...",
+      });
       setLocation("/plans");
     } catch (error: any) {
       toast({
@@ -66,7 +72,6 @@ export default function Landing() {
         description: error.message || "Tente novamente mais tarde",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   };
