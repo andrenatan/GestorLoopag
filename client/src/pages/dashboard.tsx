@@ -472,7 +472,7 @@ export default function Dashboard() {
           title="Clientes por estado"
           subtitle={`${getMonthLabel(selectedMonth)}`}
         >
-          <div className="h-64">
+          <div className="h-80">
             {isLoadingClientsByState ? (
               <div className="flex items-center justify-center h-full">
                 <div className="animate-pulse text-muted-foreground">Carregando...</div>
