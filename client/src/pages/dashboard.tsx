@@ -401,11 +401,32 @@ export default function Dashboard() {
                     data={clientsBySystem}
                     cx="50%"
                     cy="50%"
-                    outerRadius={80}
+                    outerRadius={70}
+                    innerRadius={0}
                     dataKey="count"
                     nameKey="system"
-                    label={({ system, percent }: { system: string; percent: number }) => `${system} ${(percent * 100).toFixed(0)}%`}
-                    labelLine={false}
+                    label={({ cx, cy, midAngle, outerRadius, system }: { cx: number; cy: number; midAngle: number; outerRadius: number; system: string }) => {
+                      const RADIAN = Math.PI / 180;
+                      const radius = outerRadius + 25;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      return (
+                        <text
+                          x={x}
+                          y={y}
+                          textAnchor={x > cx ? 'start' : 'end'}
+                          dominantBaseline="central"
+                          className="fill-current text-xs"
+                          style={{ fontSize: '11px' }}
+                        >
+                          {system}
+                        </text>
+                      );
+                    }}
+                    labelLine={{
+                      stroke: 'hsl(var(--muted-foreground))',
+                      strokeWidth: 1,
+                    }}
                   >
                     {clientsBySystem.map((_: { system: string; count: number }, index: number) => (
                       <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
@@ -419,7 +440,6 @@ export default function Dashboard() {
                       borderRadius: '8px'
                     }}
                   />
-                  <Legend />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
