@@ -389,7 +389,7 @@ export default function Dashboard() {
           title="Servidores"
           subtitle={`${getMonthLabel(selectedMonth)}`}
         >
-          <div className="h-64">
+          <div className="h-80">
             {isLoadingClientsBySystem ? (
               <div className="flex items-center justify-center h-full">
                 <div className="animate-pulse text-muted-foreground">Carregando...</div>
@@ -401,13 +401,13 @@ export default function Dashboard() {
                     data={clientsBySystem}
                     cx="50%"
                     cy="50%"
-                    outerRadius={70}
+                    outerRadius={100}
                     innerRadius={0}
                     dataKey="count"
                     nameKey="system"
                     label={({ cx, cy, midAngle, outerRadius, system }: { cx: number; cy: number; midAngle: number; outerRadius: number; system: string }) => {
                       const RADIAN = Math.PI / 180;
-                      const radius = outerRadius + 25;
+                      const radius = outerRadius + 30;
                       const x = cx + radius * Math.cos(-midAngle * RADIAN);
                       const y = cy + radius * Math.sin(-midAngle * RADIAN);
                       return (
@@ -416,8 +416,8 @@ export default function Dashboard() {
                           y={y}
                           textAnchor={x > cx ? 'start' : 'end'}
                           dominantBaseline="central"
-                          className="fill-current text-xs"
-                          style={{ fontSize: '11px' }}
+                          className="fill-current"
+                          style={{ fontSize: '12px' }}
                         >
                           {system}
                         </text>
@@ -433,11 +433,28 @@ export default function Dashboard() {
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(value) => [`${value} cliente${Number(value) !== 1 ? 's' : ''}`, "Total"]}
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px'
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        const total = clientsBySystem.reduce((sum: number, item: { count: number }) => sum + item.count, 0);
+                        const percentage = ((data.count / total) * 100).toFixed(1);
+                        return (
+                          <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div 
+                                className="w-3 h-3 rounded-full" 
+                                style={{ backgroundColor: payload[0].payload.fill }}
+                              />
+                              <span className="font-semibold">{data.system}</span>
+                            </div>
+                            <div className="text-sm space-y-1">
+                              <div>Total de Clientes: <span className="font-medium">{data.count}</span></div>
+                              <div>Porcentagem: <span className="font-medium">{percentage}%</span></div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
                     }}
                   />
                 </PieChart>
