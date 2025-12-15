@@ -600,6 +600,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dashboard Charts - New endpoints
+  app.get("/api/dashboard/revenue-by-system", async (req, res) => {
+    try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const month = req.query.month as string;
+      if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+        return res.status(400).json({ message: "Invalid month format. Use YYYY-MM" });
+      }
+      
+      const data = await storage.getRevenueBySystem(authUserId, month);
+      res.json(data);
+    } catch (error) {
+      console.error("[Revenue By System Error]:", error);
+      res.status(500).json({ message: "Failed to fetch revenue by system", error: String(error) });
+    }
+  });
+
+  app.get("/api/dashboard/clients-by-system", async (req, res) => {
+    try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const month = req.query.month as string;
+      if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+        return res.status(400).json({ message: "Invalid month format. Use YYYY-MM" });
+      }
+      
+      const data = await storage.getActiveClientsBySystem(authUserId, month);
+      res.json(data);
+    } catch (error) {
+      console.error("[Clients By System Error]:", error);
+      res.status(500).json({ message: "Failed to fetch clients by system", error: String(error) });
+    }
+  });
+
+  app.get("/api/dashboard/clients-by-state", async (req, res) => {
+    try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const month = req.query.month as string;
+      if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+        return res.status(400).json({ message: "Invalid month format. Use YYYY-MM" });
+      }
+      
+      const data = await storage.getActiveClientsByState(authUserId, month);
+      res.json(data);
+    } catch (error) {
+      console.error("[Clients By State Error]:", error);
+      res.status(500).json({ message: "Failed to fetch clients by state", error: String(error) });
+    }
+  });
+
   // Users Routes
   app.get("/api/users", async (req, res) => {
     try {

@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { ChartCard } from "@/components/dashboard/chart-card";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api } from "@/lib/api";
+import { BrazilMap } from "@/components/dashboard/brazil-map";
 import { 
   AlertCircle, 
   Clock, 
@@ -23,6 +23,12 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
 } from "recharts";
 
 // Helper to get month name in Portuguese
@@ -45,8 +51,33 @@ const getPeriodLabel = (period: string) => {
   return labels[period] || 'Mês Atual';
 };
 
+const CHART_COLORS = ['#6366f1', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
+
+const getCurrentMonth = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const getMonthLabel = (month: string) => {
+  const [year, monthNum] = month.split('-').map(Number);
+  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  return `${months[monthNum - 1]}/${year}`;
+};
+
+const getMonthOptions = () => {
+  const options = [];
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    options.push({ value, label: getMonthLabel(value) });
+  }
+  return options;
+};
+
 export default function Dashboard() {
   const [revenuePeriod, setRevenuePeriod] = useState<'current_month' | 'last_month' | '3_months' | '6_months' | '12_months'>('6_months');
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ["/api/dashboard/stats"],
@@ -66,7 +97,26 @@ export default function Dashboard() {
     refetchInterval: 30000,
   });
 
+  const { data: revenueBySystem, isLoading: isLoadingRevenueBySystem } = useQuery({
+    queryKey: ["/api/dashboard/revenue-by-system", selectedMonth],
+    queryFn: () => api.getRevenueBySystem(selectedMonth),
+    refetchInterval: 30000,
+  });
+
+  const { data: clientsBySystem, isLoading: isLoadingClientsBySystem } = useQuery({
+    queryKey: ["/api/dashboard/clients-by-system", selectedMonth],
+    queryFn: () => api.getClientsBySystem(selectedMonth),
+    refetchInterval: 30000,
+  });
+
+  const { data: clientsByState, isLoading: isLoadingClientsByState } = useQuery({
+    queryKey: ["/api/dashboard/clients-by-state", selectedMonth],
+    queryFn: () => api.getClientsByState(selectedMonth),
+    refetchInterval: 30000,
+  });
+
   const currentMonth = getMonthName(new Date().getMonth());
+  const monthOptions = getMonthOptions();
   const isDayPeriod = revenuePeriod === 'current_month' || revenuePeriod === 'last_month';
 
   if (isLoading) {
@@ -276,6 +326,126 @@ export default function Dashboard() {
                   />
                 </LineChart>
               </ResponsiveContainer>
+            )}
+          </div>
+        </ChartCard>
+      </div>
+
+      {/* New Charts Section - Revenue by System, Clients by System, Clients by State */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Revenue by System */}
+        <ChartCard
+          title="Financeiro"
+          subtitle={`${getMonthLabel(selectedMonth)}`}
+          action={
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {monthOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+        >
+          <div className="h-64">
+            {isLoadingRevenueBySystem ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="animate-pulse text-muted-foreground">Carregando...</div>
+              </div>
+            ) : revenueBySystem && revenueBySystem.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={revenueBySystem} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                  <XAxis dataKey="system" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip 
+                    formatter={(value) => [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, "Faturamento"]}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]}>
+                    {revenueBySystem.map((_: { system: string; value: number }, index: number) => (
+                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                Sem dados para este período
+              </div>
+            )}
+          </div>
+        </ChartCard>
+
+        {/* Clients by System (Pie Chart) */}
+        <ChartCard
+          title="Servidores"
+          subtitle={`${getMonthLabel(selectedMonth)}`}
+        >
+          <div className="h-64">
+            {isLoadingClientsBySystem ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="animate-pulse text-muted-foreground">Carregando...</div>
+              </div>
+            ) : clientsBySystem && clientsBySystem.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={clientsBySystem}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    dataKey="count"
+                    nameKey="system"
+                    label={({ system, percent }: { system: string; percent: number }) => `${system} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {clientsBySystem.map((_: { system: string; count: number }, index: number) => (
+                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value) => [`${value} cliente${Number(value) !== 1 ? 's' : ''}`, "Total"]}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                Sem dados para este período
+              </div>
+            )}
+          </div>
+        </ChartCard>
+
+        {/* Clients by State (Brazil Map) */}
+        <ChartCard
+          title="Clientes por estado"
+          subtitle={`${getMonthLabel(selectedMonth)}`}
+        >
+          <div className="h-64">
+            {isLoadingClientsByState ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="animate-pulse text-muted-foreground">Carregando...</div>
+              </div>
+            ) : clientsByState && clientsByState.length > 0 ? (
+              <BrazilMap data={clientsByState} />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                Sem dados para este período
+              </div>
             )}
           </div>
         </ChartCard>

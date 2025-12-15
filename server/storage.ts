@@ -12,6 +12,7 @@ import {
   type AutomationConfig, type InsertAutomationConfig
 } from "@shared/schema";
 import { getBrasiliaDate, getBrasiliaDateString, getBrasiliaStartOfDay, parseDateString } from "./utils/timezone";
+import { getStateFromPhone } from "@shared/ddd-map";
 import { db } from "../db";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 
@@ -96,6 +97,11 @@ export interface IStorage {
   }>;
   getNewClientsByDay(authUserId: string): Promise<{ day: number; count: number }[]>;
   getRevenueByPeriod(authUserId: string, period: 'current_month' | 'last_month' | '3_months' | '6_months' | '12_months'): Promise<{ label: string; value: number }[]>;
+  
+  // Dashboard Charts - New
+  getRevenueBySystem(authUserId: string, month: string): Promise<{ system: string; value: number }[]>;
+  getActiveClientsBySystem(authUserId: string, month: string): Promise<{ system: string; count: number }[]>;
+  getActiveClientsByState(authUserId: string, month: string): Promise<{ state: string; count: number }[]>;
 
   // Automation Configs
   getAllAutomationConfigs(authUserId: string): Promise<AutomationConfig[]>;
@@ -807,6 +813,86 @@ export class DbStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return result[0];
+  }
+
+  // Dashboard Charts - New methods
+  async getRevenueBySystem(authUserId: string, month: string): Promise<{ system: string; value: number }[]> {
+    const [year, monthNum] = month.split('-').map(Number);
+    const daysInMonth = new Date(year, monthNum, 0).getDate();
+    const monthStart = `${year}-${String(monthNum).padStart(2, '0')}-01`;
+    const monthEnd = `${year}-${String(monthNum).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+    
+    const payments = await db.select().from(paymentHistory)
+      .where(
+        and(
+          eq(paymentHistory.authUserId, authUserId),
+          gte(paymentHistory.paymentDate, monthStart),
+          lte(paymentHistory.paymentDate, monthEnd)
+        )
+      );
+    
+    const allClients = await db.select().from(clients).where(eq(clients.authUserId, authUserId));
+    const clientMap = new Map(allClients.map(c => [c.id, c]));
+    
+    const revenueBySystem: Record<string, number> = {};
+    
+    payments.forEach(payment => {
+      const client = payment.clientId ? clientMap.get(payment.clientId) : null;
+      const system = client?.system || 'Outros';
+      revenueBySystem[system] = (revenueBySystem[system] || 0) + Number(payment.amount || 0);
+    });
+    
+    return Object.entries(revenueBySystem)
+      .map(([system, value]) => ({ system, value }))
+      .sort((a, b) => b.value - a.value);
+  }
+
+  async getActiveClientsBySystem(authUserId: string, month: string): Promise<{ system: string; count: number }[]> {
+    const [year, monthNum] = month.split('-').map(Number);
+    const daysInMonth = new Date(year, monthNum, 0).getDate();
+    const monthEnd = `${year}-${String(monthNum).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+    
+    const allClients = await db.select().from(clients).where(eq(clients.authUserId, authUserId));
+    
+    const clientsBySystem: Record<string, number> = {};
+    
+    allClients.forEach(client => {
+      const expiryDate = parseDateString(client.expiryDate);
+      const endOfMonth = parseDateString(monthEnd);
+      
+      if (expiryDate >= endOfMonth) {
+        const system = client.system || 'Outros';
+        clientsBySystem[system] = (clientsBySystem[system] || 0) + 1;
+      }
+    });
+    
+    return Object.entries(clientsBySystem)
+      .map(([system, count]) => ({ system, count }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  async getActiveClientsByState(authUserId: string, month: string): Promise<{ state: string; count: number }[]> {
+    const [year, monthNum] = month.split('-').map(Number);
+    const daysInMonth = new Date(year, monthNum, 0).getDate();
+    const monthEnd = `${year}-${String(monthNum).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+    
+    const allClients = await db.select().from(clients).where(eq(clients.authUserId, authUserId));
+    
+    const clientsByState: Record<string, number> = {};
+    
+    allClients.forEach(client => {
+      const expiryDate = parseDateString(client.expiryDate);
+      const endOfMonth = parseDateString(monthEnd);
+      
+      if (expiryDate >= endOfMonth && client.phone) {
+        const state = getStateFromPhone(client.phone);
+        clientsByState[state] = (clientsByState[state] || 0) + 1;
+      }
+    });
+    
+    return Object.entries(clientsByState)
+      .map(([state, count]) => ({ state, count }))
+      .sort((a, b) => b.count - a.count);
   }
 }
 
