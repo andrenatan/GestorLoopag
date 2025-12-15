@@ -1,0 +1,210 @@
+2025-11-26T19:19:43.000000000Z [inf]  Starting Container
+2025-11-26T19:19:43.982156882Z [err]  npm warn config production Use `--omit=dev` instead.
+2025-11-26T19:19:43.982166093Z [inf]  
+2025-11-26T19:19:43.982198443Z [inf]  > rest-express@1.0.0 start
+2025-11-26T19:19:43.982208148Z [inf]  > NODE_ENV=production node dist/index.js
+2025-11-26T19:19:43.982215406Z [inf]  
+2025-11-26T19:19:44.021558395Z [err]      at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:122:5)
+2025-11-26T19:19:44.021600059Z [err]  
+2025-11-26T19:19:44.021608780Z [err]  Node.js v20.18.1
+2025-11-26T19:19:44.021650232Z [err]  /app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50
+2025-11-26T19:19:44.021687714Z [err]          throw new Error('supabaseUrl is required.');
+2025-11-26T19:19:44.021695255Z [err]                ^
+2025-11-26T19:19:44.021703104Z [err]  
+2025-11-26T19:19:44.021710060Z [err]  Error: supabaseUrl is required.
+2025-11-26T19:19:44.021717576Z [err]      at validateSupabaseUrl (/app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50:15)
+2025-11-26T19:19:44.021724514Z [err]      at new SupabaseClient (/app/node_modules/@supabase/supabase-js/dist/main/SupabaseClient.js:34:59)
+2025-11-26T19:19:44.021731276Z [err]      at createClient (/app/node_modules/@supabase/supabase-js/dist/main/index.js:38:12)
+2025-11-26T19:19:44.021738568Z [err]      at file:///app/dist/index.js:1162:16
+2025-11-26T19:19:44.021745541Z [err]      at ModuleJob.run (node:internal/modules/esm/module_job:234:25)
+2025-11-26T19:19:44.021751735Z [err]      at async ModuleLoader.import (node:internal/modules/esm/loader:473:24)
+2025-11-26T19:19:46.077379908Z [err]  npm warn config production Use `--omit=dev` instead.
+2025-11-26T19:19:46.122591494Z [inf]  
+2025-11-26T19:19:46.122597611Z [inf]  > rest-express@1.0.0 start
+2025-11-26T19:19:46.122620055Z [inf]  > NODE_ENV=production node dist/index.js
+2025-11-26T19:19:46.122626044Z [inf]  
+2025-11-26T19:19:47.063610075Z [err]  /app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50
+2025-11-26T19:19:47.063616232Z [err]          throw new Error('supabaseUrl is required.');
+2025-11-26T19:19:47.063621981Z [err]                ^
+2025-11-26T19:19:47.063628119Z [err]  
+2025-11-26T19:19:47.063634225Z [err]  Error: supabaseUrl is required.
+2025-11-26T19:19:47.063639864Z [err]      at validateSupabaseUrl (/app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50:15)
+2025-11-26T19:19:47.063644994Z [err]      at new SupabaseClient (/app/node_modules/@supabase/supabase-js/dist/main/SupabaseClient.js:34:59)
+2025-11-26T19:19:47.063650077Z [err]      at createClient (/app/node_modules/@supabase/supabase-js/dist/main/index.js:38:12)
+2025-11-26T19:19:47.063656930Z [err]      at file:///app/dist/index.js:1162:16
+2025-11-26T19:19:47.063663647Z [err]      at ModuleJob.run (node:internal/modules/esm/module_job:234:25)
+2025-11-26T19:19:47.063669204Z [err]      at async ModuleLoader.import (node:internal/modules/esm/loader:473:24)
+2025-11-26T19:19:47.063674712Z [err]      at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:122:5)
+2025-11-26T19:19:47.063680257Z [err]  
+2025-11-26T19:19:47.063686749Z [err]  Node.js v20.18.1
+2025-11-26T19:19:48.703339311Z [err]  npm warn config production Use `--omit=dev` instead.
+2025-11-26T19:19:48.703343945Z [inf]  
+2025-11-26T19:19:48.703350821Z [inf]  > rest-express@1.0.0 start
+2025-11-26T19:19:48.703356309Z [inf]  > NODE_ENV=production node dist/index.js
+2025-11-26T19:19:48.703361715Z [inf]  
+2025-11-26T19:19:49.743160065Z [err]  /app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50
+2025-11-26T19:19:49.743163682Z [err]          throw new Error('supabaseUrl is required.');
+2025-11-26T19:19:49.743167493Z [err]                ^
+2025-11-26T19:19:49.743172065Z [err]  
+2025-11-26T19:19:49.743177242Z [err]  Error: supabaseUrl is required.
+2025-11-26T19:19:49.743181564Z [err]      at validateSupabaseUrl (/app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50:15)
+2025-11-26T19:19:49.743185391Z [err]      at new SupabaseClient (/app/node_modules/@supabase/supabase-js/dist/main/SupabaseClient.js:34:59)
+2025-11-26T19:19:49.743189537Z [err]      at createClient (/app/node_modules/@supabase/supabase-js/dist/main/index.js:38:12)
+2025-11-26T19:19:49.743194336Z [err]      at file:///app/dist/index.js:1162:16
+2025-11-26T19:19:49.743198730Z [err]      at ModuleJob.run (node:internal/modules/esm/module_job:234:25)
+2025-11-26T19:19:49.743203432Z [err]      at async ModuleLoader.import (node:internal/modules/esm/loader:473:24)
+2025-11-26T19:19:49.743207410Z [err]      at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:122:5)
+2025-11-26T19:19:49.743211279Z [err]  
+2025-11-26T19:19:49.743215299Z [err]  Node.js v20.18.1
+2025-11-26T19:19:50.789730004Z [err]  npm warn config production Use `--omit=dev` instead.
+2025-11-26T19:19:50.815106634Z [inf]  
+2025-11-26T19:19:50.815113055Z [inf]  > rest-express@1.0.0 start
+2025-11-26T19:19:50.815118277Z [inf]  > NODE_ENV=production node dist/index.js
+2025-11-26T19:19:50.815122738Z [inf]  
+2025-11-26T19:19:51.699667307Z [err]          throw new Error('supabaseUrl is required.');
+2025-11-26T19:19:51.699681373Z [err]                ^
+2025-11-26T19:19:51.699753437Z [err]  /app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50
+2025-11-26T19:19:51.700393764Z [err]  
+2025-11-26T19:19:51.700402282Z [err]  Error: supabaseUrl is required.
+2025-11-26T19:19:51.700408955Z [err]      at validateSupabaseUrl (/app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50:15)
+2025-11-26T19:19:51.700415711Z [err]      at new SupabaseClient (/app/node_modules/@supabase/supabase-js/dist/main/SupabaseClient.js:34:59)
+2025-11-26T19:19:51.700421150Z [err]      at createClient (/app/node_modules/@supabase/supabase-js/dist/main/index.js:38:12)
+2025-11-26T19:19:51.700427310Z [err]      at file:///app/dist/index.js:1162:16
+2025-11-26T19:19:51.700433955Z [err]      at ModuleJob.run (node:internal/modules/esm/module_job:234:25)
+2025-11-26T19:19:51.700439303Z [err]      at async ModuleLoader.import (node:internal/modules/esm/loader:473:24)
+2025-11-26T19:19:51.700444742Z [err]      at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:122:5)
+2025-11-26T19:19:51.700450505Z [err]  
+2025-11-26T19:19:51.700455117Z [err]  Node.js v20.18.1
+2025-11-26T19:19:53.779566118Z [err]  npm warn config production Use `--omit=dev` instead.
+2025-11-26T19:19:53.779573287Z [inf]  
+2025-11-26T19:19:53.779579735Z [inf]  > rest-express@1.0.0 start
+2025-11-26T19:19:53.779586126Z [inf]  > NODE_ENV=production node dist/index.js
+2025-11-26T19:19:53.779594387Z [inf]  
+2025-11-26T19:19:54.123832691Z [err]  /app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50
+2025-11-26T19:19:54.123833917Z [err]      at ModuleJob.run (node:internal/modules/esm/module_job:234:25)
+2025-11-26T19:19:54.123842556Z [err]          throw new Error('supabaseUrl is required.');
+2025-11-26T19:19:54.123846810Z [err]      at async ModuleLoader.import (node:internal/modules/esm/loader:473:24)
+2025-11-26T19:19:54.123848932Z [err]                ^
+2025-11-26T19:19:54.123854264Z [err]  
+2025-11-26T19:19:54.123858055Z [err]      at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:122:5)
+2025-11-26T19:19:54.123860664Z [err]  Error: supabaseUrl is required.
+2025-11-26T19:19:54.123866985Z [err]      at validateSupabaseUrl (/app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50:15)
+2025-11-26T19:19:54.123867592Z [err]  
+2025-11-26T19:19:54.123875807Z [err]  Node.js v20.18.1
+2025-11-26T19:19:54.123879222Z [err]      at new SupabaseClient (/app/node_modules/@supabase/supabase-js/dist/main/SupabaseClient.js:34:59)
+2025-11-26T19:19:54.123884562Z [err]      at createClient (/app/node_modules/@supabase/supabase-js/dist/main/index.js:38:12)
+2025-11-26T19:19:54.123890558Z [err]      at file:///app/dist/index.js:1162:16
+2025-11-26T19:19:55.658038822Z [err]  npm warn config production Use `--omit=dev` instead.
+2025-11-26T19:19:55.658042792Z [inf]  
+2025-11-26T19:19:55.658047439Z [inf]  > rest-express@1.0.0 start
+2025-11-26T19:19:55.658051151Z [inf]  > NODE_ENV=production node dist/index.js
+2025-11-26T19:19:55.658054881Z [inf]  
+2025-11-26T19:19:55.972407750Z [err]      at createClient (/app/node_modules/@supabase/supabase-js/dist/main/index.js:38:12)
+2025-11-26T19:19:55.972417593Z [err]      at file:///app/dist/index.js:1162:16
+2025-11-26T19:19:55.972423601Z [err]      at ModuleJob.run (node:internal/modules/esm/module_job:234:25)
+2025-11-26T19:19:55.972430331Z [err]      at async ModuleLoader.import (node:internal/modules/esm/loader:473:24)
+2025-11-26T19:19:55.972436881Z [err]      at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:122:5)
+2025-11-26T19:19:55.972444033Z [err]  
+2025-11-26T19:19:55.972468007Z [err]  Node.js v20.18.1
+2025-11-26T19:19:55.972502964Z [err]  /app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50
+2025-11-26T19:19:55.972510201Z [err]          throw new Error('supabaseUrl is required.');
+2025-11-26T19:19:55.972516404Z [err]                ^
+2025-11-26T19:19:55.972522673Z [err]  
+2025-11-26T19:19:55.972531239Z [err]  Error: supabaseUrl is required.
+2025-11-26T19:19:55.972537606Z [err]      at validateSupabaseUrl (/app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50:15)
+2025-11-26T19:19:55.972554928Z [err]      at new SupabaseClient (/app/node_modules/@supabase/supabase-js/dist/main/SupabaseClient.js:34:59)
+2025-11-26T19:19:57.831545919Z [err]  npm warn config production Use `--omit=dev` instead.
+2025-11-26T19:19:57.831553769Z [inf]  
+2025-11-26T19:19:57.831560874Z [inf]  > rest-express@1.0.0 start
+2025-11-26T19:19:57.831568516Z [inf]  > NODE_ENV=production node dist/index.js
+2025-11-26T19:19:57.831574376Z [inf]  
+2025-11-26T19:19:58.758906411Z [err]  Error: supabaseUrl is required.
+2025-11-26T19:19:58.758917281Z [err]      at validateSupabaseUrl (/app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50:15)
+2025-11-26T19:19:58.758949630Z [err]  /app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50
+2025-11-26T19:19:58.758959097Z [err]          throw new Error('supabaseUrl is required.');
+2025-11-26T19:19:58.758966961Z [err]                ^
+2025-11-26T19:19:58.758973707Z [err]  
+2025-11-26T19:19:58.762356781Z [err]      at new SupabaseClient (/app/node_modules/@supabase/supabase-js/dist/main/SupabaseClient.js:34:59)
+2025-11-26T19:19:58.762368662Z [err]      at createClient (/app/node_modules/@supabase/supabase-js/dist/main/index.js:38:12)
+2025-11-26T19:19:58.762376209Z [err]      at file:///app/dist/index.js:1162:16
+2025-11-26T19:19:58.762382346Z [err]      at ModuleJob.run (node:internal/modules/esm/module_job:234:25)
+2025-11-26T19:19:58.762389011Z [err]      at async ModuleLoader.import (node:internal/modules/esm/loader:473:24)
+2025-11-26T19:19:58.762396154Z [err]      at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:122:5)
+2025-11-26T19:19:58.762403272Z [err]  
+2025-11-26T19:19:58.762410906Z [err]  Node.js v20.18.1
+2025-11-26T19:19:59.736110654Z [err]  npm warn config production Use `--omit=dev` instead.
+2025-11-26T19:19:59.766851163Z [inf]  
+2025-11-26T19:19:59.766857957Z [inf]  > rest-express@1.0.0 start
+2025-11-26T19:19:59.766863824Z [inf]  > NODE_ENV=production node dist/index.js
+2025-11-26T19:19:59.766869024Z [inf]  
+2025-11-26T19:20:01.156313172Z [err]      at file:///app/dist/index.js:1162:16
+2025-11-26T19:20:01.156327479Z [err]  
+2025-11-26T19:20:01.156339975Z [err]      at ModuleJob.run (node:internal/modules/esm/module_job:234:25)
+2025-11-26T19:20:01.156341850Z [err]  Error: supabaseUrl is required.
+2025-11-26T19:20:01.156356189Z [err]      at async ModuleLoader.import (node:internal/modules/esm/loader:473:24)
+2025-11-26T19:20:01.156365624Z [err]  /app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50
+2025-11-26T19:20:01.156366682Z [err]      at validateSupabaseUrl (/app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50:15)
+2025-11-26T19:20:01.156374712Z [err]          throw new Error('supabaseUrl is required.');
+2025-11-26T19:20:01.156381112Z [err]      at new SupabaseClient (/app/node_modules/@supabase/supabase-js/dist/main/SupabaseClient.js:34:59)
+2025-11-26T19:20:01.156387703Z [err]                ^
+2025-11-26T19:20:01.156394043Z [err]      at createClient (/app/node_modules/@supabase/supabase-js/dist/main/index.js:38:12)
+2025-11-26T19:20:01.156414486Z [err]      at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:122:5)
+2025-11-26T19:20:01.156423103Z [err]  
+2025-11-26T19:20:01.156432555Z [err]  Node.js v20.18.1
+2025-11-26T19:20:02.107889827Z [err]  npm warn config production Use `--omit=dev` instead.
+2025-11-26T19:20:02.117915148Z [inf]  
+2025-11-26T19:20:02.117921075Z [inf]  > rest-express@1.0.0 start
+2025-11-26T19:20:02.117927708Z [inf]  > NODE_ENV=production node dist/index.js
+2025-11-26T19:20:02.117933565Z [inf]  
+2025-11-26T19:20:02.981946873Z [err]  /app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50
+2025-11-26T19:20:02.982002995Z [err]          throw new Error('supabaseUrl is required.');
+2025-11-26T19:20:02.982011398Z [err]                ^
+2025-11-26T19:20:02.982019114Z [err]  
+2025-11-26T19:20:02.982025803Z [err]  Error: supabaseUrl is required.
+2025-11-26T19:20:02.982032982Z [err]      at validateSupabaseUrl (/app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50:15)
+2025-11-26T19:20:02.982040620Z [err]      at new SupabaseClient (/app/node_modules/@supabase/supabase-js/dist/main/SupabaseClient.js:34:59)
+2025-11-26T19:20:02.982046708Z [err]      at createClient (/app/node_modules/@supabase/supabase-js/dist/main/index.js:38:12)
+2025-11-26T19:20:02.982053402Z [err]      at file:///app/dist/index.js:1162:16
+2025-11-26T19:20:02.982059454Z [err]      at ModuleJob.run (node:internal/modules/esm/module_job:234:25)
+2025-11-26T19:20:02.982068949Z [err]      at async ModuleLoader.import (node:internal/modules/esm/loader:473:24)
+2025-11-26T19:20:02.982074841Z [err]      at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:122:5)
+2025-11-26T19:20:02.982080997Z [err]  
+2025-11-26T19:20:02.982087225Z [err]  Node.js v20.18.1
+2025-11-26T19:20:04.911207400Z [err]  npm warn config production Use `--omit=dev` instead.
+2025-11-26T19:20:04.911213603Z [inf]  
+2025-11-26T19:20:04.911219264Z [inf]  > rest-express@1.0.0 start
+2025-11-26T19:20:04.911225755Z [inf]  > NODE_ENV=production node dist/index.js
+2025-11-26T19:20:04.911231449Z [inf]  
+2025-11-26T19:20:05.151222079Z [err]  /app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50
+2025-11-26T19:20:05.151231348Z [err]          throw new Error('supabaseUrl is required.');
+2025-11-26T19:20:05.151238712Z [err]                ^
+2025-11-26T19:20:05.151252244Z [err]  
+2025-11-26T19:20:05.151257555Z [err]  Error: supabaseUrl is required.
+2025-11-26T19:20:05.151279585Z [err]      at validateSupabaseUrl (/app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50:15)
+2025-11-26T19:20:05.151283820Z [err]      at new SupabaseClient (/app/node_modules/@supabase/supabase-js/dist/main/SupabaseClient.js:34:59)
+2025-11-26T19:20:05.151288117Z [err]      at createClient (/app/node_modules/@supabase/supabase-js/dist/main/index.js:38:12)
+2025-11-26T19:20:05.151292733Z [err]      at file:///app/dist/index.js:1162:16
+2025-11-26T19:20:05.151297362Z [err]      at ModuleJob.run (node:internal/modules/esm/module_job:234:25)
+2025-11-26T19:20:05.151303446Z [err]      at async ModuleLoader.import (node:internal/modules/esm/loader:473:24)
+2025-11-26T19:20:05.151308012Z [err]      at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:122:5)
+2025-11-26T19:20:05.151312955Z [err]  
+2025-11-26T19:20:05.151318902Z [err]  Node.js v20.18.1
+2025-11-26T19:20:06.959256777Z [err]  npm warn config production Use `--omit=dev` instead.
+2025-11-26T19:20:06.974052820Z [inf]  
+2025-11-26T19:20:06.974059848Z [inf]  > rest-express@1.0.0 start
+2025-11-26T19:20:06.974066494Z [inf]  > NODE_ENV=production node dist/index.js
+2025-11-26T19:20:06.974073645Z [inf]  
+2025-11-26T19:20:08.123343445Z [err]  /app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50
+2025-11-26T19:20:08.123351161Z [err]          throw new Error('supabaseUrl is required.');
+2025-11-26T19:20:08.123358712Z [err]                ^
+2025-11-26T19:20:08.123365787Z [err]  
+2025-11-26T19:20:08.123371911Z [err]  Error: supabaseUrl is required.
+2025-11-26T19:20:08.123378032Z [err]      at validateSupabaseUrl (/app/node_modules/@supabase/supabase-js/dist/main/lib/helpers.js:50:15)
+2025-11-26T19:20:08.123383631Z [err]      at new SupabaseClient (/app/node_modules/@supabase/supabase-js/dist/main/SupabaseClient.js:34:59)
+2025-11-26T19:20:08.123389056Z [err]      at createClient (/app/node_modules/@supabase/supabase-js/dist/main/index.js:38:12)
+2025-11-26T19:20:08.123394550Z [err]      at file:///app/dist/index.js:1162:16
+2025-11-26T19:20:08.123402711Z [err]      at ModuleJob.run (node:internal/modules/esm/module_job:234:25)
+2025-11-26T19:20:08.123408880Z [err]      at async ModuleLoader.import (node:internal/modules/esm/loader:473:24)
+2025-11-26T19:20:08.123414843Z [err]      at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:122:5)
+2025-11-26T19:20:08.123420560Z [err]  
+2025-11-26T19:20:08.123426786Z [err]  Node.js v20.18.1

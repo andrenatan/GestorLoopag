@@ -470,7 +470,7 @@ export class DbStorage implements IStorage {
       .orderBy(paymentHistory.paymentDate);
   }
 
-  async upsertRenewalPayment(
+  async createRenewalPayment(
     authUserId: string,
     clientId: number,
     amount: string,
@@ -478,44 +478,19 @@ export class DbStorage implements IStorage {
     newExpiryDate: string,
     brasiliaDateString: string
   ): Promise<PaymentHistory> {
-    // First, try to find existing renewal
-    const existing = await db.select().from(paymentHistory)
-      .where(
-        and(
-          eq(paymentHistory.authUserId, authUserId),
-          eq(paymentHistory.clientId, clientId),
-          eq(paymentHistory.type, 'renewal')
-        )
-      )
-      .limit(1);
-    
-    if (existing.length > 0) {
-      // Update existing record: sum amount and update dates
-      const result = await db.update(paymentHistory)
-        .set({
-          amount: sql`${paymentHistory.amount} + ${amount}`,
-          previousExpiryDate: previousExpiryDate,
-          newExpiryDate: newExpiryDate,
-          paymentDate: brasiliaDateString,
-        })
-        .where(eq(paymentHistory.id, existing[0].id))
-        .returning();
-      return result[0];
-    } else {
-      // Insert new renewal record
-      const result = await db.insert(paymentHistory)
-        .values({
-          authUserId,
-          clientId,
-          amount,
-          paymentDate: brasiliaDateString,
-          type: 'renewal',
-          previousExpiryDate,
-          newExpiryDate,
-        })
-        .returning();
-      return result[0];
-    }
+    // Always create a new record for each renewal to preserve historical data
+    const result = await db.insert(paymentHistory)
+      .values({
+        authUserId,
+        clientId,
+        amount,
+        paymentDate: brasiliaDateString,
+        type: 'renewal',
+        previousExpiryDate,
+        newExpiryDate,
+      })
+      .returning();
+    return result[0];
   }
 
   // Dashboard Stats

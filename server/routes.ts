@@ -912,9 +912,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return brasiliaTime.toISOString().split('T')[0];
           };
           
-          // Upsert renewal payment (atomic: update if exists, insert if not)
+          // Create new renewal payment record (preserves historical data)
           const currentBrasiliaDate = getBrasiliaDateString();
-          await storage.upsertRenewalPayment(
+          await storage.createRenewalPayment(
             authUserId,
             client.id,
             client.value,
