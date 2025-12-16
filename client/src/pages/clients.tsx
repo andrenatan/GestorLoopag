@@ -57,6 +57,11 @@ export default function Clients() {
     queryFn: api.getClients,
   });
 
+  const { data: systemsList = [] } = useQuery({
+    queryKey: ["/api/systems"],
+    queryFn: api.getSystems,
+  });
+
   const createClientMutation = useMutation({
     mutationFn: (data: any) => api.createClient(data),
     onSuccess: () => {
@@ -289,9 +294,9 @@ export default function Clients() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os Sistemas</SelectItem>
-                <SelectItem value="P2P - Android">P2P - Android</SelectItem>
-                <SelectItem value="IPTV - Geral">IPTV - Geral</SelectItem>
-                <SelectItem value="Dois Pontos Distintos">Dois Pontos Distintos</SelectItem>
+                {systemsList.map((system: { id: number; name: string }) => (
+                  <SelectItem key={system.id} value={system.name}>{system.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Button variant="outline" size="icon">
