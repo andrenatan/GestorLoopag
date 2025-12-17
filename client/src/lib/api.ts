@@ -53,4 +53,7 @@ export const api = {
   getBillingHistory: () => apiRequest("/api/billing/history", "GET").then(res => res.json()),
   sendBillingMessages: (data: { clientIds: number[]; templateId: number; instanceId: number }) => 
     apiRequest("/api/billing/send", "POST", data),
+
+  // Systems
+  getSystems: () => apiRequest("/api/systems", "GET").then(res => res.json()),
 };
