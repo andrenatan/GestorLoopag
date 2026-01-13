@@ -935,6 +935,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const validatedData = insertClientSchema.partial().parse(req.body);
       
+      // IMPORTANT: Remove activationDate from update payload - it should be immutable after creation
+      // This prevents historical revenue data from being corrupted when renewing clients
+      if ('activationDate' in validatedData) {
+        console.log(`[Client Update] Removing activationDate from update payload for client ${id} - activationDate is immutable`);
+        delete (validatedData as any).activationDate;
+      }
+      
       // Get current client data before update
       const oldClient = await storage.getClient(authUserId, id);
       if (!oldClient) {
@@ -963,6 +970,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const oldDateNormalized = normalizeDate(oldClient.expiryDate);
         const newDateNormalized = normalizeDate(validatedData.expiryDate);
         
+        console.log(`[Renewal Check] Client ${client.id}: oldExpiry=${oldDateNormalized}, newExpiry=${newDateNormalized}`);
+        
         // Only register renewal if dates actually changed
         if (newDateNormalized !== oldDateNormalized) {
           // Get current date in Brasília timezone for payment date
@@ -975,6 +984,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Create new renewal payment record (preserves historical data)
           const currentBrasiliaDate = getBrasiliaDateString();
+          console.log(`[Renewal] Creating payment record for client ${client.id}: amount=${client.value}, paymentDate=${currentBrasiliaDate}`);
+          
           await storage.createRenewalPayment(
             authUserId,
             client.id,
@@ -983,6 +994,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             newDateNormalized,
             currentBrasiliaDate
           );
+          
+          console.log(`[Renewal] Payment record created successfully for client ${client.id}`);
+        } else {
+          console.log(`[Renewal Check] No renewal detected - dates are the same`);
         }
       }
       
