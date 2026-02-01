@@ -4,6 +4,22 @@
 
 Loopag is a comprehensive IPTV subscription management system built with modern web technologies. The application features a futuristic glassmorphism design with dual theme support (dark/light mode), real-time dashboard analytics, client management, billing automation, WhatsApp integration, and employee management capabilities.
 
+## Recent Critical Fixes
+
+### Revenue History Preservation (February 2026)
+**Problem**: When renewing clients, the revenue for previous months was incorrectly decreasing.
+
+**Root Cause**: The frontend form was sending `activationDate` on client updates, and the backend was accepting it, causing the original activation date to be overwritten with the current date.
+
+**Solution Implemented**:
+1. **Backend Guard** (`server/routes.ts`): The PUT `/api/clients/:id` endpoint now strips `activationDate` from the update payload, making it immutable after creation.
+2. **Frontend Guard** (`client/src/components/clients/client-form.tsx`): The `handleSubmit` function now excludes `activationDate` when editing an existing client.
+
+**Important Notes**:
+- `activationDate` is IMMUTABLE after client creation - it should never be updated
+- Revenue calculations are based on `payment_history.paymentDate`, not `clients.activationDate`
+- Each renewal creates a NEW record in `payment_history` with today's date, preserving historical data
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
