@@ -167,7 +167,15 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   };
 
   const handleSubmit = (data: ClientFormData) => {
-    onSubmit(data);
+    // When editing, remove activationDate from the payload
+    // activationDate is immutable after creation to preserve historical revenue data
+    if (initialData) {
+      const { activationDate, ...dataWithoutActivationDate } = data;
+      console.log('[ClientForm] Editing client - activationDate removed from payload to preserve revenue history');
+      onSubmit(dataWithoutActivationDate as ClientFormData);
+    } else {
+      onSubmit(data);
+    }
   };
 
   return (
