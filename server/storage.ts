@@ -485,6 +485,7 @@ export class DbStorage implements IStorage {
     brasiliaDateString: string
   ): Promise<PaymentHistory> {
     // Always create a new record for each renewal to preserve historical data
+    // THIS IS AN INSERT, NOT AN UPDATE - each renewal creates a new record
     const result = await db.insert(paymentHistory)
       .values({
         authUserId,
@@ -496,6 +497,7 @@ export class DbStorage implements IStorage {
         newExpiryDate,
       })
       .returning();
+    
     return result[0];
   }
 

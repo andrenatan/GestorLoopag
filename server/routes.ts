@@ -955,7 +955,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if expiryDate changed (renewal detected)
-      if (validatedData.expiryDate) {
+      const isDevMode = process.env.NODE_ENV === 'development';
+      if (isDevMode) {
+        console.log(`[Client Update] Full payload received:`, JSON.stringify(validatedData, null, 2));
+        console.log(`[Client Update] Old client data before update:`, JSON.stringify({
+          id: oldClient.id,
+          expiryDate: oldClient.expiryDate,
+          activationDate: oldClient.activationDate
+        }, null, 2));
+      }
+      
+      // Check for renewal based on either payload expiryDate OR client's updated expiryDate
+      const newExpiryDate = validatedData.expiryDate || client.expiryDate;
+      const oldExpiryDate = oldClient.expiryDate;
+      
+      if (newExpiryDate && oldExpiryDate) {
         // Normalize dates to YYYY-MM-DD string format for comparison
         const normalizeDate = (date: string | Date): string => {
           if (typeof date === 'string') {
@@ -967,10 +981,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return d.toISOString().split('T')[0];
         };
         
-        const oldDateNormalized = normalizeDate(oldClient.expiryDate);
-        const newDateNormalized = normalizeDate(validatedData.expiryDate);
+        const oldDateNormalized = normalizeDate(oldExpiryDate);
+        const newDateNormalized = normalizeDate(newExpiryDate);
         
-        console.log(`[Renewal Check] Client ${client.id}: oldExpiry=${oldDateNormalized}, newExpiry=${newDateNormalized}`);
+        if (isDevMode) {
+          console.log(`[Renewal Check] Client ${client.id}: oldExpiry=${oldDateNormalized}, newExpiry=${newDateNormalized}`);
+          console.log(`[Renewal Check] Dates are different: ${newDateNormalized !== oldDateNormalized}`);
+        }
         
         // Only register renewal if dates actually changed
         if (newDateNormalized !== oldDateNormalized) {
@@ -984,9 +1001,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Create new renewal payment record (preserves historical data)
           const currentBrasiliaDate = getBrasiliaDateString();
-          console.log(`[Renewal] Creating payment record for client ${client.id}: amount=${client.value}, paymentDate=${currentBrasiliaDate}`);
+          console.log(`[Renewal] Creating payment record for client ${client.id}: previousExpiry=${oldDateNormalized}, newExpiry=${newDateNormalized}`);
           
-          await storage.createRenewalPayment(
+          const renewalRecord = await storage.createRenewalPayment(
             authUserId,
             client.id,
             client.value,
@@ -995,10 +1012,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             currentBrasiliaDate
           );
           
-          console.log(`[Renewal] Payment record created successfully for client ${client.id}`);
-        } else {
+          console.log(`[Renewal] Payment record created with ID: ${renewalRecord.id} for client ${client.id}`);
+        } else if (isDevMode) {
           console.log(`[Renewal Check] No renewal detected - dates are the same`);
         }
+      } else if (isDevMode) {
+        console.log(`[Renewal Check] Missing expiry date - skipping renewal detection`);
       }
       
       res.json(client);

@@ -20,6 +20,23 @@ Loopag is a comprehensive IPTV subscription management system built with modern 
 - Revenue calculations are based on `payment_history.paymentDate`, not `clients.activationDate`
 - Each renewal creates a NEW record in `payment_history` with today's date, preserving historical data
 
+### Renewal Payment Tracking (February 2026)
+**How Renewals Work**:
+1. When a client is updated and `expiryDate` changes, the system detects a renewal
+2. A NEW record is INSERTED into `payment_history` with type='renewal'
+3. The `previous_expiry_date` stores the old expiration date
+4. The `new_expiry_date` stores the new expiration date
+5. The `payment_date` is set to today (Brasília timezone)
+
+**Key Behavior**:
+- The system does NOT update existing payment records - it always creates NEW ones
+- Each renewal generates a unique ID in the database
+- Detailed logging is enabled to track renewal creation
+
+**Debugging**:
+- Look for `[Renewal]` and `[Storage]` prefixed logs in the server output
+- These logs show exactly when a new payment record is being created
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
