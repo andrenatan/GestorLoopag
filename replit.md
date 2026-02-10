@@ -20,6 +20,26 @@ Loopag is a comprehensive IPTV subscription management system built with modern 
 - Revenue calculations are based on `payment_history.paymentDate`, not `clients.activationDate`
 - Each renewal creates a NEW record in `payment_history` with today's date, preserving historical data
 
+### N8N Integration Endpoint (February 2026)
+**Problem**: N8N automation was inserting clients directly into Supabase, bypassing the app's `clientNumber` generation logic (`MAX(client_number) + 1`). This caused duplicate client numbers when clients were created through both the frontend and n8n.
+
+**Solution**: Created `POST /api/n8n/clients` endpoint that:
+1. Authenticates via `X-API-Key` header (checked against `N8N_API_KEY` env var)
+2. Uses `N8N_AUTH_USER_ID` env var to determine the tenant (secure, no header spoofing)
+3. Maps both English and Portuguese field names from n8n payloads
+4. Uses the same `createClient` + `createPaymentHistory` logic as the frontend
+5. Returns clean JSON with the created client info
+
+**Required Environment Variables**:
+- `N8N_API_KEY`: Secret key for authenticating n8n requests
+- `N8N_AUTH_USER_ID`: The Supabase auth user ID to associate clients with
+
+**N8N Configuration**: Use HTTP Request node instead of Supabase node:
+- Method: POST
+- URL: `https://your-app-url/api/n8n/clients`
+- Headers: `X-API-Key: your-api-key`
+- Body: JSON with client fields (name, phone, username, password, system, expiry_date, etc.)
+
 ### Renewal Payment Tracking (February 2026)
 **How Renewals Work**:
 1. When a client is updated and `expiryDate` changes, the system detects a renewal
