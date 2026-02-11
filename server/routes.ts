@@ -52,8 +52,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================
   app.post("/api/n8n/clients", async (req: Request, res: Response) => {
     try {
-      const apiKey = req.headers["x-api-key"] as string;
-      const expectedKey = process.env.N8N_API_KEY;
+      const apiKey = (req.headers["x-api-key"] as string || "").trim();
+      const expectedKey = (process.env.N8N_API_KEY || "").trim();
+
+      console.log(`[N8N Auth] Expected key exists: ${!!expectedKey}, length: ${expectedKey.length}, starts with: "${expectedKey.substring(0, 8)}..."`);
+      console.log(`[N8N Auth] Received key exists: ${!!apiKey}, length: ${apiKey.length}, starts with: "${apiKey.substring(0, 8)}..."`);
+      console.log(`[N8N Auth] Keys match: ${apiKey === expectedKey}`);
 
       if (!expectedKey || apiKey !== expectedKey) {
         return res.status(401).json({ message: "API key inválida ou não configurada" });
