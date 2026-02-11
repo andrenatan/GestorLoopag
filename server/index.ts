@@ -73,6 +73,16 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
     
+    // Debug: Log N8N environment variables status on startup
+    const n8nApiKey = process.env.N8N_API_KEY || "";
+    const n8nAuthUserId = process.env.N8N_AUTH_USER_ID || "";
+    console.log(`[Startup] N8N_API_KEY: exists=${!!n8nApiKey}, length=${n8nApiKey.length}, starts="${n8nApiKey.substring(0, 8)}..."`);
+    console.log(`[Startup] N8N_AUTH_USER_ID: exists=${!!n8nAuthUserId}, length=${n8nAuthUserId.length}`);
+    
+    // List all env vars that contain "N8N" in the name
+    const n8nVars = Object.keys(process.env).filter(k => k.includes("N8N"));
+    console.log(`[Startup] Env vars containing "N8N": ${n8nVars.length > 0 ? n8nVars.join(", ") : "NONE FOUND"}`);
+    
     // Start automation scheduler
     startScheduler();
   });
