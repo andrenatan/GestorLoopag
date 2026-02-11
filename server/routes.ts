@@ -46,6 +46,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
       timestamp: new Date().toISOString()
     });
   });
+
+  // ============================================
+  // N8N INTEGRATION ENDPOINT (registered before session/auth middleware)
+  // ============================================
+  app.post("/api/n8n/clients", async (req: Request, res: Response) => {
+    try {
+      const apiKey = req.headers["x-api-key"] as string;
+      const expectedKey = process.env.N8N_API_KEY;
+
+      if (!expectedKey || apiKey !== expectedKey) {
+        return res.status(401).json({ message: "API key inválida ou não configurada" });
+      }
+
+      const envAuthUserId = process.env.N8N_AUTH_USER_ID;
+      const authUserId = envAuthUserId || (req.headers["x-auth-user-id"] as string);
+      if (!authUserId) {
+        return res.status(400).json({ message: "N8N_AUTH_USER_ID não configurado e header x-auth-user-id não fornecido" });
+      }
+
+      const user = await storage.getUserByAuthId(authUserId);
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado para o auth_user_id configurado" });
+      }
+
+      const body = req.body;
+
+      const getBrasiliaDateString = () => {
+        const now = new Date();
+        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+        const brasiliaTime = new Date(utc + (3600000 * -3));
+        return brasiliaTime.toISOString().split('T')[0];
+      };
+
+      const clientData = {
+        name: body.name || body.Nome,
+        phone: body.phone || body.Telefone,
+        username: body.username || body["usuário"] || body.usuario,
+        password: body.password || body.Telefone || body.phone,
+        system: body.system || body.sistema || body.Sistema,
+        subscriptionStatus: body.subscription_status || body["Situação"] || body.situacao || "Ativa",
+        paymentMethod: body.payment_method || body["métodoPagamento"] || body.metodoPagamento || "pix",
+        activationDate: body.activation_date || body.dataAtivacao || body.dataAtivação || getBrasiliaDateString(),
+        expiryDate: body.expiry_date || body.DataVencimento || body.dataVencimento,
+        paymentStatus: body.payment_status || "Pago",
+        plan: body.plan || body.Plano || body.plano || "Mensal",
+        value: body.value || body.Valor || body.valor || "60.00",
+        referralSource: body.referral_source || body.indicacao || body.indicação || null,
+        notes: body.notes || body.notas || null,
+      };
+
+      if (!clientData.name || !clientData.phone || !clientData.username || !clientData.expiryDate) {
+        return res.status(400).json({ 
+          message: "Campos obrigatórios faltando: name, phone, username, expiry_date",
+          received: Object.keys(body)
+        });
+      }
+
+      const validatedData = insertClientSchema.parse(clientData);
+      const client = await storage.createClient(authUserId, validatedData);
+
+      await storage.createPaymentHistory(authUserId, {
+        authUserId,
+        clientId: client.id,
+        amount: validatedData.value,
+        paymentDate: validatedData.activationDate,
+        type: "new_client",
+        newExpiryDate: validatedData.expiryDate,
+        previousExpiryDate: null
+      });
+
+      console.log(`[n8n] Cliente criado: #${client.clientNumber} - ${client.name}`);
+
+      res.status(201).json({
+        success: true,
+        client: {
+          id: client.id,
+          clientNumber: client.clientNumber,
+          name: client.name,
+          phone: client.phone,
+          username: client.username,
+          system: client.system,
+          expiryDate: client.expiryDate,
+          plan: client.plan,
+          value: client.value,
+        }
+      });
+    } catch (error: any) {
+      console.error("[n8n Client Error]:", error.message || error);
+      res.status(400).json({ 
+        message: "Erro ao criar cliente via n8n", 
+        error: error.message || "Dados inválidos"
+      });
+    }
+  });
   
   // Supabase config endpoint (anon key is public by design)
   app.get("/api/config/supabase", (req, res) => {
@@ -1790,100 +1884,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("[Stripe Webhook Error]:", error);
       res.status(500).json({ message: "Erro ao processar webhook", error: error.message });
-    }
-  });
-
-  // ============================================
-  // N8N INTEGRATION ENDPOINT
-  // ============================================
-  app.post("/api/n8n/clients", async (req: Request, res: Response) => {
-    try {
-      const apiKey = req.headers["x-api-key"] as string;
-      const expectedKey = process.env.N8N_API_KEY;
-
-      if (!expectedKey || apiKey !== expectedKey) {
-        return res.status(401).json({ message: "API key inválida ou não configurada" });
-      }
-
-      const envAuthUserId = process.env.N8N_AUTH_USER_ID;
-      const authUserId = envAuthUserId || (req.headers["x-auth-user-id"] as string);
-      if (!authUserId) {
-        return res.status(400).json({ message: "N8N_AUTH_USER_ID não configurado e header x-auth-user-id não fornecido" });
-      }
-
-      const user = await storage.getUserByAuthId(authUserId);
-      if (!user) {
-        return res.status(404).json({ message: "Usuário não encontrado para o auth_user_id configurado" });
-      }
-
-      const body = req.body;
-
-      const getBrasiliaDateString = () => {
-        const now = new Date();
-        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-        const brasiliaTime = new Date(utc + (3600000 * -3));
-        return brasiliaTime.toISOString().split('T')[0];
-      };
-
-      const clientData = {
-        name: body.name || body.Nome,
-        phone: body.phone || body.Telefone,
-        username: body.username || body["usuário"] || body.usuario,
-        password: body.password || body.Telefone || body.phone,
-        system: body.system || body.sistema || body.Sistema,
-        subscriptionStatus: body.subscription_status || body["Situação"] || body.situacao || "Ativa",
-        paymentMethod: body.payment_method || body["métodoPagamento"] || body.metodoPagamento || "pix",
-        activationDate: body.activation_date || body.dataAtivacao || body.dataAtivação || getBrasiliaDateString(),
-        expiryDate: body.expiry_date || body.DataVencimento || body.dataVencimento,
-        paymentStatus: body.payment_status || "Pago",
-        plan: body.plan || body.Plano || body.plano || "Mensal",
-        value: body.value || body.Valor || body.valor || "60.00",
-        referralSource: body.referral_source || body.indicacao || body.indicação || null,
-        notes: body.notes || body.notas || null,
-      };
-
-      if (!clientData.name || !clientData.phone || !clientData.username || !clientData.expiryDate) {
-        return res.status(400).json({ 
-          message: "Campos obrigatórios faltando: name, phone, username, expiry_date",
-          received: Object.keys(body)
-        });
-      }
-
-      const validatedData = insertClientSchema.parse(clientData);
-      const client = await storage.createClient(authUserId, validatedData);
-
-      await storage.createPaymentHistory(authUserId, {
-        authUserId,
-        clientId: client.id,
-        amount: validatedData.value,
-        paymentDate: validatedData.activationDate,
-        type: "new_client",
-        newExpiryDate: validatedData.expiryDate,
-        previousExpiryDate: null
-      });
-
-      console.log(`[n8n] Cliente criado: #${client.clientNumber} - ${client.name}`);
-
-      res.status(201).json({
-        success: true,
-        client: {
-          id: client.id,
-          clientNumber: client.clientNumber,
-          name: client.name,
-          phone: client.phone,
-          username: client.username,
-          system: client.system,
-          expiryDate: client.expiryDate,
-          plan: client.plan,
-          value: client.value,
-        }
-      });
-    } catch (error: any) {
-      console.error("[n8n Client Error]:", error.message || error);
-      res.status(400).json({ 
-        message: "Erro ao criar cliente via n8n", 
-        error: error.message || "Dados inválidos"
-      });
     }
   });
 
