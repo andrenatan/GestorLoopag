@@ -83,6 +83,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return brasiliaTime.toISOString().split('T')[0];
       };
 
+      const parseDateBR = (dateStr: string | undefined | null): string | undefined => {
+        if (!dateStr) return undefined;
+        const str = String(dateStr).trim();
+        const brMatch = str.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
+        if (brMatch) {
+          const [, day, month, year] = brMatch;
+          return `${year}-${month}-${day}`;
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+          return str;
+        }
+        return str;
+      };
+
+      const rawActivationDate = body.activation_date || body.dataAtivacao || body.dataAtivação || getBrasiliaDateString();
+      const rawExpiryDate = body.expiry_date || body.DataVencimento || body.dataVencimento;
+
+      console.log(`[N8N] Raw dates received - activation: "${rawActivationDate}", expiry: "${rawExpiryDate}"`);
+
       const clientData = {
         name: body.name || body.Nome,
         phone: body.phone || body.Telefone,
@@ -91,8 +110,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         system: body.system || body.sistema || body.Sistema,
         subscriptionStatus: body.subscription_status || body["Situação"] || body.situacao || "Ativa",
         paymentMethod: body.payment_method || body["métodoPagamento"] || body.metodoPagamento || "pix",
-        activationDate: body.activation_date || body.dataAtivacao || body.dataAtivação || getBrasiliaDateString(),
-        expiryDate: body.expiry_date || body.DataVencimento || body.dataVencimento,
+        activationDate: parseDateBR(rawActivationDate),
+        expiryDate: parseDateBR(rawExpiryDate),
         paymentStatus: body.payment_status || "Pago",
         plan: body.plan || body.Plano || body.plano || "Mensal",
         value: body.value || body.Valor || body.valor || "60.00",
