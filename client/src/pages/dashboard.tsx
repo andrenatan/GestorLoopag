@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { ChartCard } from "@/components/dashboard/chart-card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { BrazilMap } from "@/components/dashboard/brazil-map";
+import { useTheme } from "@/hooks/use-theme";
 import { 
   AlertCircle, 
   Clock, 
@@ -13,7 +15,12 @@ import {
   Users,
   UserX,
   Calendar,
-  CalendarX
+  CalendarX,
+  RefreshCw,
+  Eye,
+  EyeOff,
+  Moon,
+  Sun
 } from "lucide-react";
 import {
   LineChart,
@@ -78,6 +85,10 @@ const getMonthOptions = () => {
 export default function Dashboard() {
   const [revenuePeriod, setRevenuePeriod] = useState<'current_month' | 'last_month' | '3_months' | '6_months' | '12_months'>('6_months');
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
+  const [blurBilling, setBlurBilling] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+  const { theme, setTheme } = useTheme();
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ["/api/dashboard/stats"],
@@ -143,17 +154,39 @@ export default function Dashboard() {
             Visão geral do sistema de gestão IPTV
           </p>
         </div>
-        <div className="flex items-center space-x-4">
-          <Select defaultValue="today">
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Hoje</SelectItem>
-              <SelectItem value="week">Esta semana</SelectItem>
-              <SelectItem value="month">Este mês</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={async () => {
+              setIsRefreshing(true);
+              await queryClient.invalidateQueries();
+              setTimeout(() => setIsRefreshing(false), 1000);
+            }}
+            title="Atualizar dados"
+            className="glassmorphism neon-border hover:scale-110 transition-all duration-300"
+          >
+            <RefreshCw className={`h-[1.2rem] w-[1.2rem] ${isRefreshing ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setBlurBilling(!blurBilling)}
+            title={blurBilling ? "Mostrar faturamento" : "Ocultar faturamento"}
+            className="glassmorphism neon-border hover:scale-110 transition-all duration-300"
+          >
+            {blurBilling ? <EyeOff className="h-[1.2rem] w-[1.2rem]" /> : <Eye className="h-[1.2rem] w-[1.2rem]" />}
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+            title={theme === "light" ? "Modo escuro" : "Modo claro"}
+            className="glassmorphism neon-border hover:scale-110 transition-all duration-300"
+          >
+            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+          </Button>
         </div>
       </div>
 
@@ -206,6 +239,7 @@ export default function Dashboard() {
           value={`R$ ${stats?.totalRevenue?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}`}
           icon={TrendingUp}
           color="purple"
+          blurValue={blurBilling}
         />
       </div>
 
@@ -228,7 +262,7 @@ export default function Dashboard() {
             </Select>
           }
         >
-          <div className="h-64">
+          <div className="h-64" style={blurBilling ? { filter: 'blur(8px)', transition: 'filter 0.3s ease', pointerEvents: 'none' } : { transition: 'filter 0.3s ease' }}>
             {isLoadingRevenue ? (
               <div className="flex items-center justify-center h-full">
                 <div className="animate-pulse text-muted-foreground">Carregando...</div>
@@ -350,7 +384,7 @@ export default function Dashboard() {
             </Select>
           }
         >
-          <div className="h-64">
+          <div className="h-64" style={blurBilling ? { filter: 'blur(8px)', transition: 'filter 0.3s ease', pointerEvents: 'none' } : { transition: 'filter 0.3s ease' }}>
             {isLoadingRevenueBySystem ? (
               <div className="flex items-center justify-center h-full">
                 <div className="animate-pulse text-muted-foreground">Carregando...</div>

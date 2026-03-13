@@ -12,6 +12,7 @@ interface StatsCardProps {
     isPositive: boolean;
   };
   className?: string;
+  blurValue?: boolean;
 }
 
 const colorVariants = {
@@ -47,7 +48,8 @@ export function StatsCard({
   icon: Icon, 
   color, 
   trend, 
-  className 
+  className,
+  blurValue 
 }: StatsCardProps) {
   return (
     <Card className={cn(
@@ -60,7 +62,7 @@ export function StatsCard({
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground mb-1">{title}</p>
-            <p className={cn("text-2xl font-bold", valueColorVariants[color])}>
+            <p className={cn("text-2xl font-bold", valueColorVariants[color], blurValue && "blur-sm select-none")} style={blurValue ? { transition: 'filter 0.3s ease' } : { transition: 'filter 0.3s ease' }}>
               {value}
             </p>
             {trend && (
