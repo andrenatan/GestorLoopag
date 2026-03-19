@@ -68,7 +68,7 @@ interface PaymentsByDayResult {
   total: number;
   count: number;
   average: number;
-  bestDay: number;
+  bestDayAmount: number;
   dailyData: { day: number; total: number; count: number }[];
 }
 
@@ -124,7 +124,7 @@ export default function Dashboard() {
   const avgClientsPerDay = totalClientsMonth / daysWithClients;
   const bestClientsDay = Math.max(...clientsChartData.map((d) => d.count), 0);
 
-  const paymentsData: PaymentsByDayResult = paymentsByDay || { total: 0, count: 0, average: 0, bestDay: 0, dailyData: [] };
+  const paymentsData: PaymentsByDayResult = paymentsByDay || { total: 0, count: 0, average: 0, bestDayAmount: 0, dailyData: [] };
   const paymentsChartData = paymentsData.dailyData;
 
   if (isLoading) {
@@ -345,7 +345,7 @@ export default function Dashboard() {
             <MiniCard label="Total - Mês Atual" value={`R$ ${fmt(paymentsData.total || 0)}`} color="#f59e0b" small />
             <MiniCard label="Total Pagamentos" value={String(paymentsData.count || 0)} color="#10b981" small />
             <MiniCard label="Média por Dia" value={`R$ ${fmt(paymentsData.average || 0)}`} color="#6366f1" small />
-            <MiniCard label="Melhor Dia" value={`R$ ${fmt(paymentsData.bestDay || 0)}`} color="#8b5cf6" small />
+            <MiniCard label="Melhor Dia" value={`R$ ${fmt(paymentsData.bestDayAmount || 0)}`} color="#8b5cf6" small />
           </div>
 
           {/* Chart */}

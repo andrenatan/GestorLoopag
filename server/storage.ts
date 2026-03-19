@@ -110,7 +110,7 @@ export interface IStorage {
     total: number;
     count: number;
     average: number;
-    bestDay: number;
+    bestDayAmount: number;
     dailyData: { day: number; total: number; count: number }[];
   }>;
   
@@ -533,6 +533,7 @@ export class DbStorage implements IStorage {
     newClientsThisMonth: number;
     clientsNotRenewedThisMonth: number;
     clientsRecoveredThisMonth: number;
+    totalRecoveredThisMonth: number;
     totalRevenue: number;
     projectedMonthlyRevenue: number;
     revenueToday: number;
@@ -683,7 +684,7 @@ export class DbStorage implements IStorage {
     total: number;
     count: number;
     average: number;
-    bestDay: number;
+    bestDayAmount: number;
     dailyData: { day: number; total: number; count: number }[];
   }> {
     const today = getBrasiliaDate();
@@ -718,7 +719,7 @@ export class DbStorage implements IStorage {
     const totalCount = monthPayments.length;
     const daysWithPayments = Object.values(byDay).filter(d => d.total > 0).length || 1;
     const average = totalAmount / daysWithPayments;
-    const bestDay = Math.max(...Object.values(byDay).map(d => d.total), 0);
+    const bestDayAmount = Math.max(...Object.values(byDay).map(d => d.total), 0);
 
     const dailyData = Object.entries(byDay)
       .sort((a, b) => Number(a[0]) - Number(b[0]))
@@ -728,7 +729,7 @@ export class DbStorage implements IStorage {
         count: v.count,
       }));
 
-    return { total: totalAmount, count: totalCount, average, bestDay, dailyData };
+    return { total: totalAmount, count: totalCount, average, bestDayAmount, dailyData };
   }
 
   async getNewClientsByDay(authUserId: string): Promise<{ day: number; count: number }[]> {
