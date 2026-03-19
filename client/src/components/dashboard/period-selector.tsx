@@ -28,7 +28,9 @@ function addDays(d: Date, n: number): Date {
 function startOfWeek(d: Date): Date {
   const copy = new Date(d);
   const day = copy.getDay();
-  copy.setDate(copy.getDate() - day);
+  // Monday-based week (common in Brazil): 0=Sun → go back 6 days, 1=Mon → 0, etc.
+  const diff = (day === 0) ? 6 : day - 1;
+  copy.setDate(copy.getDate() - diff);
   return copy;
 }
 
@@ -150,7 +152,9 @@ export function PeriodSelector({ value, onChange }: Props) {
 
   const today = getBrasiliaToday();
   const [pickerYear, setPickerYear] = useState(today.getFullYear());
-  const [pickerMonth, setPickerMonth] = useState<number | null>(null);
+  // Track selected year+month to highlight the correct cell
+  const [selectedPickerYear, setSelectedPickerYear] = useState<number | null>(null);
+  const [selectedPickerMonth, setSelectedPickerMonth] = useState<number | null>(null);
 
   const handleSelect = (label: string) => {
     if (label === "Mês Específico") {
@@ -164,7 +168,8 @@ export function PeriodSelector({ value, onChange }: Props) {
   };
 
   const handleMonthPick = (monthIdx: number) => {
-    setPickerMonth(monthIdx);
+    setSelectedPickerMonth(monthIdx);
+    setSelectedPickerYear(pickerYear);
     const specificMonth = `${pickerYear}-${String(monthIdx + 1).padStart(2, "0")}`;
     const mName = MONTH_NAMES[monthIdx];
     const label = `${mName}/${pickerYear}`;
@@ -238,7 +243,7 @@ export function PeriodSelector({ value, onChange }: Props) {
                   key={name}
                   onClick={() => handleMonthPick(idx)}
                   className={`py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    pickerMonth === idx && pickerYear === today.getFullYear()
+                    selectedPickerMonth === idx && selectedPickerYear === pickerYear
                       ? "bg-[#6366f1] text-white"
                       : "bg-[#1a2a3a] text-slate-300 hover:bg-[#243447]"
                   }`}
