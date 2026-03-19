@@ -778,6 +778,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/dashboard/payments-by-day", async (req, res) => {
+    try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const data = await storage.getPaymentsByDay(authUserId);
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch payments by day", error: String(error) });
+    }
+  });
+
   // Users Routes
   app.get("/api/users", async (req, res) => {
     try {

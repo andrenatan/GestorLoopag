@@ -12,6 +12,8 @@ export const api = {
     apiRequest(`/api/dashboard/clients-by-system?month=${month}`, "GET").then(res => res.json()),
   getClientsByState: (month: string) => 
     apiRequest(`/api/dashboard/clients-by-state?month=${month}`, "GET").then(res => res.json()),
+  getPaymentsByDay: () =>
+    apiRequest("/api/dashboard/payments-by-day", "GET").then(res => res.json()),
 
   // Clients
   getClients: () => apiRequest("/api/clients", "GET").then(res => res.json()),

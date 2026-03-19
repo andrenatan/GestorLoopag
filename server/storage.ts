@@ -86,6 +86,7 @@ export interface IStorage {
   getDashboardStats(authUserId: string): Promise<{
     activeClients: number;
     inactiveClients: number;
+    totalClients: number;
     expiringTomorrow: number;
     expiredYesterday: number;
     expiringToday: number;
@@ -93,10 +94,18 @@ export interface IStorage {
     overdue: number;
     billingSentToday: number;
     newClientsToday: number;
+    newClientsThisWeek: number;
+    newClientsThisMonth: number;
+    clientsNotRenewedThisMonth: number;
+    clientsRecoveredThisMonth: number;
     totalRevenue: number;
+    projectedMonthlyRevenue: number;
+    revenueToday: number;
+    revenueTomorrow: number;
   }>;
   getNewClientsByDay(authUserId: string): Promise<{ day: number; count: number }[]>;
   getRevenueByPeriod(authUserId: string, period: 'current_month' | 'last_month' | '3_months' | '6_months' | '12_months'): Promise<{ label: string; value: number }[]>;
+  getPaymentsByDay(authUserId: string): Promise<{ day: number; total: number; count: number; average: number; bestDay: number }>;
   
   // Dashboard Charts - New
   getRevenueBySystem(authUserId: string, month: string): Promise<{ system: string; value: number }[]>;
@@ -505,6 +514,7 @@ export class DbStorage implements IStorage {
   async getDashboardStats(authUserId: string): Promise<{
     activeClients: number;
     inactiveClients: number;
+    totalClients: number;
     expiringTomorrow: number;
     expiredYesterday: number;
     expiringToday: number;
@@ -512,7 +522,14 @@ export class DbStorage implements IStorage {
     overdue: number;
     billingSentToday: number;
     newClientsToday: number;
+    newClientsThisWeek: number;
+    newClientsThisMonth: number;
+    clientsNotRenewedThisMonth: number;
+    clientsRecoveredThisMonth: number;
     totalRevenue: number;
+    projectedMonthlyRevenue: number;
+    revenueToday: number;
+    revenueTomorrow: number;
   }> {
     const allClients = await db.select().from(clients).where(eq(clients.authUserId, authUserId));
     const allBilling = await db.select().from(billingHistory).where(eq(billingHistory.authUserId, authUserId));
@@ -528,8 +545,21 @@ export class DbStorage implements IStorage {
     
     const threeDaysFromNow = new Date(today);
     threeDaysFromNow.setDate(today.getDate() + 3);
+
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
     
     const todayStr = getBrasiliaDateString();
+    const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+    
+    // Current month range
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1;
+    const monthStart = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+    const monthEnd = new Date(currentYear, currentMonth, 0).toISOString().split('T')[0];
+
+    // Week start string
+    const weekStartStr = `${sevenDaysAgo.getFullYear()}-${String(sevenDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysAgo.getDate()).padStart(2, '0')}`;
     
     let activeClients = 0;
     let inactiveClients = 0;
@@ -538,6 +568,8 @@ export class DbStorage implements IStorage {
     let expiring3Days = 0;
     let overdue = 0;
     let expiredYesterday = 0;
+    let projectedMonthlyRevenue = 0;
+    let clientsNotRenewedThisMonth = 0;
     
     allClients.forEach(client => {
       const expiryDate = parseDateString(client.expiryDate);
@@ -545,6 +577,7 @@ export class DbStorage implements IStorage {
       
       if (expiryDate >= today) {
         activeClients++;
+        projectedMonthlyRevenue += Number(client.value || 0);
         
         if (expiryDate.getTime() === today.getTime()) expiringToday++;
         if (expiryDate.getTime() === tomorrow.getTime()) expiringTomorrow++;
@@ -554,6 +587,11 @@ export class DbStorage implements IStorage {
         overdue++;
         
         if (expiryDate.getTime() === yesterday.getTime()) expiredYesterday++;
+
+        // Clients that expired this month but haven't renewed
+        if (client.expiryDate >= monthStart && client.expiryDate <= monthEnd) {
+          clientsNotRenewedThisMonth++;
+        }
       }
     });
     
@@ -561,16 +599,11 @@ export class DbStorage implements IStorage {
       b.createdAt.toISOString().split('T')[0] === todayStr
     ).length;
     
-    const newClientsToday = allClients.filter(c => 
-      c.activationDate === todayStr
-    ).length;
+    const newClientsToday = allClients.filter(c => c.activationDate === todayStr).length;
+    const newClientsThisWeek = allClients.filter(c => c.activationDate >= weekStartStr && c.activationDate <= todayStr).length;
+    const newClientsThisMonth = allClients.filter(c => c.activationDate >= monthStart && c.activationDate <= monthEnd).length;
     
-    // Calculate monthly revenue from payment_history (current month)
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth() + 1;
-    const monthStart = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
-    const monthEnd = new Date(currentYear, currentMonth, 0).toISOString().split('T')[0];
-    
+    // Payments this month
     const monthlyPayments = await db.select().from(paymentHistory)
       .where(
         and(
@@ -583,10 +616,36 @@ export class DbStorage implements IStorage {
     const totalRevenue = monthlyPayments.reduce((sum, payment) => 
       sum + Number(payment.amount || 0), 0
     );
+
+    // Revenue today
+    const revenueToday = monthlyPayments
+      .filter(p => p.paymentDate === todayStr)
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+    // Revenue tomorrow: sum of value of clients expiring tomorrow (expected renewals)
+    const revenueTomorrow = allClients
+      .filter(c => c.expiryDate === tomorrowStr)
+      .reduce((sum, c) => sum + Number(c.value || 0), 0);
+
+    // Clients recovered this month: had a renewal payment this month where previousExpiryDate < monthStart
+    const renewalsThisMonth = await db.select().from(paymentHistory)
+      .where(
+        and(
+          eq(paymentHistory.authUserId, authUserId),
+          eq(paymentHistory.type, 'renewal'),
+          gte(paymentHistory.paymentDate, monthStart),
+          lte(paymentHistory.paymentDate, monthEnd)
+        )
+      );
+    
+    const clientsRecoveredThisMonth = renewalsThisMonth.filter(r => 
+      r.previousExpiryDate !== null && r.previousExpiryDate < monthStart
+    ).length;
     
     return {
       activeClients,
       inactiveClients,
+      totalClients: allClients.length,
       expiringTomorrow,
       expiredYesterday,
       expiringToday,
@@ -594,8 +653,59 @@ export class DbStorage implements IStorage {
       overdue,
       billingSentToday,
       newClientsToday,
-      totalRevenue
+      newClientsThisWeek,
+      newClientsThisMonth,
+      clientsNotRenewedThisMonth,
+      clientsRecoveredThisMonth,
+      totalRevenue,
+      projectedMonthlyRevenue,
+      revenueToday,
+      revenueTomorrow
     };
+  }
+
+  async getPaymentsByDay(authUserId: string): Promise<{ day: number; total: number; count: number; average: number; bestDay: number }> {
+    const today = getBrasiliaDate();
+    const currentMonth = today.getMonth() + 1;
+    const currentYear = today.getFullYear();
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+
+    const monthStart = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+    const monthEnd = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+
+    const monthPayments = await db.select().from(paymentHistory)
+      .where(
+        and(
+          eq(paymentHistory.authUserId, authUserId),
+          gte(paymentHistory.paymentDate, monthStart),
+          lte(paymentHistory.paymentDate, monthEnd)
+        )
+      );
+
+    const byDay: { [key: number]: { total: number; count: number } } = {};
+    for (let d = 1; d <= daysInMonth; d++) {
+      byDay[d] = { total: 0, count: 0 };
+    }
+
+    monthPayments.forEach(p => {
+      const day = Number(p.paymentDate.split('-')[2]);
+      byDay[day].total += Number(p.amount || 0);
+      byDay[day].count += 1;
+    });
+
+    const totalAmount = monthPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+    const totalCount = monthPayments.length;
+    const daysWithPayments = Object.values(byDay).filter(d => d.total > 0).length || 1;
+    const average = totalAmount / daysWithPayments;
+    const bestDay = Math.max(...Object.values(byDay).map(d => d.total), 0);
+
+    const dailyData = Object.entries(byDay).map(([d, v]) => ({
+      day: Number(d),
+      total: v.total,
+      count: v.count,
+    }));
+
+    return { day: daysInMonth, total: totalAmount, count: totalCount, average, bestDay, dailyData } as any;
   }
 
   async getNewClientsByDay(authUserId: string): Promise<{ day: number; count: number }[]> {
