@@ -3,7 +3,7 @@ import { apiRequest } from "./queryClient";
 export const api = {
   // Dashboard
   getDashboardStats: () => apiRequest("/api/dashboard/stats", "GET").then(res => res.json()),
-  getNewClientsByDay: () => apiRequest("/api/dashboard/new-clients-by-day", "GET").then(res => res.json()),
+  getNewClientsByDay: (startDate: string, endDate: string) => apiRequest(`/api/dashboard/new-clients-by-day?startDate=${startDate}&endDate=${endDate}`, "GET").then(res => res.json()),
   getRevenueByPeriod: (period: 'current_month' | 'last_month' | '3_months' | '6_months' | '12_months') => 
     apiRequest(`/api/dashboard/revenue-by-period?period=${period}`, "GET").then(res => res.json()),
   getRevenueBySystem: (month: string) => 
@@ -12,8 +12,8 @@ export const api = {
     apiRequest(`/api/dashboard/clients-by-system?month=${month}`, "GET").then(res => res.json()),
   getClientsByState: (month: string) => 
     apiRequest(`/api/dashboard/clients-by-state?month=${month}`, "GET").then(res => res.json()),
-  getPaymentsByDay: () =>
-    apiRequest("/api/dashboard/payments-by-day", "GET").then(res => res.json()),
+  getPaymentsByDay: (startDate: string, endDate: string) =>
+    apiRequest(`/api/dashboard/payments-by-day?startDate=${startDate}&endDate=${endDate}`, "GET").then(res => res.json()),
 
   // Clients
   getClients: () => apiRequest("/api/clients", "GET").then(res => res.json()),

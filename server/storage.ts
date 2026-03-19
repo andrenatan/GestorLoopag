@@ -104,14 +104,14 @@ export interface IStorage {
     revenueToday: number;
     revenueTomorrow: number;
   }>;
-  getNewClientsByDay(authUserId: string): Promise<{ day: number; count: number }[]>;
+  getNewClientsByDay(authUserId: string, startDate: string, endDate: string): Promise<{ day: number; date: string; count: number }[]>;
   getRevenueByPeriod(authUserId: string, period: 'current_month' | 'last_month' | '3_months' | '6_months' | '12_months'): Promise<{ label: string; value: number }[]>;
-  getPaymentsByDay(authUserId: string): Promise<{
+  getPaymentsByDay(authUserId: string, startDate: string, endDate: string): Promise<{
     total: number;
     count: number;
     average: number;
     bestDayAmount: number;
-    dailyData: { day: number; total: number; count: number }[];
+    dailyData: { day: number; date: string; total: number; count: number }[];
   }>;
   
   // Dashboard Charts - New
@@ -680,51 +680,50 @@ export class DbStorage implements IStorage {
     };
   }
 
-  async getPaymentsByDay(authUserId: string): Promise<{
+  async getPaymentsByDay(authUserId: string, startDate: string, endDate: string): Promise<{
     total: number;
     count: number;
     average: number;
     bestDayAmount: number;
-    dailyData: { day: number; total: number; count: number }[];
+    dailyData: { day: number; date: string; total: number; count: number }[];
   }> {
-    const today = getBrasiliaDate();
-    const currentMonth = today.getMonth() + 1;
-    const currentYear = today.getFullYear();
-    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
-
-    const monthStart = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
-    const monthEnd = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
-
-    const monthPayments = await db.select().from(paymentHistory)
+    const rangePayments = await db.select().from(paymentHistory)
       .where(
         and(
           eq(paymentHistory.authUserId, authUserId),
-          gte(paymentHistory.paymentDate, monthStart),
-          lte(paymentHistory.paymentDate, monthEnd)
+          gte(paymentHistory.paymentDate, startDate),
+          lte(paymentHistory.paymentDate, endDate)
         )
       );
 
-    const byDay: { [key: number]: { total: number; count: number } } = {};
-    for (let d = 1; d <= daysInMonth; d++) {
-      byDay[d] = { total: 0, count: 0 };
+    // Build ordered list of all dates in range
+    const byDate: { [date: string]: { total: number; count: number } } = {};
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T00:00:00');
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      byDate[key] = { total: 0, count: 0 };
     }
 
-    monthPayments.forEach(p => {
-      const day = Number(p.paymentDate.split('-')[2]);
-      byDay[day].total += Number(p.amount || 0);
-      byDay[day].count += 1;
+    rangePayments.forEach(p => {
+      const key = p.paymentDate;
+      if (byDate[key]) {
+        byDate[key].total += Number(p.amount || 0);
+        byDate[key].count += 1;
+      }
     });
 
-    const totalAmount = monthPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
-    const totalCount = monthPayments.length;
-    const daysWithPayments = Object.values(byDay).filter(d => d.total > 0).length || 1;
+    const totalAmount = rangePayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+    const totalCount = rangePayments.length;
+    const daysWithPayments = Object.values(byDate).filter(d => d.total > 0).length || 1;
     const average = totalAmount / daysWithPayments;
-    const bestDayAmount = Math.max(...Object.values(byDay).map(d => d.total), 0);
+    const bestDayAmount = Math.max(...Object.values(byDate).map(d => d.total), 0);
 
-    const dailyData = Object.entries(byDay)
-      .sort((a, b) => Number(a[0]) - Number(b[0]))
-      .map(([d, v]) => ({
-        day: Number(d),
+    const dailyData = Object.entries(byDate)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, v], idx) => ({
+        day: idx + 1,
+        date,
         total: v.total,
         count: v.count,
       }));
@@ -732,40 +731,32 @@ export class DbStorage implements IStorage {
     return { total: totalAmount, count: totalCount, average, bestDayAmount, dailyData };
   }
 
-  async getNewClientsByDay(authUserId: string): Promise<{ day: number; count: number }[]> {
+  async getNewClientsByDay(authUserId: string, startDate: string, endDate: string): Promise<{ day: number; date: string; count: number }[]> {
     const allClients = await db.select().from(clients).where(eq(clients.authUserId, authUserId));
-    // Use Brasília timezone (GMT-3)
-    const today = getBrasiliaDate();
-    const currentMonth = today.getMonth(); // 0-11
-    const currentYear = today.getFullYear();
-    
-    // Get number of days in current month
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    
-    // Initialize stats for each day of the month
-    const clientsByDay: { [key: number]: number } = {};
-    for (let day = 1; day <= daysInMonth; day++) {
-      clientsByDay[day] = 0;
+
+    // Build ordered list of all dates in range
+    const byDate: { [date: string]: number } = {};
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T00:00:00');
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      byDate[key] = 0;
     }
-    
-    // Count clients by activation date
+
     allClients.forEach(client => {
       if (!client.activationDate) return;
-      
-      const activationDateStr = client.activationDate;
-      const [year, month, day] = activationDateStr.split('-').map(Number);
-      
-      // Only count if it's in the current month and year
-      if (year === currentYear && month === currentMonth + 1) {
-        clientsByDay[day] = (clientsByDay[day] || 0) + 1;
+      if (byDate[client.activationDate] !== undefined) {
+        byDate[client.activationDate] += 1;
       }
     });
-    
-    // Return array sorted by day (ascending)
-    return Object.entries(clientsByDay).map(([day, count]) => ({
-      day: parseInt(day),
-      count
-    }));
+
+    return Object.entries(byDate)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, count], idx) => ({
+        day: idx + 1,
+        date,
+        count,
+      }));
   }
 
   async getRevenueByPeriod(authUserId: string, period: 'current_month' | 'last_month' | '3_months' | '6_months' | '12_months'): Promise<{ label: string; value: number }[]> {

@@ -36,6 +36,20 @@ declare global {
   }
 }
 
+function getDateRange(startDateParam?: string, endDateParam?: string): { startDate: string; endDate: string } {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1;
+  const defaultStart = `${y}-${String(m).padStart(2, '0')}-01`;
+  const lastDay = new Date(y, m, 0).getDate();
+  const defaultEnd = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  return {
+    startDate: startDateParam && dateRegex.test(startDateParam) ? startDateParam : defaultStart,
+    endDate: endDateParam && dateRegex.test(endDateParam) ? endDateParam : defaultEnd,
+  };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   
   // Health check endpoint for Railway monitoring
@@ -690,8 +704,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
-
-      const data = await storage.getNewClientsByDay(authUserId);
+      const { startDate, endDate } = getDateRange(req.query.startDate as string, req.query.endDate as string);
+      const data = await storage.getNewClientsByDay(authUserId, startDate, endDate);
       res.json(data);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch new clients by day" });
@@ -784,7 +798,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
-      const data = await storage.getPaymentsByDay(authUserId);
+      const { startDate, endDate } = getDateRange(req.query.startDate as string, req.query.endDate as string);
+      const data = await storage.getPaymentsByDay(authUserId, startDate, endDate);
       res.json(data);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch payments by day", error: String(error) });
