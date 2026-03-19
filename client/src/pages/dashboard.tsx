@@ -64,6 +64,14 @@ const getMonthOptions = () => {
 const fmt = (v: number) =>
   v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+interface PaymentsByDayResult {
+  total: number;
+  count: number;
+  average: number;
+  bestDay: number;
+  dailyData: { day: number; total: number; count: number }[];
+}
+
 export default function Dashboard() {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [blurBilling, setBlurBilling] = useState(false);
@@ -83,7 +91,7 @@ export default function Dashboard() {
     refetchInterval: 30000,
   });
 
-  const { data: paymentsByDay } = useQuery({
+  const { data: paymentsByDay } = useQuery<PaymentsByDayResult>({
     queryKey: ["/api/dashboard/payments-by-day"],
     queryFn: api.getPaymentsByDay,
     refetchInterval: 30000,
@@ -116,8 +124,8 @@ export default function Dashboard() {
   const avgClientsPerDay = totalClientsMonth / daysWithClients;
   const bestClientsDay = Math.max(...clientsChartData.map((d) => d.count), 0);
 
-  const paymentsData = (paymentsByDay as any) || {};
-  const paymentsChartData: { day: number; total: number; count: number }[] = paymentsData.dailyData || [];
+  const paymentsData: PaymentsByDayResult = paymentsByDay || { total: 0, count: 0, average: 0, bestDay: 0, dailyData: [] };
+  const paymentsChartData = paymentsData.dailyData;
 
   if (isLoading) {
     return (
@@ -244,8 +252,9 @@ export default function Dashboard() {
           <div className="space-y-3 flex-1">
             <InfoRow icon={<Calendar className="w-4 h-4 text-cyan-400" />} label="Clientes Vencendo Hoje" value={stats?.expiringToday ?? 0} />
             <InfoRow icon={<Calendar className="w-4 h-4 text-cyan-400" />} label="Clientes Vencendo em 3 Dias" value={stats?.expiring3Days ?? 0} />
-            <InfoRow icon={<Calendar className="w-4 h-4 text-cyan-400" />} label="Clientes sem Renovar este Mês" value={stats?.clientsNotRenewedThisMonth ?? 0} />
-            <InfoRow icon={<Calendar className="w-4 h-4 text-cyan-400" />} label="Clientes Recuperados este Mês" value={stats?.clientsRecoveredThisMonth ?? 0} />
+            <InfoRow icon={<Calendar className="w-4 h-4 text-cyan-400" />} label="Sem Renovar este Mês" value={stats?.clientsNotRenewedThisMonth ?? 0} />
+            <InfoRow icon={<Calendar className="w-4 h-4 text-cyan-400" />} label="Recuperados este Mês" value={stats?.clientsRecoveredThisMonth ?? 0} />
+            <InfoRow icon={<Calendar className="w-4 h-4 text-cyan-400" />} label="Total Renovados este Mês" value={stats?.totalRecoveredThisMonth ?? 0} />
           </div>
           <div className="bg-[#243447] p-3 rounded-full ml-4">
             <UserCheck className="w-6 h-6 text-cyan-400" />
