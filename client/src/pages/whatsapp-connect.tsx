@@ -73,7 +73,7 @@ export default function WhatsAppConnect() {
     mutationFn: () => apiRequest("/api/baileys/disconnect", "POST"),
     onSuccess: () => {
       stopPolling();
-      setStatus({ status: "disconnected", qrCode: null, phoneNumber: null });
+      setStatus({ status: "disconnected", qrCode: null, phoneNumber: null, profilePictureUrl: null });
       toast({ title: "WhatsApp desconectado." });
     },
     onError: (err: Error) => {
