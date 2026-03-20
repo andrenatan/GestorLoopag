@@ -16,6 +16,7 @@ export interface BaileysStatus {
   status: "disconnected" | "connecting" | "connected";
   qrCode: string | null;
   phoneNumber: string | null;
+  profilePictureUrl: string | null;
 }
 
 class BaileysManager {
@@ -29,6 +30,7 @@ class BaileysManager {
         status: "disconnected",
         qrCode: null,
         phoneNumber: null,
+        profilePictureUrl: null,
       }
     );
   }
@@ -90,6 +92,7 @@ class BaileysManager {
           status: "disconnected",
           qrCode: null,
           phoneNumber: null,
+          profilePictureUrl: null,
         });
 
         if (shouldReconnect) {
@@ -106,7 +109,18 @@ class BaileysManager {
           status: "connected",
           qrCode: null,
           phoneNumber,
+          profilePictureUrl: null,
         });
+        if (phoneNumber) {
+          try {
+            const jid = `${phoneNumber}@s.whatsapp.net`;
+            const url = await sock.profilePictureUrl(jid, "image");
+            this.setState(authUserId, { profilePictureUrl: url ?? null });
+            console.log(`[Baileys] Profile photo fetched for ${authUserId}`);
+          } catch {
+            // profile photo unavailable — no-op
+          }
+        }
       }
     });
   }
@@ -130,6 +144,7 @@ class BaileysManager {
       status: "disconnected",
       qrCode: null,
       phoneNumber: null,
+      profilePictureUrl: null,
     });
     const authDir = path.join(BASE_AUTH_DIR, authUserId);
     await rm(authDir, { recursive: true, force: true }).catch(() => {});

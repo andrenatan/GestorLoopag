@@ -8,6 +8,7 @@ interface BaileysStatus {
   status: "disconnected" | "connecting" | "connected";
   qrCode: string | null;
   phoneNumber: string | null;
+  profilePictureUrl: string | null;
 }
 
 async function fetchStatus(): Promise<BaileysStatus> {
@@ -20,6 +21,7 @@ export default function WhatsAppConnect() {
     status: "disconnected",
     qrCode: null,
     phoneNumber: null,
+    profilePictureUrl: null,
   });
   const [loading, setLoading] = useState(true);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -31,7 +33,7 @@ export default function WhatsAppConnect() {
       try {
         const s = await fetchStatus();
         setStatus(s);
-        if (s.status === "connected") stopPolling();
+        if (s.status !== "connecting") stopPolling();
       } catch {
       }
     }, 2500);
@@ -102,9 +104,17 @@ export default function WhatsAppConnect() {
         {status.status === "connected" && (
           <div className="space-y-6">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center">
-                <Wifi className="w-7 h-7 text-green-400" />
-              </div>
+              {status.profilePictureUrl ? (
+                <img
+                  src={status.profilePictureUrl}
+                  alt="Foto de perfil"
+                  className="w-14 h-14 rounded-full border-2 border-green-500 object-cover"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center">
+                  <Wifi className="w-7 h-7 text-green-400" />
+                </div>
+              )}
               <div>
                 <p className="text-green-400 font-semibold text-lg">Conectado</p>
                 {status.phoneNumber && (
