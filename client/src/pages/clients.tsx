@@ -150,12 +150,13 @@ export default function Clients() {
     const days = getDaysToExpiry(client.expiryDate);
     const term = searchTerm.toLowerCase();
 
+    const termDigits = term.replace(/\D/g, "");
     const matchesSearch =
       !term ||
-      client.name.toLowerCase().includes(term) ||
+      (client.name || "").toLowerCase().includes(term) ||
       (client.username || "").toLowerCase().includes(term) ||
-      (client.phone || "").replace(/\D/g, "").includes(term.replace(/\D/g, "")) ||
-      (client.phone || "").toLowerCase().includes(term);
+      (client.phone || "").toLowerCase().includes(term) ||
+      (termDigits.length > 0 && (client.phone || "").replace(/\D/g, "").includes(termDigits));
 
     const matchesStatus = (() => {
       if (filters.status === "all") return true;
