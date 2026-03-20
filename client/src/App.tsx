@@ -1,4 +1,5 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
+import { useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -33,6 +34,14 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
       </main>
     </div>
   );
+}
+
+function WhatsAppRedirect() {
+  const [, navigate] = useLocation();
+  useEffect(() => {
+    navigate("/whatsapp/connect", { replace: true });
+  }, []);
+  return null;
 }
 
 function Router() {
@@ -128,7 +137,7 @@ function Router() {
       <Route path="/whatsapp">
         <ProtectedRoute>
           <DashboardLayout>
-            <WhatsAppConnect />
+            <WhatsAppRedirect />
           </DashboardLayout>
         </ProtectedRoute>
       </Route>
