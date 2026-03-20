@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Smartphone, Wifi, WifiOff, RefreshCw, LogOut, QrCode } from "lucide-react";
 
@@ -9,28 +10,9 @@ interface BaileysStatus {
   phoneNumber: string | null;
 }
 
-async function fetchBaileysStatus(): Promise<BaileysStatus> {
-  const token = localStorage.getItem("supabase_token");
-  const res = await fetch("/api/baileys/status", {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) throw new Error("Failed to fetch status");
+async function fetchStatus(): Promise<BaileysStatus> {
+  const res = await apiRequest("/api/baileys/status", "GET");
   return res.json();
-}
-
-async function callBaileysEndpoint(path: string): Promise<void> {
-  const token = localStorage.getItem("supabase_token");
-  const res = await fetch(path, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.message || "Request failed");
-  }
 }
 
 export default function WhatsAppConnect() {
@@ -47,7 +29,7 @@ export default function WhatsAppConnect() {
     if (pollRef.current) return;
     pollRef.current = setInterval(async () => {
       try {
-        const s = await fetchBaileysStatus();
+        const s = await fetchStatus();
         setStatus(s);
         if (s.status === "connected") stopPolling();
       } catch {
@@ -63,7 +45,7 @@ export default function WhatsAppConnect() {
   };
 
   useEffect(() => {
-    fetchBaileysStatus()
+    fetchStatus()
       .then((s) => {
         setStatus(s);
         if (s.status === "connecting") startPolling();
@@ -74,11 +56,11 @@ export default function WhatsAppConnect() {
   }, []);
 
   const connectMutation = useMutation({
-    mutationFn: () => callBaileysEndpoint("/api/baileys/connect"),
+    mutationFn: () => apiRequest("/api/baileys/connect", "POST"),
     onSuccess: () => {
       toast({ title: "Iniciando conexão...", description: "Aguarde o QR code aparecer." });
-      startPolling();
       setStatus((prev) => ({ ...prev, status: "connecting" }));
+      startPolling();
     },
     onError: (err: Error) => {
       toast({ title: "Erro ao conectar", description: err.message, variant: "destructive" });
@@ -86,7 +68,7 @@ export default function WhatsAppConnect() {
   });
 
   const disconnectMutation = useMutation({
-    mutationFn: () => callBaileysEndpoint("/api/baileys/disconnect"),
+    mutationFn: () => apiRequest("/api/baileys/disconnect", "POST"),
     onSuccess: () => {
       stopPolling();
       setStatus({ status: "disconnected", qrCode: null, phoneNumber: null });
