@@ -40,8 +40,8 @@ const sidebarItems: NavItem[] = [
     href: "/whatsapp",
     icon: MessageCircle,
     children: [
-      { title: "Conectar", href: "/whatsapp/connect", icon: Smartphone },
-      { title: "Templates", href: "/whatsapp/templates", icon: FileText },
+      { title: "Conectar WhatsApp", href: "/whatsapp/connect", icon: Smartphone },
+      { title: "Criar Templates", href: "/whatsapp/templates", icon: FileText },
     ],
   },
 ];
@@ -105,7 +105,7 @@ export function Sidebar({ className }: SidebarProps) {
                       }}
                       className={cn(
                         "w-full flex items-center justify-start h-10 px-4 py-2 rounded-md text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200",
-                        isParentActive && !whatsappOpen && "bg-blue-600 text-white hover:bg-blue-700 border border-blue-500/50"
+                        isParentActive && "bg-blue-600/30 text-white border border-blue-500/30"
                       )}
                     >
                       <Icon className="h-5 w-5 shrink-0" />

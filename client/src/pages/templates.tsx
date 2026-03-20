@@ -27,15 +27,15 @@ export default function Templates() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: templates, isLoading } = useQuery<MessageTemplate[]>({
-    queryKey: ["/api/templates"],
+    queryKey: ["/api/templates?type=official"],
   });
 
   const createMutation = useMutation({
     mutationFn: async (data: { title: string; content: string; imageUrl?: string }) => {
-      return await apiRequest("/api/templates", "POST", data);
+      return await apiRequest("/api/templates", "POST", { ...data, type: "official" });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/templates?type=official"] });
       toast({
         title: "Template criado",
         description: "Template criado com sucesso!",
@@ -58,7 +58,7 @@ export default function Templates() {
       return await apiRequest(`/api/templates/${id}`, "DELETE");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/templates?type=official"] });
       toast({
         title: "Template deletado",
         description: "Template deletado com sucesso!",

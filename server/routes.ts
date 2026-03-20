@@ -1357,7 +1357,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Not authenticated" });
       }
 
-      const templates = await storage.getAllMessageTemplates(authUserId);
+      const type = typeof req.query.type === "string" ? req.query.type : undefined;
+      const templates = await storage.getAllMessageTemplates(authUserId, type);
       res.json(templates);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch message templates" });

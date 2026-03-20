@@ -86,14 +86,14 @@ function TemplateForm({ template, onClose }: TemplateFormProps) {
 
   const mutation = useMutation({
     mutationFn: async (data: TemplateFormData) => {
-      const body = { ...data, imageUrl: data.imageUrl || null };
+      const body = { ...data, imageUrl: data.imageUrl || null, type: "baileys" };
       if (template) {
         return apiRequest(`/api/templates/${template.id}`, "PUT", body);
       }
       return apiRequest("/api/templates", "POST", body);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/templates?type=baileys"] });
       toast({ title: template ? "Template atualizado!" : "Template criado!" });
       onClose();
     },
@@ -240,13 +240,13 @@ export default function WhatsAppTemplates() {
   const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
 
   const { data: templates = [], isLoading } = useQuery<MessageTemplate[]>({
-    queryKey: ["/api/templates"],
+    queryKey: ["/api/templates?type=baileys"],
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest(`/api/templates/${id}`, "DELETE"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/templates?type=baileys"] });
       toast({ title: "Template excluído." });
     },
     onError: (err: Error) => {

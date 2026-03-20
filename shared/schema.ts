@@ -118,6 +118,7 @@ export const messageTemplates = pgTable("message_templates", {
   content: text("content").notNull(),
   imageUrl: text("image_url"),
   isActive: boolean("is_active").notNull().default(true),
+  type: text("type", { enum: ["baileys", "official"] }).notNull().default("baileys"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
