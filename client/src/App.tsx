@@ -17,7 +17,8 @@ import Rankings from "@/pages/rankings";
 import Employees from "@/pages/employees";
 import Users from "@/pages/users";
 import Templates from "@/pages/templates";
-import WhatsApp from "@/pages/whatsapp";
+import WhatsAppConnect from "@/pages/whatsapp-connect";
+import WhatsAppTemplates from "@/pages/whatsapp-templates";
 import Landing from "@/pages/landing";
 import Sales from "@/pages/sales";
 import Plans from "@/pages/plans";
@@ -123,10 +124,27 @@ function Router() {
         </ProtectedRoute>
       </Route>
 
+      {/* WhatsApp – redirect base path to /connect */}
       <Route path="/whatsapp">
         <ProtectedRoute>
           <DashboardLayout>
-            <WhatsApp />
+            <WhatsAppConnect />
+          </DashboardLayout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/whatsapp/connect">
+        <ProtectedRoute>
+          <DashboardLayout>
+            <WhatsAppConnect />
+          </DashboardLayout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/whatsapp/templates">
+        <ProtectedRoute>
+          <DashboardLayout>
+            <WhatsAppTemplates />
           </DashboardLayout>
         </ProtectedRoute>
       </Route>

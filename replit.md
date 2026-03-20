@@ -4,6 +4,25 @@
 
 Loopag is a comprehensive IPTV subscription management system built with modern web technologies. The application features a futuristic glassmorphism design with dual theme support (dark/light mode), real-time dashboard analytics, client management, billing automation, WhatsApp integration, and employee management capabilities.
 
+## WhatsApp Baileys Integration (March 2026)
+
+### Architecture
+- **`server/baileys-manager.ts`**: Singleton class managing one Baileys WebSocket connection per `authUserId`. Persists auth state to `./baileys_auth/<authUserId>/` for session resume on restart.
+- **New API routes** in `server/routes.ts`:
+  - `POST /api/baileys/connect` — starts connection, emits QR code events
+  - `GET /api/baileys/status` — returns `{ status, qrCode, phoneNumber }`
+  - `POST /api/baileys/disconnect` — logs out and wipes auth files
+  - `POST /api/baileys/send` — sends text message to a phone number
+- **Frontend pages**:
+  - `/whatsapp/connect` (`client/src/pages/whatsapp-connect.tsx`) — QR code display with 2.5s polling, auto-detects connected state
+  - `/whatsapp/templates` (`client/src/pages/whatsapp-templates.tsx`) — template editor with 9 variable buttons ({{nome}}, {{vencimento}}, etc.) and live preview
+- **Sidebar**: WhatsApp item is now expandable with "Conectar" and "Templates" subitems; auto-expands when on a WhatsApp route.
+- **QR Code flow**: Baileys emits raw QR string → `qrcode.toDataURL()` converts to PNG data URL → stored in memory → polled by frontend every 2.5s.
+- **Session persistence**: Uses `useMultiFileAuthState` from Baileys; session files survive server restarts. Reconnects automatically on non-logout disconnects.
+
+### Template Variables
+Templates use `{{variable}}` syntax. Available: `{{nome}}`, `{{numero_cliente}}`, `{{telefone}}`, `{{plano}}`, `{{valor}}`, `{{vencimento}}`, `{{usuario}}`, `{{senha}}`, `{{sistema}}`.
+
 ## Recent Critical Fixes
 
 ### Revenue History Preservation (February 2026)

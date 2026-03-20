@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { baileysManager } from "./baileys-manager";
 import { 
   insertUserSchema, insertEmployeeSchema, insertSystemSchema, insertClientSchema, 
   insertWhatsappInstanceSchema, insertMessageTemplateSchema, insertBillingHistorySchema,
@@ -1212,94 +1213,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
-
       const validatedData = insertWhatsappInstanceSchema.parse(req.body);
       const instance = await storage.createWhatsappInstance(authUserId, validatedData);
-      
-      console.log(`[WhatsApp] Creating instance: ${instance.name} (ID: ${instance.id})`);
-      
-      // Call webhook to generate QR code - SINGLE REQUEST with 15 second timeout
-      try {
-        console.log(`[WhatsApp] Sending request to webhook...`);
-        
-        // Create AbortController for timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-        
-        const webhookResponse = await fetch("https://webhook.dev.userxai.online/webhook/gestor_loopag_connect", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            instanceName: instance.name,
-            instanceId: instance.id,
-          }),
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-        console.log(`[WhatsApp] Webhook response status: ${webhookResponse.status}`);
-
-        if (!webhookResponse.ok) {
-          throw new Error(`Webhook error: ${webhookResponse.status}`);
-        }
-
-        // Parse JSON response - expecting array format: [{"base64": "data:image/png;base64,..."}]
-        const responseData = await webhookResponse.json();
-        console.log(`[WhatsApp] Response structure:`, Array.isArray(responseData) ? 'Array' : 'Object');
-        console.log(`[WhatsApp] Response preview:`, JSON.stringify(responseData).substring(0, 150));
-        
-        // Extract QR code from response[0].base64
-        let qrCode = null;
-        if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].base64) {
-          qrCode = responseData[0].base64;
-          console.log(`[WhatsApp] QR code extracted from response[0].base64`);
-        } else if (responseData.qrCode) {
-          // Fallback: check if qrCode is directly in the response
-          qrCode = responseData.qrCode;
-          console.log(`[WhatsApp] QR code extracted from response.qrCode (fallback)`);
-        } else if (responseData.base64) {
-          // Fallback: check if base64 is directly in the response
-          qrCode = responseData.base64;
-          console.log(`[WhatsApp] QR code extracted from response.base64 (fallback)`);
-        }
-
-        if (qrCode) {
-          // Ensure QR code is in data URI format
-          if (typeof qrCode === 'string' && !qrCode.startsWith('data:image/')) {
-            qrCode = `data:image/png;base64,${qrCode}`;
-            console.log(`[WhatsApp] QR code converted to data URI format`);
-          }
-          
-          // Update instance with QR code
-          await storage.updateWhatsappInstance(authUserId, instance.id, {
-            qrCode,
-            status: "connecting",
-          });
-          
-          console.log(`[WhatsApp] Instance updated with QR code successfully`);
-          
-          return res.status(201).json({
-            ...instance,
-            qrCode,
-            status: "connecting",
-          });
-        } else {
-          console.log(`[WhatsApp] No QR code found in webhook response`);
-          return res.status(502).json({ message: "Webhook não retornou QR Code" });
-        }
-      } catch (webhookError: any) {
-        if (webhookError.name === 'AbortError') {
-          console.error("[WhatsApp] Webhook timeout after 15 seconds");
-          return res.status(408).json({ message: "Webhook timeout - tente novamente" });
-        }
-        console.error("[WhatsApp] Webhook error:", webhookError);
-        return res.status(502).json({ message: "Erro ao conectar com webhook", error: String(webhookError?.message || webhookError) });
-      }
+      console.log(`[WhatsApp] Instance created: ${instance.name} (ID: ${instance.id})`);
+      return res.status(201).json(instance);
     } catch (error) {
       console.error("[WhatsApp] Error creating instance:", error);
       res.status(400).json({ message: "Invalid WhatsApp instance data", error });
+    }
+  });
+
+  // ── Baileys routes ────────────────────────────────────────────────────────
+
+  app.post("/api/baileys/connect", async (req, res) => {
+    try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+      await baileysManager.connect(authUserId);
+      res.json({ message: "Connection started" });
+    } catch (error: any) {
+      console.error("[Baileys] Connect error:", error);
+      res.status(500).json({ message: error?.message || "Failed to connect" });
+    }
+  });
+
+  app.get("/api/baileys/status", (req, res) => {
+    const authUserId = req.user?.authUserId;
+    if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+    const status = baileysManager.getStatus(authUserId);
+    res.json(status);
+  });
+
+  app.post("/api/baileys/disconnect", async (req, res) => {
+    try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+      await baileysManager.disconnect(authUserId);
+      res.json({ message: "Disconnected" });
+    } catch (error: any) {
+      console.error("[Baileys] Disconnect error:", error);
+      res.status(500).json({ message: error?.message || "Failed to disconnect" });
+    }
+  });
+
+  app.post("/api/baileys/send", async (req, res) => {
+    try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+      const { to, message } = req.body;
+      if (!to || !message) return res.status(400).json({ message: "to and message are required" });
+      await baileysManager.sendMessage(authUserId, to, message);
+      res.json({ message: "Message sent" });
+    } catch (error: any) {
+      console.error("[Baileys] Send error:", error);
+      res.status(500).json({ message: error?.message || "Failed to send message" });
     }
   });
 
