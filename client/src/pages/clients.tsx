@@ -1,491 +1,659 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ClientForm } from "@/components/clients/client-form";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Download, 
-  Upload,
+import {
+  Plus,
+  Search,
+  X,
   Edit2,
   MessageCircle,
   Trash2,
+  ArrowLeft,
+  RefreshCw,
+  FileText,
+  User,
+  Send,
   ChevronLeft,
   ChevronRight,
-  ArrowLeft
 } from "lucide-react";
 import type { Client } from "@shared/schema";
 import { getBrasiliaStartOfDay, parseDateString } from "@/lib/timezone";
 
-const statusColors = {
-  "Ativa": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  "Inativa": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-  "Aguardando": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  "Teste": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-};
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-const systemColors: Record<string, string> = {
-  "P2P - Android": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  "IPTV - Geral": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  "Dois Pontos Distintos": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-};
+function getDaysToExpiry(expiryDate: string): number {
+  const today = getBrasiliaStartOfDay();
+  const expiry = parseDateString(expiryDate);
+  expiry.setHours(0, 0, 0, 0);
+  return Math.round((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function formatExpiryDate(expiryDate: string): string {
+  const [y, m, d] = expiryDate.split("-");
+  return `${d}/${m}/${y} 23:59`;
+}
+
+function expiryBadgeStyle(days: number, status: string): string {
+  if (status !== "Ativa") return "bg-red-600 text-white";
+  if (days < 0) return "bg-red-600 text-white";
+  if (days === 0) return "bg-red-500 text-white";
+  if (days <= 3) return "bg-orange-500 text-white";
+  return "bg-green-500 text-white";
+}
+
+function statusBadgeStyle(status: string, days: number): string {
+  if (status !== "Ativa") return "bg-red-600 text-white";
+  if (days === 0) return "bg-cyan-500 text-white";
+  if (days === 1) return "bg-yellow-500 text-white";
+  if (days <= 3) return "bg-orange-500 text-white";
+  return "bg-green-500 text-white";
+}
+
+function statusLabel(status: string, days: number): string {
+  if (status !== "Ativa") return "Vencido";
+  if (days === 0) return "Vence Hoje";
+  if (days === 1) return "Vence Amanhã";
+  if (days <= 3) return "Vence em 3 dias";
+  return "Ativo";
+}
+
+function dotColor(status: string, days: number): string {
+  if (status !== "Ativa") return "bg-red-500";
+  if (days <= 3) return "bg-orange-500";
+  return "bg-green-500";
+}
+
+// ─── Filter Bar ─────────────────────────────────────────────────────────────
+
+interface FilterState {
+  dateStart: string;
+  dateEnd: string;
+  status: string;
+  paymentStatus: string;
+  plan: string;
+  system: string;
+}
+
+function emptyFilters(): FilterState {
+  return { dateStart: "", dateEnd: "", status: "all", paymentStatus: "all", plan: "all", system: "all" };
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function Clients() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [systemFilter, setSystemFilter] = useState("all");
+  const [filters, setFilters] = useState<FilterState>(emptyFilters());
   const [selectedClients, setSelectedClients] = useState<number[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | undefined>();
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: clients = [], isLoading } = useQuery({
+  const { data: clients = [], isLoading } = useQuery<Client[]>({
     queryKey: ["/api/clients"],
     queryFn: api.getClients,
   });
 
-  const { data: systemsList = [] } = useQuery({
+  const { data: systemsList = [] } = useQuery<{ id: number; name: string }[]>({
     queryKey: ["/api/systems"],
     queryFn: api.getSystems,
   });
 
-  const createClientMutation = useMutation({
+  const { data: plansList = [] } = useQuery<{ id: number; name: string; price: string }[]>({
+    queryKey: ["/api/plans"],
+  });
+
+  const createMutation = useMutation({
     mutationFn: (data: any) => api.createClient(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       setShowForm(false);
       setEditingClient(undefined);
-      toast({
-        title: "Cliente cadastrado",
-        description: "Cliente foi cadastrado com sucesso.",
-      });
+      toast({ title: "Cliente cadastrado com sucesso." });
     },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Não foi possível cadastrar o cliente.",
-        variant: "destructive",
-      });
-    },
+    onError: () => toast({ title: "Erro ao cadastrar cliente.", variant: "destructive" }),
   });
 
-  const updateClientMutation = useMutation({
+  const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => api.updateClient(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       setShowForm(false);
       setEditingClient(undefined);
-      toast({
-        title: "Cliente atualizado",
-        description: "Cliente foi atualizado com sucesso.",
-      });
+      toast({ title: "Cliente atualizado com sucesso." });
     },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar o cliente.",
-        variant: "destructive",
-      });
-    },
+    onError: () => toast({ title: "Erro ao atualizar cliente.", variant: "destructive" }),
   });
 
-  const deleteClientMutation = useMutation({
+  const deleteMutation = useMutation({
     mutationFn: (id: number) => api.deleteClient(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-      toast({
-        title: "Cliente excluído",
-        description: "Cliente foi removido com sucesso.",
-      });
+      setSelectedClients((prev) => prev.filter((id) => id !== undefined));
+      toast({ title: "Cliente excluído com sucesso." });
     },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Não foi possível excluir o cliente.",
-        variant: "destructive",
-      });
-    },
+    onError: () => toast({ title: "Erro ao excluir cliente.", variant: "destructive" }),
   });
 
-  // Filter clients
-  const filteredClients = clients.filter((client: Client) => {
-    const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         client.phone.includes(searchTerm);
-    
-    const matchesStatus = statusFilter === "all" || client.subscriptionStatus === statusFilter;
-    const matchesSystem = systemFilter === "all" || client.system === systemFilter;
+  // ── Filtering ──────────────────────────────────────────────────────────────
 
-    return matchesSearch && matchesStatus && matchesSystem;
+  const filteredClients = clients.filter((client) => {
+    const days = getDaysToExpiry(client.expiryDate);
+    const term = searchTerm.toLowerCase();
+
+    const matchesSearch =
+      !term ||
+      client.name.toLowerCase().includes(term) ||
+      (client.username || "").toLowerCase().includes(term) ||
+      (client.phone || "").replace(/\D/g, "").includes(term.replace(/\D/g, "")) ||
+      (client.phone || "").toLowerCase().includes(term);
+
+    const matchesStatus = (() => {
+      if (filters.status === "all") return true;
+      if (filters.status === "Ativa") return client.subscriptionStatus === "Ativa" && days > 3;
+      if (filters.status === "VenceHoje") return client.subscriptionStatus === "Ativa" && days === 0;
+      if (filters.status === "VenceAmanha") return client.subscriptionStatus === "Ativa" && days === 1;
+      if (filters.status === "Vence3Dias") return client.subscriptionStatus === "Ativa" && days > 0 && days <= 3;
+      if (filters.status === "Inativa") return client.subscriptionStatus === "Inativa";
+      if (filters.status === "Aguardando") return client.subscriptionStatus === "Aguardando";
+      if (filters.status === "Teste") return client.subscriptionStatus === "Teste";
+      return true;
+    })();
+
+    const matchesPayment =
+      filters.paymentStatus === "all" || client.paymentStatus === filters.paymentStatus;
+
+    const matchesPlan =
+      filters.plan === "all" || (client.plan || "") === filters.plan;
+
+    const matchesSystem =
+      filters.system === "all" || client.system === filters.system;
+
+    const matchesDateStart =
+      !filters.dateStart || client.expiryDate >= filters.dateStart;
+
+    const matchesDateEnd =
+      !filters.dateEnd || client.expiryDate <= filters.dateEnd;
+
+    return matchesSearch && matchesStatus && matchesPayment && matchesPlan && matchesSystem && matchesDateStart && matchesDateEnd;
   });
 
-  // Pagination
-  const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
+  // ── Pagination ─────────────────────────────────────────────────────────────
+
+  const totalPages = Math.max(1, Math.ceil(filteredClients.length / itemsPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * itemsPerPage;
   const paginatedClients = filteredClients.slice(startIndex, startIndex + itemsPerPage);
 
-  const getDaysToExpiry = (expiryDate: string) => {
-    // Use Brasília timezone (GMT-3) for consistency with backend
-    const today = getBrasiliaStartOfDay();
-    const expiry = parseDateString(expiryDate);
-    const diffTime = expiry.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  const setFilter = (key: keyof FilterState, value: string) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setCurrentPage(1);
   };
 
-  const getExpiryColor = (days: number) => {
-    if (days < 0) return "text-red-600";
-    if (days === 0) return "text-red-500";
-    if (days <= 3) return "text-orange-600";
-    if (days <= 7) return "text-yellow-600";
-    return "text-green-600";
+  const handleClearFilters = () => {
+    setFilters(emptyFilters());
+    setSearchTerm("");
+    setCurrentPage(1);
   };
 
   const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedClients(paginatedClients.map((client: Client) => client.id));
-    } else {
-      setSelectedClients([]);
-    }
+    setSelectedClients(checked ? paginatedClients.map((c) => c.id) : []);
   };
 
-  const handleSelectClient = (clientId: number, checked: boolean) => {
-    if (checked) {
-      setSelectedClients([...selectedClients, clientId]);
-    } else {
-      setSelectedClients(selectedClients.filter(id => id !== clientId));
-    }
+  const handleSelectClient = (id: number, checked: boolean) => {
+    setSelectedClients((prev) => (checked ? [...prev, id] : prev.filter((x) => x !== id)));
   };
 
-  const handleNewClient = () => {
-    setEditingClient(undefined);
-    setShowForm(true);
-  };
-
-  const handleEditClient = (client: Client) => {
-    setEditingClient(client);
-    setShowForm(true);
+  const handleDeleteSelected = () => {
+    if (!selectedClients.length) return;
+    if (!window.confirm(`Excluir ${selectedClients.length} cliente(s)?`)) return;
+    selectedClients.forEach((id) => deleteMutation.mutate(id));
+    setSelectedClients([]);
   };
 
   const handleFormSubmit = (data: any) => {
     if (editingClient) {
-      updateClientMutation.mutate({ id: editingClient.id, data });
+      updateMutation.mutate({ id: editingClient.id, data });
     } else {
-      createClientMutation.mutate(data);
+      createMutation.mutate(data);
     }
   };
 
-  const handleFormCancel = () => {
-    setShowForm(false);
-    setEditingClient(undefined);
-  };
+  // ── Loading ────────────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
       <div className="p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-muted rounded w-64" />
-          <div className="h-96 bg-muted rounded" />
+          <div className="h-8 bg-[#1a2a3a] rounded w-64" />
+          <div className="h-96 bg-[#1a2a3a] rounded" />
         </div>
       </div>
     );
   }
 
+  // ── Form View ──────────────────────────────────────────────────────────────
+
   if (showForm) {
     return (
       <div className="p-6 space-y-6">
-        {/* Form Header */}
         <div className="flex items-center space-x-4">
-          <Button 
-            variant="outline" 
-            size="icon"
-            onClick={handleFormCancel}
+          <button
+            onClick={() => { setShowForm(false); setEditingClient(undefined); }}
+            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"
           >
             <ArrowLeft className="w-4 h-4" />
-          </Button>
+            Voltar
+          </button>
           <div>
-            <h1 className="text-3xl font-bold">
+            <h1 className="text-2xl font-bold text-white">
               {editingClient ? "Editar Cliente" : "Novo Cliente"}
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-slate-400 text-sm">
               {editingClient ? "Atualize as informações do cliente" : "Cadastre um novo cliente IPTV"}
             </p>
           </div>
         </div>
-
-        {/* Client Form */}
         <ClientForm
           initialData={editingClient}
           onSubmit={handleFormSubmit}
-          onCancel={handleFormCancel}
-          isLoading={createClientMutation.isPending || updateClientMutation.isPending}
+          onCancel={() => { setShowForm(false); setEditingClient(undefined); }}
+          isLoading={createMutation.isPending || updateMutation.isPending}
         />
       </div>
     );
   }
 
+  // ── List View ──────────────────────────────────────────────────────────────
+
+  const allOnPageSelected = paginatedClients.length > 0 && paginatedClients.every((c) => selectedClients.includes(c.id));
+
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
+    <div className="p-6 space-y-4 min-h-screen" style={{ background: "transparent" }}>
+
+      {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Gestão de Clientes</h1>
-          <p className="text-muted-foreground">
-            Gerencie sua base de clientes IPTV
-          </p>
+          <h1 className="text-2xl font-bold text-white">Clientes</h1>
+          <p className="text-slate-400 text-sm">Lista de clientes</p>
         </div>
-        <div className="flex items-center space-x-3">
-          <Button variant="outline" className="flex items-center space-x-2">
-            <Upload className="w-4 h-4" />
-            <span>Importar</span>
-          </Button>
-          <Button 
-            onClick={handleNewClient}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 flex items-center space-x-2"
+        <button
+          onClick={() => { setEditingClient(undefined); setShowForm(true); }}
+          className="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-400 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors text-sm"
+        >
+          <Plus className="w-4 h-4" />
+          Novo cliente
+        </button>
+      </div>
+
+      {/* ── Filter Bar ── */}
+      <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl p-4">
+        <div className="flex flex-wrap items-end gap-3">
+
+          {/* Date Start */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-slate-400">Data inicial</label>
+            <input
+              type="date"
+              value={filters.dateStart}
+              onChange={(e) => setFilter("dateStart", e.target.value)}
+              className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 w-40"
+            />
+          </div>
+
+          {/* Date End */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-slate-400">Data final</label>
+            <input
+              type="date"
+              value={filters.dateEnd}
+              onChange={(e) => setFilter("dateEnd", e.target.value)}
+              className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 w-40"
+            />
+          </div>
+
+          {/* Status */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-slate-400">Status</label>
+            <select
+              value={filters.status}
+              onChange={(e) => setFilter("status", e.target.value)}
+              className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 w-40"
+            >
+              <option value="all">Todos</option>
+              <option value="Ativa">Ativos</option>
+              <option value="VenceHoje">Vence Hoje</option>
+              <option value="VenceAmanha">Vence Amanhã</option>
+              <option value="Vence3Dias">Vence em 3 Dias</option>
+              <option value="Inativa">Inativa</option>
+              <option value="Aguardando">Aguardando</option>
+              <option value="Teste">Teste</option>
+            </select>
+          </div>
+
+          {/* Situação Pgto */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-slate-400">Situação Pgto</label>
+            <select
+              value={filters.paymentStatus}
+              onChange={(e) => setFilter("paymentStatus", e.target.value)}
+              className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 w-40"
+            >
+              <option value="all">Todos</option>
+              <option value="Pago">Pago</option>
+              <option value="A Pagar">A Pagar</option>
+              <option value="Vencido">Vencido</option>
+            </select>
+          </div>
+
+          {/* Planos */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-slate-400">Planos</label>
+            <select
+              value={filters.plan}
+              onChange={(e) => setFilter("plan", e.target.value)}
+              className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 w-40"
+            >
+              <option value="all">Todos</option>
+              {plansList.map((p) => (
+                <option key={p.id} value={p.name}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Sistemas */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-slate-400">Sistemas</label>
+            <select
+              value={filters.system}
+              onChange={(e) => setFilter("system", e.target.value)}
+              className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 w-40"
+            >
+              <option value="all">Todos</option>
+              {systemsList.map((s) => (
+                <option key={s.id} value={s.name}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Limpar */}
+          <button
+            onClick={handleClearFilters}
+            className="ml-auto bg-[#1e3a5f] hover:bg-[#2a4a70] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-[#2a4a70]"
           >
-            <Plus className="w-4 h-4" />
-            <span>Novo Cliente</span>
-          </Button>
+            Limpar
+          </button>
         </div>
       </div>
 
-      {/* Filters */}
-      <Card className="glassmorphism neon-border">
-        <CardContent className="p-4">
-          <div className="flex items-center space-x-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nome, telefone, email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Todos os Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Status</SelectItem>
-                <SelectItem value="Ativa">Ativa</SelectItem>
-                <SelectItem value="Inativa">Inativa</SelectItem>
-                <SelectItem value="Aguardando">Aguardando</SelectItem>
-                <SelectItem value="Teste">Teste</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={systemFilter} onValueChange={setSystemFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Todos os Sistemas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Sistemas</SelectItem>
-                {systemsList.map((system: { id: number; name: string }) => (
-                  <SelectItem key={system.id} value={system.name}>{system.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="outline" size="icon">
-              <Filter className="w-4 h-4" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Data Table */}
-      <Card className="glassmorphism neon-border">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Clientes ({filteredClients.length})</CardTitle>
-            {selectedClients.length > 0 && (
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-muted-foreground">
-                  {selectedClients.length} selecionados
-                </span>
-                <Button variant="outline" size="sm">
-                  Ações em Lote
-                </Button>
-              </div>
+      {/* ── Search + Bulk ── */}
+      <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl p-4">
+        <div className="flex items-center gap-4 flex-wrap">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input
+              ref={searchRef}
+              type="text"
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              placeholder="Buscar por nome, usuário ou telefone..."
+              className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg pl-9 pr-9 py-2 focus:outline-none focus:border-cyan-500 placeholder-slate-600"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => { setSearchTerm(""); searchRef.current?.focus(); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
             )}
           </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={selectedClients.length === paginatedClients.length && paginatedClients.length > 0}
-                    onCheckedChange={handleSelectAll}
-                  />
-                </TableHead>
-                <TableHead>ID</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead>Sistema</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Vencimento</TableHead>
-                <TableHead>Valor</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedClients.map((client: Client) => {
-                const daysToExpiry = getDaysToExpiry(client.expiryDate);
+
+          {/* Selection info + bulk actions */}
+          <div className="flex items-center gap-3">
+            <span className="text-slate-400 text-sm whitespace-nowrap">
+              {selectedClients.length} cliente(s) selecionado(s)
+            </span>
+            {selectedClients.length > 0 && (
+              <button
+                onClick={handleDeleteSelected}
+                className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Deletar
+              </button>
+            )}
+          </div>
+
+          {/* Items per page – right side */}
+          <div className="ml-auto">
+            <select
+              value={itemsPerPage}
+              onChange={() => setCurrentPage(1)}
+              className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Table ── */}
+      <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-[#1e2e3e]">
+              <th className="px-4 py-3 text-left w-10">
+                <Checkbox
+                  checked={allOnPageSelected}
+                  onCheckedChange={handleSelectAll}
+                  className="border-slate-600"
+                />
+              </th>
+              <th className="px-2 py-3 w-6" />
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Nome</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Usuário</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Plano</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Sistema</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Vencimento</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedClients.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="text-center py-16 text-slate-500 text-sm">
+                  Nenhum cliente encontrado
+                </td>
+              </tr>
+            ) : (
+              paginatedClients.map((client) => {
+                const days = getDaysToExpiry(client.expiryDate);
                 const isSelected = selectedClients.includes(client.id);
 
                 return (
-                  <TableRow key={client.id} className="hover:bg-muted/50">
-                    <TableCell>
+                  <tr
+                    key={client.id}
+                    className={`border-b border-[#1a2a3a] transition-colors ${isSelected ? "bg-[#1a2f45]" : "hover:bg-[#142030]"}`}
+                  >
+                    {/* Checkbox */}
+                    <td className="px-4 py-3">
                       <Checkbox
                         checked={isSelected}
-                        onCheckedChange={(checked) => handleSelectClient(client.id, !!checked)}
+                        onCheckedChange={(c) => handleSelectClient(client.id, !!c)}
+                        className="border-slate-600"
                       />
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">#{client.clientNumber}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                          {client.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                        </div>
-                        <div>
-                          <p className="font-medium">{client.name}</p>
-                          <p className="text-sm text-muted-foreground">{client.username}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm">{client.phone}</TableCell>
-                    <TableCell>
-                      <Badge className={systemColors[client.system] || "bg-gray-100 text-gray-800"}>
-                        {client.system}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={statusColors[client.subscriptionStatus] || "bg-gray-100 text-gray-800"}>
-                        {client.subscriptionStatus}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="text-sm">{new Date(client.expiryDate).toLocaleDateString('pt-BR')}</p>
-                        <p className={`text-xs ${getExpiryColor(daysToExpiry)}`}>
-                          {daysToExpiry < 0 ? `${Math.abs(daysToExpiry)} dias atraso` : 
-                           daysToExpiry === 0 ? "Vence hoje" :
-                           `${daysToExpiry} dias`}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      R$ {parseFloat(client.value || "0").toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          title="Editar"
-                          onClick={() => {
-                            setEditingClient(client);
-                            setShowForm(true);
-                          }}
-                          data-testid={`button-edit-${client.id}`}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="text-green-600" title="WhatsApp">
-                          <MessageCircle className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="text-red-600" 
-                          title="Excluir"
-                          onClick={() => deleteClientMutation.mutate(client.id)}
-                          data-testid={`button-delete-${client.id}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                    </td>
 
-          {/* Pagination */}
-          <div className="flex items-center justify-between mt-6 pt-4 border-t">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-muted-foreground">Mostrando</span>
-              <Select 
-                value={itemsPerPage.toString()}
-                onValueChange={(value) => {
-                  setItemsPerPage(Number(value));
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="w-16">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                </SelectContent>
-              </Select>
-              <span className="text-sm text-muted-foreground">
-                de {filteredClients.length} clientes
-              </span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
-                return (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="icon"
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </Button>
+                    {/* Status dot */}
+                    <td className="px-2 py-3">
+                      <div className={`w-2.5 h-2.5 rounded-full ${dotColor(client.subscriptionStatus, days)}`} />
+                    </td>
+
+                    {/* Nome + Telefone */}
+                    <td className="px-4 py-3">
+                      <p className="text-white text-sm font-medium">{client.name}</p>
+                      <p className="text-slate-500 text-xs">{client.phone}</p>
+                    </td>
+
+                    {/* Usuário */}
+                    <td className="px-4 py-3 text-slate-300 text-sm">{client.username}</td>
+
+                    {/* Plano + Valor */}
+                    <td className="px-4 py-3">
+                      <p className="text-slate-300 text-sm">
+                        {client.plan} {client.value ? `- R$ ${parseFloat(client.value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : ""}
+                      </p>
+                    </td>
+
+                    {/* Sistema */}
+                    <td className="px-4 py-3 text-slate-300 text-sm">{client.system}</td>
+
+                    {/* Vencimento */}
+                    <td className="px-4 py-3">
+                      <span className={`inline-block px-2.5 py-1 rounded text-xs font-semibold ${expiryBadgeStyle(days, client.subscriptionStatus)}`}>
+                        {formatExpiryDate(client.expiryDate)}
+                      </span>
+                    </td>
+
+                    {/* Status badge */}
+                    <td className="px-4 py-3">
+                      <span className={`inline-block px-2.5 py-1 rounded text-xs font-semibold ${statusBadgeStyle(client.subscriptionStatus, days)}`}>
+                        {statusLabel(client.subscriptionStatus, days)}
+                      </span>
+                    </td>
+
+                    {/* Ações */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <ActionBtn title="Detalhes" onClick={() => {}}>
+                          <FileText className="w-3.5 h-3.5" />
+                        </ActionBtn>
+                        <ActionBtn title="Editar" onClick={() => { setEditingClient(client); setShowForm(true); }}>
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </ActionBtn>
+                        <ActionBtn title="Renovar" onClick={() => { setEditingClient(client); setShowForm(true); }}>
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </ActionBtn>
+                        <ActionBtn title="Perfil" onClick={() => {}}>
+                          <User className="w-3.5 h-3.5" />
+                        </ActionBtn>
+                        <ActionBtn title="WhatsApp" onClick={() => {}}>
+                          <Send className="w-3.5 h-3.5" />
+                        </ActionBtn>
+                        <ActionBtn title="Excluir" onClick={() => {
+                          if (window.confirm(`Excluir ${client.name}?`)) deleteMutation.mutate(client.id);
+                        }} danger>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </ActionBtn>
+                      </div>
+                    </td>
+                  </tr>
                 );
-              })}
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
+              })
+            )}
+          </tbody>
+        </table>
+
+        {/* ── Footer ── */}
+        <div className="flex items-center justify-between px-4 py-3 border-t border-[#1e2e3e]">
+          <p className="text-slate-400 text-sm">
+            Mostrando {filteredClients.length === 0 ? 0 : startIndex + 1} até{" "}
+            {Math.min(startIndex + itemsPerPage, filteredClients.length)} de{" "}
+            <span className="text-cyan-400 font-medium underline cursor-default">
+              {filteredClients.length} resultados
+            </span>
+          </p>
+
+          <div className="flex items-center gap-1">
+            <PagBtn onClick={() => setCurrentPage(Math.max(1, safeCurrentPage - 1))} disabled={safeCurrentPage === 1}>
+              <ChevronLeft className="w-4 h-4" />
+            </PagBtn>
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              const page = i + 1;
+              return (
+                <PagBtn key={page} onClick={() => setCurrentPage(page)} active={safeCurrentPage === page}>
+                  {page}
+                </PagBtn>
+              );
+            })}
+            <PagBtn onClick={() => setCurrentPage(Math.min(totalPages, safeCurrentPage + 1))} disabled={safeCurrentPage === totalPages}>
+              <ChevronRight className="w-4 h-4" />
+            </PagBtn>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
+  );
+}
+
+// ─── Small reusable components ───────────────────────────────────────────────
+
+function ActionBtn({
+  children,
+  title,
+  onClick,
+  danger = false,
+}: {
+  children: React.ReactNode;
+  title: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      title={title}
+      onClick={onClick}
+      className={`p-1.5 rounded-md border transition-colors ${
+        danger
+          ? "border-[#3a1a1a] text-red-400 hover:bg-red-900/30"
+          : "border-[#2a3a4a] text-slate-400 hover:text-white hover:bg-[#1e3a5f]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function PagBtn({
+  children,
+  onClick,
+  disabled,
+  active,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  active?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+        active
+          ? "bg-cyan-500 text-white"
+          : disabled
+          ? "text-slate-600 cursor-not-allowed"
+          : "text-slate-400 hover:bg-[#1e3a5f] hover:text-white"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
