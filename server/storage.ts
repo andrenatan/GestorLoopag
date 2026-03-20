@@ -586,7 +586,10 @@ export class DbStorage implements IStorage {
       
       if (isActive) {
         activeClients++;
-        projectedMonthlyRevenue += Number(client.value || 0);
+        // Projeção Mensal = only active clients expiring THIS month (pending renewals)
+        if (client.expiryDate >= monthStart && client.expiryDate <= monthEnd) {
+          projectedMonthlyRevenue += Number(client.value || 0);
+        }
         
         if (expiryDate.getTime() === today.getTime()) expiringToday++;
         if (expiryDate.getTime() === tomorrow.getTime()) expiringTomorrow++;

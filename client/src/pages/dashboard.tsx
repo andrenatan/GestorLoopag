@@ -278,7 +278,7 @@ export default function Dashboard() {
             className="space-y-3 flex-1"
             style={blurBilling ? { filter: "blur(8px)", transition: "filter 0.3s ease", pointerEvents: "none" } : { transition: "filter 0.3s ease" }}
           >
-            <InfoRowMoney icon={<span className="text-cyan-400 text-xs font-bold">📈</span>} label="Projeção Mensal" value={stats?.projectedMonthlyRevenue ?? 0} />
+            <InfoRowMoney icon={<span className="text-cyan-400 text-xs font-bold">📈</span>} label="A Receber no Mês" value={stats?.projectedMonthlyRevenue ?? 0} />
             <InfoRowMoney icon={<span className="text-cyan-400 text-xs font-bold">📅</span>} label="Hoje" value={stats?.revenueToday ?? 0} />
             <InfoRowMoney icon={<span className="text-cyan-400 text-xs font-bold">📅</span>} label="Amanhã" value={stats?.revenueTomorrow ?? 0} />
           </div>
