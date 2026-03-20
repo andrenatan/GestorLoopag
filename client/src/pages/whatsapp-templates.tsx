@@ -5,19 +5,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, Eye, X, ChevronDown, Copy } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, X } from "lucide-react";
 import type { MessageTemplate } from "@shared/schema";
 
-const VARIABLES = [
-  { label: "Nome do cliente", value: "{{nome}}" },
-  { label: "Número do cliente", value: "{{numero_cliente}}" },
-  { label: "Telefone", value: "{{telefone}}" },
-  { label: "Plano", value: "{{plano}}" },
-  { label: "Valor", value: "{{valor}}" },
-  { label: "Vencimento", value: "{{vencimento}}" },
-  { label: "Usuário (login)", value: "{{usuario}}" },
-  { label: "Senha", value: "{{senha}}" },
-  { label: "Sistema", value: "{{sistema}}" },
+const VARIABLES: { label: string; value: string }[] = [
+  { label: "Nome do cliente", value: "{nome}" },
+  { label: "Número do cliente", value: "{numero_cliente}" },
+  { label: "Telefone", value: "{telefone}" },
+  { label: "Plano", value: "{plano}" },
+  { label: "Valor", value: "{valor}" },
+  { label: "Vencimento", value: "{vencimento}" },
+  { label: "Usuário (login)", value: "{usuario}" },
+  { label: "Senha", value: "{senha}" },
+  { label: "Sistema", value: "{sistema}" },
 ];
 
 const templateSchema = z.object({
@@ -30,12 +30,12 @@ const templateSchema = z.object({
 type TemplateFormData = z.infer<typeof templateSchema>;
 
 function insertVariable(
-  ref: React.RefObject<HTMLTextAreaElement>,
+  textAreaId: string,
   variable: string,
   setValue: (val: string) => void,
   currentValue: string
 ) {
-  const el = ref.current;
+  const el = document.getElementById(textAreaId) as HTMLTextAreaElement | null;
   if (!el) {
     setValue(currentValue + variable);
     return;
@@ -52,15 +52,15 @@ function insertVariable(
 
 function renderPreview(content: string): string {
   return content
-    .replace(/{{nome}}/g, "João Silva")
-    .replace(/{{numero_cliente}}/g, "0042")
-    .replace(/{{telefone}}/g, "11 99999-0000")
-    .replace(/{{plano}}/g, "Mensal")
-    .replace(/{{valor}}/g, "R$ 60,00")
-    .replace(/{{vencimento}}/g, "31/03/2026")
-    .replace(/{{usuario}}/g, "joaosilva")
-    .replace(/{{senha}}/g, "senha123")
-    .replace(/{{sistema}}/g, "Orca Player");
+    .replace(/\{nome\}/g, "João Silva")
+    .replace(/\{numero_cliente\}/g, "0042")
+    .replace(/\{telefone\}/g, "11 99999-0000")
+    .replace(/\{plano\}/g, "Mensal")
+    .replace(/\{valor\}/g, "R$ 60,00")
+    .replace(/\{vencimento\}/g, "31/03/2026")
+    .replace(/\{usuario\}/g, "joaosilva")
+    .replace(/\{senha\}/g, "senha123")
+    .replace(/\{sistema\}/g, "Orca Player");
 }
 
 interface TemplateFormProps {
@@ -71,7 +71,6 @@ interface TemplateFormProps {
 function TemplateForm({ template, onClose }: TemplateFormProps) {
   const { toast } = useToast();
   const [showPreview, setShowPreview] = useState(false);
-  const textAreaRef = { current: null as HTMLTextAreaElement | null };
 
   const form = useForm<TemplateFormData>({
     resolver: zodResolver(templateSchema),
@@ -86,15 +85,15 @@ function TemplateForm({ template, onClose }: TemplateFormProps) {
   const content = form.watch("content");
 
   const mutation = useMutation({
-    mutationFn: (data: TemplateFormData) => {
+    mutationFn: async (data: TemplateFormData) => {
       const body = { ...data, imageUrl: data.imageUrl || null };
       if (template) {
-        return apiRequest("PUT", `/api/message-templates/${template.id}`, body);
+        return apiRequest(`/api/templates/${template.id}`, "PUT", body);
       }
-      return apiRequest("POST", "/api/message-templates", body);
+      return apiRequest("/api/templates", "POST", body);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/message-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
       toast({ title: template ? "Template atualizado!" : "Template criado!" });
       onClose();
     },
@@ -143,7 +142,7 @@ function TemplateForm({ template, onClose }: TemplateFormProps) {
                   type="button"
                   onClick={() =>
                     insertVariable(
-                      { current: document.getElementById("template-content") as HTMLTextAreaElement },
+                      "template-content",
                       v.value,
                       (val) => form.setValue("content", val),
                       form.getValues("content")
@@ -173,11 +172,13 @@ function TemplateForm({ template, onClose }: TemplateFormProps) {
 
             {showPreview ? (
               <div className="bg-[#111c2a] border border-[#2a3a4a] rounded-lg px-3 py-3 min-h-[140px]">
-                {renderPreview(content).split("\n").map((line, i) => (
-                  <p key={i} className="text-slate-200 text-sm leading-relaxed">
-                    {line || <br />}
-                  </p>
-                ))}
+                {renderPreview(content)
+                  .split("\n")
+                  .map((line, i) => (
+                    <p key={i} className="text-slate-200 text-sm leading-relaxed">
+                      {line || <br />}
+                    </p>
+                  ))}
                 <p className="text-slate-500 text-xs mt-3 border-t border-[#1e2e3e] pt-2">
                   Prévia com dados fictícios
                 </p>
@@ -187,7 +188,9 @@ function TemplateForm({ template, onClose }: TemplateFormProps) {
                 id="template-content"
                 {...form.register("content")}
                 rows={7}
-                placeholder={"Olá {{nome}}, sua assinatura {{plano}} vence em {{vencimento}}.\nValor: {{valor}}\n\nAcesse com:\nUsuário: {{usuario}}\nSenha: {{senha}}"}
+                placeholder={
+                  "Olá {nome}, sua assinatura {plano} vence em {vencimento}.\nValor: {valor}\n\nAcesse com:\nUsuário: {usuario}\nSenha: {senha}"
+                }
                 className="w-full bg-[#111c2a] border border-[#2a3a4a] rounded-lg px-3 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 font-mono resize-none"
               />
             )}
@@ -198,7 +201,9 @@ function TemplateForm({ template, onClose }: TemplateFormProps) {
 
           {/* Image URL (optional) */}
           <div>
-            <label className="block text-sm text-slate-400 mb-1.5">URL da imagem (opcional)</label>
+            <label className="block text-sm text-slate-400 mb-1.5">
+              URL da imagem <span className="text-slate-600">(opcional)</span>
+            </label>
             <input
               {...form.register("imageUrl")}
               placeholder="https://..."
@@ -235,13 +240,13 @@ export default function WhatsAppTemplates() {
   const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
 
   const { data: templates = [], isLoading } = useQuery<MessageTemplate[]>({
-    queryKey: ["/api/message-templates"],
+    queryKey: ["/api/templates"],
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/message-templates/${id}`),
+    mutationFn: (id: number) => apiRequest(`/api/templates/${id}`, "DELETE"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/message-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
       toast({ title: "Template excluído." });
     },
     onError: (err: Error) => {
@@ -288,7 +293,10 @@ export default function WhatsAppTemplates() {
         <p className="text-slate-300 text-sm font-medium mb-3">Variáveis disponíveis</p>
         <div className="flex flex-wrap gap-2">
           {VARIABLES.map((v) => (
-            <div key={v.value} className="flex items-center gap-1.5 bg-[#111c2a] border border-[#2a3a4a] rounded-md px-2.5 py-1">
+            <div
+              key={v.value}
+              className="flex items-center gap-1.5 bg-[#111c2a] border border-[#2a3a4a] rounded-md px-2.5 py-1"
+            >
               <code className="text-blue-300 text-xs">{v.value}</code>
               <span className="text-slate-500 text-xs">→ {v.label}</span>
             </div>
@@ -300,7 +308,10 @@ export default function WhatsAppTemplates() {
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-[#0d1b2a] border border-[#1e2e3e] rounded-xl h-24 animate-pulse" />
+            <div
+              key={i}
+              className="bg-[#0d1b2a] border border-[#1e2e3e] rounded-xl h-24 animate-pulse"
+            />
           ))}
         </div>
       ) : templates.length === 0 ? (
@@ -324,9 +335,13 @@ export default function WhatsAppTemplates() {
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="text-white font-medium text-sm">{t.title}</h3>
                   {t.isActive ? (
-                    <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-full">Ativo</span>
+                    <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-full">
+                      Ativo
+                    </span>
                   ) : (
-                    <span className="bg-slate-700/50 text-slate-500 text-xs px-2 py-0.5 rounded-full">Inativo</span>
+                    <span className="bg-slate-700/50 text-slate-500 text-xs px-2 py-0.5 rounded-full">
+                      Inativo
+                    </span>
                   )}
                 </div>
                 <p className="text-slate-400 text-xs leading-relaxed line-clamp-2 font-mono">
@@ -357,9 +372,7 @@ export default function WhatsAppTemplates() {
       )}
 
       {/* Form modal */}
-      {showForm && (
-        <TemplateForm template={editingTemplate} onClose={closeForm} />
-      )}
+      {showForm && <TemplateForm template={editingTemplate} onClose={closeForm} />}
     </div>
   );
 }

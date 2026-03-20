@@ -5,12 +5,12 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import QRCode from "qrcode";
-import { mkdir, rm } from "fs/promises";
+import { mkdir, rm, readdir } from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BASE_AUTH_DIR = path.join(__dirname, "..", "baileys_auth");
+export const BASE_AUTH_DIR = path.join(__dirname, "..", "baileys_auth");
 
 export interface BaileysStatus {
   status: "disconnected" | "connecting" | "connected";
@@ -53,10 +53,13 @@ class BaileysManager {
 
     this.setState(authUserId, { status: "connecting", qrCode: null });
 
+    const { default: P } = await import("pino");
+    const silentLogger = P({ level: "silent" });
+
     const sock = makeWASocket({
       auth: state,
       printQRInTerminal: false,
-      logger: { level: "silent", trace: () => {}, debug: () => {}, info: () => {}, warn: () => {}, error: () => {}, fatal: () => {}, child: () => ({ level: "silent", trace: () => {}, debug: () => {}, info: () => {}, warn: () => {}, error: () => {}, fatal: () => {}, child: () => ({} as any) }) } as any,
+      logger: silentLogger,
     });
 
     this.sockets.set(authUserId, sock);
@@ -145,6 +148,23 @@ class BaileysManager {
     const phone = to.replace(/\D/g, "");
     const jid = `${phone}@s.whatsapp.net`;
     await sock.sendMessage(jid, { text: message });
+  }
+
+  async restoreExistingSessions(): Promise<void> {
+    try {
+      const entries = await readdir(BASE_AUTH_DIR, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const authUserId = entry.name;
+          console.log(`[Baileys] Restoring session for ${authUserId}`);
+          this.connect(authUserId).catch((err) =>
+            console.error(`[Baileys] Failed to restore session for ${authUserId}:`, err)
+          );
+        }
+      }
+    } catch {
+      // baileys_auth dir does not exist yet — nothing to restore
+    }
   }
 }
 
