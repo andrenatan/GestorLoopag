@@ -1361,6 +1361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const templates = await storage.getAllMessageTemplates(authUserId, type);
       res.json(templates);
     } catch (error) {
+      console.error("[Templates] GET /api/templates error:", error);
       res.status(500).json({ message: "Failed to fetch message templates" });
     }
   });
