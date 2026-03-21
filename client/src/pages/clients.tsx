@@ -20,8 +20,9 @@ import {
   Send,
   ChevronLeft,
   ChevronRight,
+  Gift,
 } from "lucide-react";
-import type { Client } from "@shared/schema";
+import type { Client, MessageTemplate } from "@shared/schema";
 import { getBrasiliaStartOfDay, parseDateString } from "@/lib/timezone";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -93,6 +94,9 @@ export default function Clients() {
   const [itemsPerPage] = useState(10);
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | undefined>();
+  const [giftClient, setGiftClient] = useState<Client | undefined>();
+  const [giftDate, setGiftDate] = useState<string>("");
+  const [giftTemplateId, setGiftTemplateId] = useState<string>("");
   const searchRef = useRef<HTMLInputElement>(null);
 
   const { toast } = useToast();
@@ -143,6 +147,35 @@ export default function Clients() {
     },
     onError: () => toast({ title: "Erro ao excluir cliente.", variant: "destructive" }),
   });
+
+  const { data: messageTemplates = [] } = useQuery<MessageTemplate[]>({
+    queryKey: ["/api/message-templates"],
+  });
+
+  const freeMonthMutation = useMutation({
+    mutationFn: ({ id, expiryDate }: { id: number; expiryDate: string }) =>
+      api.updateClient(id, { expiryDate, subscriptionStatus: "Ativa", freeMonth: true }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      setGiftClient(undefined);
+      toast({ title: "Mês gratuito concedido com sucesso!" });
+    },
+    onError: () => toast({ title: "Erro ao conceder mês gratuito.", variant: "destructive" }),
+  });
+
+  function openGiftModal(client: Client) {
+    const expiry = parseDateString(client.expiryDate);
+    expiry.setMonth(expiry.getMonth() + 1);
+    const newDate = expiry.toISOString().split("T")[0];
+    setGiftDate(newDate);
+    setGiftTemplateId("");
+    setGiftClient(client);
+  }
+
+  function confirmFreeMonth() {
+    if (!giftClient || !giftDate) return;
+    freeMonthMutation.mutate({ id: giftClient.id, expiryDate: giftDate });
+  }
 
   // ── Filtering ──────────────────────────────────────────────────────────────
 
@@ -281,6 +314,7 @@ export default function Clients() {
   const allOnPageSelected = paginatedClients.length > 0 && paginatedClients.every((c) => selectedClients.includes(c.id));
 
   return (
+    <>
     <div className="p-6 space-y-4 min-h-screen" style={{ background: "transparent" }}>
 
       {/* ── Header ── */}
@@ -563,6 +597,9 @@ export default function Clients() {
                         <ActionBtn title="WhatsApp" onClick={() => {}}>
                           <Send className="w-3.5 h-3.5" />
                         </ActionBtn>
+                        <ActionBtn title="Mês Gratuito" onClick={() => openGiftModal(client)}>
+                          <Gift className="w-3.5 h-3.5" />
+                        </ActionBtn>
                         <ActionBtn title="Excluir" onClick={() => {
                           if (window.confirm(`Excluir ${client.name}?`)) deleteMutation.mutate(client.id);
                         }} danger>
@@ -577,7 +614,7 @@ export default function Clients() {
           </tbody>
         </table>
 
-        {/* ── Footer ── */}
+      {/* ── Footer ── */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-[#1e2e3e]">
           <p className="text-slate-400 text-sm">
             Mostrando {filteredClients.length === 0 ? 0 : startIndex + 1} até{" "}
@@ -606,6 +643,72 @@ export default function Clients() {
         </div>
       </div>
     </div>
+
+    {/* ── Free Month Modal ── */}
+    {giftClient && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="bg-[#0f1e2e] border border-[#2a3a4a] rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 rounded-full bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center">
+              <Gift className="w-5 h-5 text-indigo-400" />
+            </div>
+            <div>
+              <h2 className="text-white font-semibold text-lg">Mês Gratuito</h2>
+              <p className="text-slate-400 text-sm">{giftClient.name}</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-slate-400 block mb-1.5">Novo vencimento</label>
+              <input
+                type="date"
+                value={giftDate}
+                onChange={(e) => setGiftDate(e.target.value)}
+                className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            {messageTemplates.length > 0 && (
+              <div>
+                <label className="text-xs text-slate-400 block mb-1.5">Template de mensagem (opcional)</label>
+                <select
+                  value={giftTemplateId}
+                  onChange={(e) => setGiftTemplateId(e.target.value)}
+                  className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="">Nenhum template</option>
+                  {messageTemplates.map((t) => (
+                    <option key={t.id} value={String(t.id)}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <p className="text-slate-500 text-xs bg-[#1a2d42]/50 border border-[#1a2d42] rounded-lg px-3 py-2">
+              O mês gratuito estende o vencimento sem gerar cobrança ou histórico de pagamento.
+            </p>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => setGiftClient(undefined)}
+              className="flex-1 bg-[#1a2a3a] hover:bg-[#243548] text-slate-300 font-medium py-2.5 rounded-lg transition-colors text-sm border border-[#2a3a4a]"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmFreeMonth}
+              disabled={!giftDate || freeMonthMutation.isPending}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors text-sm"
+            >
+              {freeMonthMutation.isPending ? "Aplicando..." : "Confirmar"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 

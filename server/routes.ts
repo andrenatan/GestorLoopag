@@ -1079,6 +1079,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const id = parseInt(req.params.id);
+      const freeMonth = req.body.freeMonth === true;
       const validatedData = insertClientSchema.partial().parse(req.body);
       
       // IMPORTANT: Remove activationDate from update payload - it should be immutable after creation
@@ -1101,7 +1102,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if expiryDate changed (renewal detected)
+      // freeMonth=true skips payment history creation (goodwill gesture, invisible to billing)
       const isDevMode = process.env.NODE_ENV === 'development';
+      if (freeMonth) {
+        console.log(`[FreeMonth] Client ${client.id}: free month granted, skipping renewal payment record`);
+        return res.json(client);
+      }
       if (isDevMode) {
         console.log(`[Client Update] Full payload received:`, JSON.stringify(validatedData, null, 2));
         console.log(`[Client Update] Old client data before update:`, JSON.stringify({
