@@ -28,9 +28,9 @@ import ClientPlans from "@/pages/client-plans";
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-[#0d1b2a]">
       <Sidebar />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto bg-[#0d1b2a]">
         {children}
       </main>
     </div>

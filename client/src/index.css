@@ -33,30 +33,30 @@
 }
 
 .dark {
-  /* Dark theme colors */
-  --background: hsl(240, 10%, 4%);
+  /* Dark theme colors — navy palette matching dashboard */
+  --background: hsl(210, 50%, 11%);       /* #0d1b2a */
   --foreground: hsl(0, 0%, 98%);
-  --muted: hsl(240, 4%, 10%);
-  --muted-foreground: hsl(240, 5%, 65%);
-  --popover: hsl(240, 4%, 10%);
+  --muted: hsl(210, 40%, 15%);            /* #1a2a3a */
+  --muted-foreground: hsl(210, 20%, 65%);
+  --popover: hsl(210, 44%, 13%);          /* #112233 */
   --popover-foreground: hsl(0, 0%, 98%);
-  --card: hsl(240, 4%, 10%);
+  --card: hsl(210, 40%, 15%);             /* #1a2a3a */
   --card-foreground: hsl(0, 0%, 98%);
-  --border: hsl(240, 4%, 16%);
-  --input: hsl(240, 4%, 16%);
+  --border: hsl(210, 35%, 22%);           /* #2a3a4a */
+  --input: hsl(210, 35%, 22%);
   --primary: hsl(221, 83%, 53%);
   --primary-foreground: hsl(210, 40%, 98%);
-  --secondary: hsl(240, 4%, 16%);
+  --secondary: hsl(210, 35%, 20%);
   --secondary-foreground: hsl(0, 0%, 98%);
-  --accent: hsl(240, 4%, 16%);
+  --accent: hsl(210, 35%, 20%);
   --accent-foreground: hsl(0, 0%, 98%);
   --destructive: hsl(0, 63%, 31%);
   --destructive-foreground: hsl(210, 40%, 98%);
-  --ring: hsl(240, 5%, 84%);
-  
+  --ring: hsl(210, 30%, 60%);
+
   /* Custom Loopag dark colors */
-  --glass-bg: hsla(240, 4%, 10%, 0.8);
-  --glass-border: hsla(221, 83%, 53%, 0.3);
+  --glass-bg: hsla(210, 40%, 15%, 0.8);
+  --glass-border: hsla(221, 83%, 53%, 0.25);
 }
 
 @layer base {

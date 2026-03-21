@@ -90,7 +90,7 @@ export function Sidebar({ className }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "bg-black/40 backdrop-blur-xl border-r border-white/10 transition-all duration-300 relative text-white flex flex-col",
+        "bg-[#091829] border-r border-[#1a2d42] transition-all duration-300 relative text-white flex flex-col",
         collapsed ? "w-16" : "w-64",
         className
       )}
@@ -109,7 +109,7 @@ export function Sidebar({ className }: SidebarProps) {
           variant="ghost"
           size="icon"
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-6 rounded-full border border-white/20 bg-black/40 backdrop-blur-xl text-white hover:bg-white/10"
+          className="absolute -right-3 top-6 rounded-full border border-[#1a2d42] bg-[#091829] text-white hover:bg-[#1a2d42]"
         >
           <Menu className="h-4 w-4" />
         </Button>
@@ -152,7 +152,7 @@ export function Sidebar({ className }: SidebarProps) {
 
                     {/* Submenu */}
                     {!collapsed && isOpen && (
-                      <div className="ml-4 mt-1 space-y-1 border-l border-white/10 pl-3">
+                      <div className="ml-4 mt-1 space-y-1 border-l border-[#1a2d42] pl-3">
                         {item.children.map((child) => {
                           const ChildIcon = child.icon;
                           const isChildActive = location === child.href;
@@ -219,7 +219,7 @@ export function Sidebar({ className }: SidebarProps) {
         </ScrollArea>
 
         {/* User Info & Logout */}
-        <div className="border-t border-white/10 pt-4">
+        <div className="border-t border-[#1a2d42] pt-4">
           {!collapsed && user && (
             <div className="mb-3 px-2">
               <p className="text-sm text-white font-semibold truncate">{user.name || user.username}</p>
