@@ -157,8 +157,14 @@ export default function Clients() {
       api.updateClient(id, { expiryDate, subscriptionStatus: "Ativa", freeMonth: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      const clientName = giftClient?.name ?? "";
+      const [y, m, d] = giftDate.split("-");
+      const formattedDate = `${d}/${m}/${y}`;
       setGiftClient(undefined);
-      toast({ title: "Mês gratuito concedido com sucesso!" });
+      toast({
+        title: `${clientName}, mês gratuito cadastrado com Sucesso!`,
+        description: `Nova data de vencimento: ${formattedDate}`,
+      });
     },
     onError: () => toast({ title: "Erro ao conceder mês gratuito.", variant: "destructive" }),
   });
