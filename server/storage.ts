@@ -64,7 +64,7 @@ export interface IStorage {
   deleteWhatsappInstance(authUserId: string, id: number): Promise<boolean>;
 
   // Message Templates
-  getAllMessageTemplates(authUserId: string, type?: string): Promise<MessageTemplate[]>;
+  getAllMessageTemplates(authUserId: string, type?: "baileys" | "official"): Promise<MessageTemplate[]>;
   getMessageTemplate(authUserId: string, id: number): Promise<MessageTemplate | undefined>;
   createMessageTemplate(authUserId: string, template: InsertMessageTemplate): Promise<MessageTemplate>;
   updateMessageTemplate(authUserId: string, id: number, template: Partial<InsertMessageTemplate>): Promise<MessageTemplate | undefined>;
@@ -405,7 +405,7 @@ export class DbStorage implements IStorage {
   }
 
   // Message Templates
-  async getAllMessageTemplates(authUserId: string, type?: string): Promise<MessageTemplate[]> {
+  async getAllMessageTemplates(authUserId: string, type?: "baileys" | "official"): Promise<MessageTemplate[]> {
     if (type) {
       return await db.select().from(messageTemplates)
         .where(and(eq(messageTemplates.authUserId, authUserId), eq(messageTemplates.type, type)));
