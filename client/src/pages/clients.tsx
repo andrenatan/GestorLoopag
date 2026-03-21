@@ -22,7 +22,7 @@ import {
   ChevronRight,
   Gift,
 } from "lucide-react";
-import type { Client, MessageTemplate } from "@shared/schema";
+import type { Client, MessageTemplate, ClientPlan } from "@shared/schema";
 import { getBrasiliaStartOfDay, parseDateString } from "@/lib/timezone";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -97,6 +97,13 @@ export default function Clients() {
   const [giftClient, setGiftClient] = useState<Client | undefined>();
   const [giftDate, setGiftDate] = useState<string>("");
   const [giftTemplateId, setGiftTemplateId] = useState<string>("");
+
+  const [renewClient, setRenewClient] = useState<Client | undefined>();
+  const [renewPlanName, setRenewPlanName] = useState<string>("");
+  const [renewPlanValue, setRenewPlanValue] = useState<string>("");
+  const [renewDate, setRenewDate] = useState<string>("");
+  const [renewTemplateId, setRenewTemplateId] = useState<string>("");
+
   const searchRef = useRef<HTMLInputElement>(null);
 
   const { toast } = useToast();
@@ -128,12 +135,21 @@ export default function Clients() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) => api.updateClient(id, data),
-    onSuccess: () => {
+    mutationFn: ({ id, data, isRenewal }: { id: number; data: any; isRenewal?: boolean }) =>
+      api.updateClient(id, data),
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       setShowForm(false);
       setEditingClient(undefined);
-      toast({ title: "Cliente atualizado com sucesso." });
+      if (variables.isRenewal && variables.data.expiryDate) {
+        const [ry, rm, rd] = (variables.data.expiryDate as string).split("-");
+        toast({
+          title: "Renovação realizada com sucesso!",
+          description: `Nova data de vencimento: ${rd}/${rm}/${ry}`,
+        });
+      } else {
+        toast({ title: "Cliente atualizado com sucesso." });
+      }
     },
     onError: () => toast({ title: "Erro ao atualizar cliente.", variant: "destructive" }),
   });
@@ -151,6 +167,69 @@ export default function Clients() {
   const { data: messageTemplates = [] } = useQuery<MessageTemplate[]>({
     queryKey: ["/api/templates"],
   });
+
+  const { data: clientPlansList = [] } = useQuery<ClientPlan[]>({
+    queryKey: ["/api/client-plans"],
+  });
+
+  // ── Renewal helpers ────────────────────────────────────────────────────────
+
+  function calcNewExpiry(fromDate: string, durationQuantity: number, durationType: string): string {
+    const date = parseDateString(fromDate);
+    if (durationType === "months") {
+      date.setMonth(date.getMonth() + durationQuantity);
+    } else {
+      date.setDate(date.getDate() + durationQuantity);
+    }
+    return date.toISOString().split("T")[0];
+  }
+
+  function getPlanDurationLabel(plan: ClientPlan): string {
+    if (plan.durationType === "months") {
+      return `${plan.durationQuantity} ${plan.durationQuantity === 1 ? "mês" : "meses"}`;
+    }
+    return `${plan.durationQuantity} dias`;
+  }
+
+  function openRenewModal(client: Client) {
+    const plan = clientPlansList.find((p) => p.name === client.plan);
+    const durationQuantity = plan?.durationQuantity ?? 1;
+    const durationType = plan?.durationType ?? "months";
+    const newDate = calcNewExpiry(client.expiryDate, durationQuantity, durationType);
+    setRenewClient(client);
+    setRenewPlanName(client.plan || "");
+    setRenewPlanValue(client.value || "");
+    setRenewDate(newDate);
+    setRenewTemplateId("");
+  }
+
+  function handleRenewPlanChange(planName: string) {
+    setRenewPlanName(planName);
+    const plan = clientPlansList.find((p) => p.name === planName);
+    if (plan) {
+      setRenewPlanValue(parseFloat(String(plan.value)).toFixed(2));
+      if (renewClient) {
+        const newDate = calcNewExpiry(renewClient.expiryDate, plan.durationQuantity, plan.durationType);
+        setRenewDate(newDate);
+      }
+    }
+  }
+
+  function confirmRenewal() {
+    if (!renewClient || !renewDate) return;
+    updateMutation.mutate({
+      id: renewClient.id,
+      isRenewal: true,
+      data: {
+        expiryDate: renewDate,
+        plan: renewPlanName,
+        value: renewPlanValue,
+        subscriptionStatus: "Ativa",
+        paymentStatus: "Pago",
+      },
+    });
+    setRenewClient(undefined);
+  }
 
   const freeMonthMutation = useMutation({
     mutationFn: ({ id, expiryDate }: { id: number; expiryDate: string }) =>
@@ -594,7 +673,7 @@ export default function Clients() {
                         <ActionBtn title="Editar" onClick={() => { setEditingClient(client); setShowForm(true); }}>
                           <Edit2 className="w-3.5 h-3.5" />
                         </ActionBtn>
-                        <ActionBtn title="Renovar" onClick={() => { setEditingClient(client); setShowForm(true); }}>
+                        <ActionBtn title="Renovar" onClick={() => openRenewModal(client)}>
                           <RefreshCw className="w-3.5 h-3.5" />
                         </ActionBtn>
                         <ActionBtn title="Perfil" onClick={() => {}}>
@@ -649,6 +728,119 @@ export default function Clients() {
         </div>
       </div>
     </div>
+
+    {/* ── Renewal Modal ── */}
+    {renewClient && (() => {
+      const activePlan = clientPlansList.find((p) => p.name === renewPlanName);
+      const durationLabel = activePlan ? getPlanDurationLabel(activePlan) : "1 mês";
+      const [ry, rm, rd] = renewDate ? renewDate.split("-") : ["", "", ""];
+      const formattedRenewDate = renewDate ? `${rd}/${rm}/${ry}` : "";
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-md mx-4 rounded-2xl overflow-hidden shadow-2xl">
+
+            {/* ── Teal header ── */}
+            <div className="bg-[#0d9488] px-6 pt-6 pb-5 text-center">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-amber-400/20 border-2 border-amber-400 mx-auto mb-3">
+                <span className="text-amber-400 text-xl font-bold">!</span>
+              </div>
+              <h2 className="text-white text-xl font-bold mb-1">Atenção</h2>
+              <p className="text-white/90 text-sm font-medium">Tem certeza que deseja renovar esse cliente?</p>
+              <p className="text-white/80 text-sm">Será renovado: <span className="font-semibold">{durationLabel}</span></p>
+            </div>
+
+            {/* ── Body ── */}
+            <div className="bg-[#0a1929] px-6 py-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+
+                {/* Mensagem */}
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1.5 font-medium">Mensagem</label>
+                  <select
+                    value={renewTemplateId}
+                    onChange={(e) => setRenewTemplateId(e.target.value)}
+                    className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-teal-500"
+                  >
+                    <option value="">Prestes a Vencer</option>
+                    {messageTemplates.map((t) => (
+                      <option key={t.id} value={String(t.id)}>{t.title}</option>
+                    ))}
+                  </select>
+                  <p className="text-slate-500 text-[11px] mt-1 leading-tight">
+                    Se deseja enviar uma confirmação de renovação, escolha uma mensagem
+                  </p>
+                </div>
+
+                {/* Fatura */}
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1.5 font-medium">Fatura</label>
+                  <input
+                    type="text"
+                    value={renewPlanValue ? `R$ ${parseFloat(renewPlanValue).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : ""}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^\d,\.]/g, "").replace(",", ".");
+                      setRenewPlanValue(raw);
+                    }}
+                    className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+
+                {/* Data */}
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1.5 font-medium">Data</label>
+                  <input
+                    type="date"
+                    value={renewDate}
+                    onChange={(e) => setRenewDate(e.target.value)}
+                    className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-teal-500"
+                  />
+                  <p className="text-slate-500 text-[11px] mt-1 leading-tight">
+                    Para renovar um mês corrente, deixe o campo de data vazio
+                  </p>
+                </div>
+
+                {/* Plano */}
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1.5 font-medium">Plano</label>
+                  <select
+                    value={renewPlanName}
+                    onChange={(e) => handleRenewPlanChange(e.target.value)}
+                    className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-teal-500"
+                  >
+                    {clientPlansList.length === 0 && (
+                      <option value={renewPlanName}>{renewPlanName || "Mensal"}</option>
+                    )}
+                    {clientPlansList.map((p) => (
+                      <option key={p.id} value={p.name}>
+                        {p.name} - R$ {parseFloat(String(p.value)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setRenewClient(undefined)}
+                  className="flex-1 bg-[#1a2a3a] hover:bg-[#243548] text-slate-300 font-medium py-2.5 rounded-lg transition-colors text-sm border border-[#2a3a4a]"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmRenewal}
+                  disabled={!renewDate || updateMutation.isPending}
+                  className="flex-1 bg-green-500 hover:bg-green-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors text-sm"
+                >
+                  {updateMutation.isPending ? "Renovando..." : "Sim, Renovar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
 
     {/* ── Free Month Modal ── */}
     {giftClient && (
