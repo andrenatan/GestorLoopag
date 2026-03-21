@@ -466,6 +466,7 @@ export default function Clients() {
                 />
               </th>
               <th className="px-2 py-3 w-6" />
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">ID</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Nome</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Usuário</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Plano</th>
@@ -478,7 +479,7 @@ export default function Clients() {
           <tbody>
             {paginatedClients.length === 0 ? (
               <tr>
-                <td colSpan={9} className="text-center py-16 text-slate-500 text-sm">
+                <td colSpan={10} className="text-center py-16 text-slate-500 text-sm">
                   Nenhum cliente encontrado
                 </td>
               </tr>
@@ -504,6 +505,11 @@ export default function Clients() {
                     {/* Status dot */}
                     <td className="px-2 py-3">
                       <div className={`w-2.5 h-2.5 rounded-full ${dotColor(client.subscriptionStatus, days)}`} />
+                    </td>
+
+                    {/* ID */}
+                    <td className="px-4 py-3 text-slate-400 text-sm font-mono">
+                      #{client.clientNumber}
                     </td>
 
                     {/* Nome + Telefone */}
