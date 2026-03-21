@@ -379,7 +379,7 @@ export default function ClientPlans() {
                   <Plus className="w-4 h-4 text-white" />
                 </div>
                 <h2 className="text-white font-semibold text-lg">
-                  {editing ? "Editar Plano" : "Novo produto"}
+                  {editing ? "Editar Plano" : "Novo Plano"}
                 </h2>
               </div>
               <button onClick={closeModal} className="text-slate-400 hover:text-white transition-colors">
