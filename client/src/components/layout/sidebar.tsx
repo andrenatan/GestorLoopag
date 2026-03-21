@@ -18,6 +18,8 @@ import {
   LogOut,
   Smartphone,
   ChevronDown,
+  ListFilter,
+  Tag,
 } from "lucide-react";
 
 interface NavItem {
@@ -29,7 +31,15 @@ interface NavItem {
 
 const sidebarItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Clientes", href: "/clients", icon: Users },
+  {
+    title: "Clientes",
+    href: "/clients",
+    icon: Users,
+    children: [
+      { title: "Listar/Criar", href: "/clients", icon: ListFilter },
+      { title: "Planos", href: "/clients/plans", icon: Tag },
+    ],
+  },
   { title: "Sistemas", href: "/systems", icon: Server },
   { title: "Cobranças", href: "/billing", icon: CreditCard },
   { title: "Templates", href: "/templates", icon: FileText },
@@ -55,11 +65,27 @@ export function Sidebar({ className }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const { logout, user } = useAuth();
 
-  const isWhatsAppActive =
-    location === "/whatsapp" ||
-    location.startsWith("/whatsapp/");
+  const isWhatsAppActive = location === "/whatsapp" || location.startsWith("/whatsapp/");
+  const isClientsActive = location === "/clients" || location.startsWith("/clients/");
 
-  const [whatsappOpen, setWhatsappOpen] = useState(isWhatsAppActive);
+  const [openItems, setOpenItems] = useState<Set<string>>(() => {
+    const initial = new Set<string>();
+    if (isWhatsAppActive) initial.add("/whatsapp");
+    if (isClientsActive) initial.add("/clients");
+    return initial;
+  });
+
+  const toggleItem = (href: string) => {
+    setOpenItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(href)) {
+        next.delete(href);
+      } else {
+        next.add(href);
+      }
+      return next;
+    });
+  };
 
   return (
     <aside
@@ -96,12 +122,14 @@ export function Sidebar({ className }: SidebarProps) {
 
               if (item.children) {
                 const isParentActive = location === item.href || location.startsWith(`${item.href}/`);
+                const isOpen = openItems.has(item.href);
+
                 return (
                   <div key={item.href}>
                     <button
                       onClick={() => {
                         if (collapsed) return;
-                        setWhatsappOpen((o) => !o);
+                        toggleItem(item.href);
                       }}
                       className={cn(
                         "w-full flex items-center justify-start h-10 px-4 py-2 rounded-md text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200",
@@ -115,7 +143,7 @@ export function Sidebar({ className }: SidebarProps) {
                           <ChevronDown
                             className={cn(
                               "h-4 w-4 text-white/50 transition-transform duration-200",
-                              whatsappOpen && "rotate-180"
+                              isOpen && "rotate-180"
                             )}
                           />
                         </>
@@ -123,7 +151,7 @@ export function Sidebar({ className }: SidebarProps) {
                     </button>
 
                     {/* Submenu */}
-                    {!collapsed && whatsappOpen && (
+                    {!collapsed && isOpen && (
                       <div className="ml-4 mt-1 space-y-1 border-l border-white/10 pl-3">
                         {item.children.map((child) => {
                           const ChildIcon = child.icon;
@@ -145,7 +173,7 @@ export function Sidebar({ className }: SidebarProps) {
                       </div>
                     )}
 
-                    {/* Collapsed: show first child icon */}
+                    {/* Collapsed: show child icons when parent active */}
                     {collapsed && isParentActive && (
                       <div className="space-y-1 mt-1">
                         {item.children.map((child) => {

@@ -1,5 +1,5 @@
 import { 
-  plans, users, employees, systems, clients, whatsappInstances, messageTemplates, billingHistory, paymentHistory, automationConfigs,
+  plans, users, employees, systems, clients, whatsappInstances, messageTemplates, billingHistory, paymentHistory, automationConfigs, clientPlans,
   type Plan, type InsertPlan,
   type User, type InsertUser,
   type Employee, type InsertEmployee,
@@ -9,7 +9,8 @@ import {
   type MessageTemplate, type InsertMessageTemplate,
   type BillingHistory, type InsertBillingHistory,
   type PaymentHistory, type InsertPaymentHistory,
-  type AutomationConfig, type InsertAutomationConfig
+  type AutomationConfig, type InsertAutomationConfig,
+  type ClientPlan, type InsertClientPlan,
 } from "@shared/schema";
 import { getBrasiliaDate, getBrasiliaDateString, getBrasiliaStartOfDay, parseDateString } from "./utils/timezone";
 import { getStateFromPhone } from "@shared/ddd-map";
@@ -137,6 +138,13 @@ export interface IStorage {
   // Stripe subscription methods
   updateUserStripeInfo(userId: number, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User | undefined>;
   updateUserSubscriptionStatus(userId: number, status: string, expiresAt?: Date | null): Promise<User | undefined>;
+
+  // Client Plans (tenant-scoped IPTV subscription plans)
+  getAllClientPlans(authUserId: string): Promise<(ClientPlan & { clientCount: number })[]>;
+  getClientPlan(authUserId: string, id: number): Promise<ClientPlan | undefined>;
+  createClientPlan(authUserId: string, plan: InsertClientPlan): Promise<ClientPlan>;
+  updateClientPlan(authUserId: string, id: number, plan: Partial<InsertClientPlan>): Promise<ClientPlan | undefined>;
+  deleteClientPlan(authUserId: string, id: number): Promise<boolean>;
 }
 
 
@@ -1027,6 +1035,53 @@ export class DbStorage implements IStorage {
     return Object.entries(clientsByState)
       .map(([state, count]) => ({ state, count }))
       .sort((a, b) => b.count - a.count);
+  }
+
+  // Client Plans
+  async getAllClientPlans(authUserId: string): Promise<(ClientPlan & { clientCount: number })[]> {
+    const plans = await db.select().from(clientPlans)
+      .where(eq(clientPlans.authUserId, authUserId))
+      .orderBy(desc(clientPlans.createdAt));
+
+    const allClients = await db.select({ plan: clients.plan })
+      .from(clients)
+      .where(eq(clients.authUserId, authUserId));
+
+    const countByPlan = new Map<string, number>();
+    for (const c of allClients) {
+      if (c.plan) {
+        countByPlan.set(c.plan, (countByPlan.get(c.plan) ?? 0) + 1);
+      }
+    }
+
+    return plans.map((p) => ({ ...p, clientCount: countByPlan.get(p.name) ?? 0 }));
+  }
+
+  async getClientPlan(authUserId: string, id: number): Promise<ClientPlan | undefined> {
+    const result = await db.select().from(clientPlans)
+      .where(and(eq(clientPlans.id, id), eq(clientPlans.authUserId, authUserId)))
+      .limit(1);
+    return result[0];
+  }
+
+  async createClientPlan(authUserId: string, insertData: InsertClientPlan): Promise<ClientPlan> {
+    const result = await db.insert(clientPlans).values({ ...insertData, authUserId }).returning();
+    return result[0];
+  }
+
+  async updateClientPlan(authUserId: string, id: number, updateData: Partial<InsertClientPlan>): Promise<ClientPlan | undefined> {
+    const result = await db.update(clientPlans)
+      .set(updateData)
+      .where(and(eq(clientPlans.id, id), eq(clientPlans.authUserId, authUserId)))
+      .returning();
+    return result[0];
+  }
+
+  async deleteClientPlan(authUserId: string, id: number): Promise<boolean> {
+    const result = await db.delete(clientPlans)
+      .where(and(eq(clientPlans.id, id), eq(clientPlans.authUserId, authUserId)))
+      .returning();
+    return result.length > 0;
   }
 }
 

@@ -24,6 +24,7 @@ import Landing from "@/pages/landing";
 import Sales from "@/pages/sales";
 import Plans from "@/pages/plans";
 import Success from "@/pages/success";
+import ClientPlans from "@/pages/client-plans";
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -73,6 +74,14 @@ function Router() {
         <ProtectedRoute>
           <DashboardLayout>
             <Dashboard />
+          </DashboardLayout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/clients/plans">
+        <ProtectedRoute>
+          <DashboardLayout>
+            <ClientPlans />
           </DashboardLayout>
         </ProtectedRoute>
       </Route>

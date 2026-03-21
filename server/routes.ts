@@ -5,7 +5,7 @@ import { baileysManager } from "./baileys-manager";
 import { 
   insertUserSchema, insertEmployeeSchema, insertSystemSchema, insertClientSchema, 
   insertWhatsappInstanceSchema, insertMessageTemplateSchema, insertBillingHistorySchema,
-  insertPaymentHistorySchema, insertAutomationConfigSchema, insertPlanSchema,
+  insertPaymentHistorySchema, insertAutomationConfigSchema, insertPlanSchema, insertClientPlanSchema,
   type User
 } from "@shared/schema";
 import multer from "multer";
@@ -1800,6 +1800,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("[Stripe Webhook Error]:", error);
       res.status(500).json({ message: "Erro ao processar webhook", error: error.message });
+    }
+  });
+
+  // ============================================
+  // CLIENT PLANS ROUTES (tenant-scoped IPTV plans)
+  // ============================================
+
+  app.get("/api/client-plans", async (req, res) => {
+    try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const plans = await storage.getAllClientPlans(authUserId);
+      res.json(plans);
+    } catch (error) {
+      console.error("[ClientPlans GET]:", error);
+      res.status(500).json({ message: "Erro ao buscar planos" });
+    }
+  });
+
+  app.post("/api/client-plans", async (req, res) => {
+    try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const data = insertClientPlanSchema.parse(req.body);
+      const plan = await storage.createClientPlan(authUserId, data);
+      res.status(201).json(plan);
+    } catch (error: any) {
+      console.error("[ClientPlans POST]:", error);
+      res.status(400).json({ message: error.message || "Erro ao criar plano" });
+    }
+  });
+
+  app.put("/api/client-plans/:id", async (req, res) => {
+    try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      const plan = await storage.updateClientPlan(authUserId, id, req.body);
+      if (!plan) return res.status(404).json({ message: "Plano não encontrado" });
+      res.json(plan);
+    } catch (error: any) {
+      console.error("[ClientPlans PUT]:", error);
+      res.status(400).json({ message: error.message || "Erro ao atualizar plano" });
+    }
+  });
+
+  app.delete("/api/client-plans/:id", async (req, res) => {
+    try {
+      const authUserId = req.user?.authUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      const deleted = await storage.deleteClientPlan(authUserId, id);
+      if (!deleted) return res.status(404).json({ message: "Plano não encontrado" });
+      res.json({ message: "Plano excluído com sucesso" });
+    } catch (error: any) {
+      console.error("[ClientPlans DELETE]:", error);
+      res.status(500).json({ message: "Erro ao excluir plano" });
     }
   });
 

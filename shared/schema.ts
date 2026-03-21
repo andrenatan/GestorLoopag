@@ -154,6 +154,18 @@ export const paymentHistory = pgTable("payment_history", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Client plans table - tenant-scoped IPTV subscription plans
+export const clientPlans = pgTable("client_plans", {
+  id: serial("id").primaryKey(),
+  authUserId: uuid("auth_user_id").notNull().references(() => users.authUserId),
+  name: text("name").notNull(),
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(),
+  durationType: text("duration_type", { enum: ["months", "days"] }).notNull().default("months"),
+  durationQuantity: integer("duration_quantity").notNull().default(1),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Automation configurations table
 export const automationConfigs = pgTable("automation_configs", {
   id: serial("id").primaryKey(),
@@ -244,6 +256,12 @@ export const insertAutomationConfigSchema = createInsertSchema(automationConfigs
   lastRunAt: true,
 });
 
+export const insertClientPlanSchema = createInsertSchema(clientPlans).omit({
+  id: true,
+  authUserId: true,
+  createdAt: true,
+});
+
 // Types
 export type Plan = typeof plans.$inferSelect;
 export type InsertPlan = z.infer<typeof insertPlanSchema>;
@@ -274,3 +292,6 @@ export type InsertPaymentHistory = z.infer<typeof insertPaymentHistorySchema>;
 
 export type AutomationConfig = typeof automationConfigs.$inferSelect;
 export type InsertAutomationConfig = z.infer<typeof insertAutomationConfigSchema>;
+
+export type ClientPlan = typeof clientPlans.$inferSelect;
+export type InsertClientPlan = z.infer<typeof insertClientPlanSchema>;
