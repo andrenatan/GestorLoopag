@@ -1357,7 +1357,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Not authenticated" });
       }
 
-      const type = typeof req.query.type === "string" ? req.query.type : undefined;
+      const rawType = req.query.type;
+      const VALID_TYPES = ["baileys", "official"] as const;
+      type TemplateType = typeof VALID_TYPES[number];
+      const type: TemplateType | undefined =
+        typeof rawType === "string" && (VALID_TYPES as readonly string[]).includes(rawType)
+          ? (rawType as TemplateType)
+          : undefined;
+
       const templates = await storage.getAllMessageTemplates(authUserId, type);
       res.json(templates);
     } catch (error) {

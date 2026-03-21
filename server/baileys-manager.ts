@@ -13,9 +13,10 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const BASE_AUTH_DIR = path.join(__dirname, "..", "baileys_auth");
 
-const MAX_RETRIES = 6;
-const BASE_DELAY_MS = 5000;
+const MAX_RETRIES = 8;
+const BASE_DELAY_MS = 3000;
 const MAX_DELAY_MS = 60000;
+const PERMANENT_ERROR_CODES = new Set([DisconnectReason.loggedOut]);
 
 export interface BaileysStatus {
   status: "disconnected" | "connecting" | "connected";
@@ -94,6 +95,8 @@ class BaileysManager {
       if (connection === "close") {
         const errCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
         const isLoggedOut = errCode === DisconnectReason.loggedOut;
+        const isPermanent = PERMANENT_ERROR_CODES.has(errCode as DisconnectReason);
+        const authDir = path.join(BASE_AUTH_DIR, authUserId);
 
         this.sockets.delete(authUserId);
         this.setState(authUserId, {
@@ -103,10 +106,9 @@ class BaileysManager {
           profilePictureUrl: null,
         });
 
-        if (isLoggedOut) {
-          console.log(`[Baileys] Logged out for ${authUserId} — clearing session`);
+        if (isLoggedOut || isPermanent) {
+          console.log(`[Baileys] Logged out for ${authUserId} — clearing session, no reconnect`);
           this.retryCounts.delete(authUserId);
-          const authDir = path.join(BASE_AUTH_DIR, authUserId);
           await rm(authDir, { recursive: true, force: true }).catch(() => {});
           return;
         }
@@ -114,13 +116,19 @@ class BaileysManager {
         const retries = (this.retryCounts.get(authUserId) ?? 0) + 1;
         this.retryCounts.set(authUserId, retries);
 
+        // If we get 405 (bad session/rejected) or repeated failures,
+        // clear the corrupted auth state so the next attempt gets a fresh QR
+        const isBadSession = errCode === 405 || errCode === 500;
+        if (isBadSession || retries % 3 === 0) {
+          console.log(`[Baileys] Clearing auth state for ${authUserId} (code ${errCode}, retry ${retries}) — will get fresh QR`);
+          await rm(authDir, { recursive: true, force: true }).catch(() => {});
+        }
+
         if (retries > MAX_RETRIES) {
           console.log(
-            `[Baileys] Max retries (${MAX_RETRIES}) reached for ${authUserId} (last code: ${errCode}). Giving up. User must reconnect manually.`
+            `[Baileys] Max retries (${MAX_RETRIES}) reached for ${authUserId}. Stopping auto-reconnect — user can click Conectar to restart.`
           );
           this.retryCounts.delete(authUserId);
-          const authDir = path.join(BASE_AUTH_DIR, authUserId);
-          await rm(authDir, { recursive: true, force: true }).catch(() => {});
           return;
         }
 
