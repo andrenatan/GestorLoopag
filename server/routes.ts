@@ -1838,7 +1838,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
-      const plan = await storage.updateClientPlan(authUserId, id, req.body);
+      const updateData = insertClientPlanSchema.partial().parse(req.body);
+      const plan = await storage.updateClientPlan(authUserId, id, updateData);
       if (!plan) return res.status(404).json({ message: "Plano não encontrado" });
       res.json(plan);
     } catch (error: any) {
