@@ -149,7 +149,7 @@ export default function Clients() {
   });
 
   const { data: messageTemplates = [] } = useQuery<MessageTemplate[]>({
-    queryKey: ["/api/message-templates"],
+    queryKey: ["/api/templates"],
   });
 
   const freeMonthMutation = useMutation({
@@ -679,7 +679,7 @@ export default function Clients() {
                 >
                   <option value="">Nenhum template</option>
                   {messageTemplates.map((t) => (
-                    <option key={t.id} value={String(t.id)}>{t.name}</option>
+                    <option key={t.id} value={String(t.id)}>{t.title}</option>
                   ))}
                 </select>
               </div>

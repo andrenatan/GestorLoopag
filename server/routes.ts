@@ -1105,7 +1105,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // freeMonth=true skips payment history creation (goodwill gesture, invisible to billing)
       const isDevMode = process.env.NODE_ENV === 'development';
       if (freeMonth) {
-        console.log(`[FreeMonth] Client ${client.id}: free month granted, skipping renewal payment record`);
+        // Ensure subscriptionStatus is always set to Ativa for free month grants
+        if (client.subscriptionStatus !== "Ativa") {
+          await storage.updateClient(authUserId, id, { subscriptionStatus: "Ativa" });
+        }
+        console.log(`[FreeMonth] Client ${client.id}: free month granted until ${client.expiryDate}, skipping renewal payment record`);
         return res.json(client);
       }
       if (isDevMode) {
