@@ -13,8 +13,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileSpreadsheet, AlertTriangle } from "lucide-react";
-import type { Client, System } from "@shared/schema";
+import type { Client, System, ClientPlan } from "@shared/schema";
 import { getBrasiliaStartOfDay, parseDateString } from "@/lib/timezone";
+
+const FALLBACK_PLANS = [
+  { name: "Mensal", value: "" },
+  { name: "Trimestral", value: "" },
+  { name: "Semestral", value: "" },
+  { name: "Anual", value: "" },
+];
 
 const countries = [
   { name: "Brasil", code: "+55", flag: "🇧🇷" },
@@ -46,7 +53,7 @@ const clientFormSchema = z.object({
   activationDate: z.string().min(1, "Data de ativação é obrigatória"),
   expiryDate: z.string().min(1, "Data de vencimento é obrigatória"),
   paymentStatus: z.enum(["Pago", "Vencido", "A Pagar"]).default("Pago"),
-  plan: z.enum(["Mensal", "Trimestral", "Semestral", "Anual"]),
+  plan: z.string().min(1, "Plano é obrigatório"),
   value: z.string().min(1, "Valor é obrigatório"),
   referralSource: z.string().optional(),
   referredById: z.number().optional(),
@@ -76,6 +83,22 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   const { data: systems = [], isLoading: systemsLoading } = useQuery<System[]>({
     queryKey: ["/api/systems"],
   });
+
+  const { data: clientPlans = [] } = useQuery<ClientPlan[]>({
+    queryKey: ["/api/client-plans"],
+  });
+
+  const planOptions = clientPlans.length > 0
+    ? clientPlans.map((p) => ({ name: p.name, value: String(p.value) }))
+    : FALLBACK_PLANS;
+
+  const handlePlanChange = (planName: string, onChange: (val: string) => void) => {
+    onChange(planName);
+    const selected = clientPlans.find((p) => p.name === planName);
+    if (selected) {
+      form.setValue("value", String(parseFloat(String(selected.value)).toFixed(2)));
+    }
+  };
   
   useEffect(() => {
     if (initialData?.phone) {
@@ -103,7 +126,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
       activationDate: initialData?.activationDate || new Date().toISOString().split('T')[0],
       expiryDate: initialData?.expiryDate || "",
       paymentStatus: initialData?.paymentStatus || "Pago",
-      plan: (initialData?.plan as "Mensal" | "Trimestral" | "Semestral" | "Anual") || "Mensal",
+      plan: initialData?.plan || "",
       value: initialData?.value || "",
       referralSource: initialData?.referralSource || "",
       referredById: initialData?.referredById || undefined,
@@ -492,17 +515,21 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Plano *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select
+                          onValueChange={(val) => handlePlanChange(val, field.onChange)}
+                          value={field.value}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione o plano" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="Mensal">Mensal</SelectItem>
-                            <SelectItem value="Trimestral">Trimestral</SelectItem>
-                            <SelectItem value="Semestral">Semestral</SelectItem>
-                            <SelectItem value="Anual">Anual</SelectItem>
+                            {planOptions.map((p) => (
+                              <SelectItem key={p.name} value={p.name}>
+                                {p.name}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
