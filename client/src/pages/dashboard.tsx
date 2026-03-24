@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Component, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -88,7 +88,43 @@ interface PaymentsByDayResult {
   dailyData: { day: number; date: string; total: number; count: number }[];
 }
 
-export default function Dashboard() {
+class DashboardErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-6 bg-[#0d1b2a] min-h-screen flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="text-red-400 text-5xl mb-4">⚠️</div>
+            <h2 className="text-white text-xl font-semibold">Algo deu errado</h2>
+            <p className="text-gray-400 text-sm">Ocorreu um erro inesperado. Recarregue a página para tentar novamente.</p>
+            <Button
+              onClick={() => window.location.reload()}
+              className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Recarregar página
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function DashboardContent() {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [blurBilling, setBlurBilling] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -97,7 +133,7 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
 
-  const { data: stats, isLoading, isError, refetch } = useQuery({
+  const { data: stats, isLoading, isError } = useQuery({
     queryKey: ["/api/dashboard/stats"],
     queryFn: api.getDashboardStats,
     refetchInterval: 30000,
@@ -173,7 +209,7 @@ export default function Dashboard() {
           <h2 className="text-white text-xl font-semibold">Erro ao carregar dados</h2>
           <p className="text-gray-400 text-sm">Não foi possível conectar ao servidor. Tente novamente.</p>
           <Button
-            onClick={() => refetch()}
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] })}
             className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -578,5 +614,13 @@ function MiniCard({ label, value, color, small }: { label: string; value: string
       </p>
       <p className="text-slate-400 text-xs mt-0.5 leading-tight">{label}</p>
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <DashboardErrorBoundary>
+      <DashboardContent />
+    </DashboardErrorBoundary>
   );
 }
