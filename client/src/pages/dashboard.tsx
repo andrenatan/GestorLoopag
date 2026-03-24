@@ -97,7 +97,7 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading, isError, refetch } = useQuery({
     queryKey: ["/api/dashboard/stats"],
     queryFn: api.getDashboardStats,
     refetchInterval: 30000,
@@ -160,6 +160,25 @@ export default function Dashboard() {
               <div key={i} className="h-40 rounded-xl bg-[#1a2a3a]" />
             ))}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="p-6 bg-[#0d1b2a] min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="text-red-400 text-5xl mb-4">⚠️</div>
+          <h2 className="text-white text-xl font-semibold">Erro ao carregar dados</h2>
+          <p className="text-gray-400 text-sm">Não foi possível conectar ao servidor. Tente novamente.</p>
+          <Button
+            onClick={() => refetch()}
+            className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Tentar novamente
+          </Button>
         </div>
       </div>
     );

@@ -8,6 +8,8 @@ if (!process.env.SUPABASE_DATABASE_URL) {
 
 const client = postgres(process.env.SUPABASE_DATABASE_URL, { 
   prepare: false,  // Disable prepared statements to avoid schema caching issues
-  max: 10
+  max: 10,
+  connect_timeout: 10,  // Fail fast if DB is unreachable (10 seconds)
+  idle_timeout: 30,     // Release idle connections after 30 seconds
 });
 export const db = drizzle(client, { schema });
