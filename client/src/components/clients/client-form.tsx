@@ -12,7 +12,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileSpreadsheet, AlertTriangle } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertTriangle, ChevronsUpDown, Check } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import type { Client, System, ClientPlan } from "@shared/schema";
 import { getBrasiliaStartOfDay, parseDateString } from "@/lib/timezone";
 
@@ -25,21 +27,194 @@ const FALLBACK_PLANS = [
 
 const countries = [
   { name: "Brasil", code: "+55", flag: "🇧🇷" },
-  { name: "Estados Unidos", code: "+1", flag: "🇺🇸" },
-  { name: "Argentina", code: "+54", flag: "🇦🇷" },
-  { name: "Chile", code: "+56", flag: "🇨🇱" },
-  { name: "Colômbia", code: "+57", flag: "🇨🇴" },
-  { name: "México", code: "+52", flag: "🇲🇽" },
-  { name: "Peru", code: "+51", flag: "🇵🇪" },
-  { name: "Uruguai", code: "+598", flag: "🇺🇾" },
-  { name: "Paraguai", code: "+595", flag: "🇵🇾" },
-  { name: "Portugal", code: "+351", flag: "🇵🇹" },
-  { name: "Espanha", code: "+34", flag: "🇪🇸" },
-  { name: "Itália", code: "+39", flag: "🇮🇹" },
-  { name: "França", code: "+33", flag: "🇫🇷" },
+  { name: "Afeganistão", code: "+93", flag: "🇦🇫" },
+  { name: "África do Sul", code: "+27", flag: "🇿🇦" },
+  { name: "Albânia", code: "+355", flag: "🇦🇱" },
   { name: "Alemanha", code: "+49", flag: "🇩🇪" },
-  { name: "Reino Unido", code: "+44", flag: "🇬🇧" },
+  { name: "Andorra", code: "+376", flag: "🇦🇩" },
+  { name: "Angola", code: "+244", flag: "🇦🇴" },
+  { name: "Antiga e Barbuda", code: "+1268", flag: "🇦🇬" },
+  { name: "Arábia Saudita", code: "+966", flag: "🇸🇦" },
+  { name: "Argélia", code: "+213", flag: "🇩🇿" },
+  { name: "Argentina", code: "+54", flag: "🇦🇷" },
+  { name: "Armênia", code: "+374", flag: "🇦🇲" },
+  { name: "Austrália", code: "+61", flag: "🇦🇺" },
+  { name: "Áustria", code: "+43", flag: "🇦🇹" },
+  { name: "Azerbaijão", code: "+994", flag: "🇦🇿" },
+  { name: "Bahamas", code: "+1242", flag: "🇧🇸" },
+  { name: "Bahrein", code: "+973", flag: "🇧🇭" },
+  { name: "Bangladesh", code: "+880", flag: "🇧🇩" },
+  { name: "Barbados", code: "+1246", flag: "🇧🇧" },
+  { name: "Bélgica", code: "+32", flag: "🇧🇪" },
+  { name: "Belize", code: "+501", flag: "🇧🇿" },
+  { name: "Benin", code: "+229", flag: "🇧🇯" },
+  { name: "Bielorrússia", code: "+375", flag: "🇧🇾" },
+  { name: "Bolívia", code: "+591", flag: "🇧🇴" },
+  { name: "Bósnia e Herzegovina", code: "+387", flag: "🇧🇦" },
+  { name: "Botsuana", code: "+267", flag: "🇧🇼" },
+  { name: "Brunei", code: "+673", flag: "🇧🇳" },
+  { name: "Bulgária", code: "+359", flag: "🇧🇬" },
+  { name: "Burkina Faso", code: "+226", flag: "🇧🇫" },
+  { name: "Burundi", code: "+257", flag: "🇧🇮" },
+  { name: "Butão", code: "+975", flag: "🇧🇹" },
+  { name: "Cabo Verde", code: "+238", flag: "🇨🇻" },
+  { name: "Camboja", code: "+855", flag: "🇰🇭" },
+  { name: "Camarões", code: "+237", flag: "🇨🇲" },
   { name: "Canadá", code: "+1", flag: "🇨🇦" },
+  { name: "Catar", code: "+974", flag: "🇶🇦" },
+  { name: "Cazaquistão", code: "+7", flag: "🇰🇿" },
+  { name: "Chade", code: "+235", flag: "🇹🇩" },
+  { name: "Chile", code: "+56", flag: "🇨🇱" },
+  { name: "China", code: "+86", flag: "🇨🇳" },
+  { name: "Chipre", code: "+357", flag: "🇨🇾" },
+  { name: "Colômbia", code: "+57", flag: "🇨🇴" },
+  { name: "Comores", code: "+269", flag: "🇰🇲" },
+  { name: "Congo", code: "+242", flag: "🇨🇬" },
+  { name: "Congo (Rep. Dem.)", code: "+243", flag: "🇨🇩" },
+  { name: "Coreia do Norte", code: "+850", flag: "🇰🇵" },
+  { name: "Coreia do Sul", code: "+82", flag: "🇰🇷" },
+  { name: "Costa do Marfim", code: "+225", flag: "🇨🇮" },
+  { name: "Costa Rica", code: "+506", flag: "🇨🇷" },
+  { name: "Croácia", code: "+385", flag: "🇭🇷" },
+  { name: "Cuba", code: "+53", flag: "🇨🇺" },
+  { name: "Dinamarca", code: "+45", flag: "🇩🇰" },
+  { name: "Djibuti", code: "+253", flag: "🇩🇯" },
+  { name: "Dominica", code: "+1767", flag: "🇩🇲" },
+  { name: "Egito", code: "+20", flag: "🇪🇬" },
+  { name: "El Salvador", code: "+503", flag: "🇸🇻" },
+  { name: "Emirados Árabes", code: "+971", flag: "🇦🇪" },
+  { name: "Equador", code: "+593", flag: "🇪🇨" },
+  { name: "Eritreia", code: "+291", flag: "🇪🇷" },
+  { name: "Eslováquia", code: "+421", flag: "🇸🇰" },
+  { name: "Eslovênia", code: "+386", flag: "🇸🇮" },
+  { name: "Espanha", code: "+34", flag: "🇪🇸" },
+  { name: "Eswatini", code: "+268", flag: "🇸🇿" },
+  { name: "Etiópia", code: "+251", flag: "🇪🇹" },
+  { name: "Fiji", code: "+679", flag: "🇫🇯" },
+  { name: "Filipinas", code: "+63", flag: "🇵🇭" },
+  { name: "Finlândia", code: "+358", flag: "🇫🇮" },
+  { name: "França", code: "+33", flag: "🇫🇷" },
+  { name: "Gabão", code: "+241", flag: "🇬🇦" },
+  { name: "Gâmbia", code: "+220", flag: "🇬🇲" },
+  { name: "Gana", code: "+233", flag: "🇬🇭" },
+  { name: "Geórgia", code: "+995", flag: "🇬🇪" },
+  { name: "Granada", code: "+1473", flag: "🇬🇩" },
+  { name: "Grécia", code: "+30", flag: "🇬🇷" },
+  { name: "Guatemala", code: "+502", flag: "🇬🇹" },
+  { name: "Guiana", code: "+592", flag: "🇬🇾" },
+  { name: "Guiné", code: "+224", flag: "🇬🇳" },
+  { name: "Guiné-Bissau", code: "+245", flag: "🇬🇼" },
+  { name: "Guiné Equatorial", code: "+240", flag: "🇬🇶" },
+  { name: "Haiti", code: "+509", flag: "🇭🇹" },
+  { name: "Honduras", code: "+504", flag: "🇭🇳" },
+  { name: "Hungria", code: "+36", flag: "🇭🇺" },
+  { name: "Iêmen", code: "+967", flag: "🇾🇪" },
+  { name: "Índia", code: "+91", flag: "🇮🇳" },
+  { name: "Indonésia", code: "+62", flag: "🇮🇩" },
+  { name: "Irã", code: "+98", flag: "🇮🇷" },
+  { name: "Iraque", code: "+964", flag: "🇮🇶" },
+  { name: "Irlanda", code: "+353", flag: "🇮🇪" },
+  { name: "Islândia", code: "+354", flag: "🇮🇸" },
+  { name: "Israel", code: "+972", flag: "🇮🇱" },
+  { name: "Itália", code: "+39", flag: "🇮🇹" },
+  { name: "Jamaica", code: "+1876", flag: "🇯🇲" },
+  { name: "Japão", code: "+81", flag: "🇯🇵" },
+  { name: "Jordânia", code: "+962", flag: "🇯🇴" },
+  { name: "Kosovo", code: "+383", flag: "🇽🇰" },
+  { name: "Kuwait", code: "+965", flag: "🇰🇼" },
+  { name: "Laos", code: "+856", flag: "🇱🇦" },
+  { name: "Lesoto", code: "+266", flag: "🇱🇸" },
+  { name: "Letônia", code: "+371", flag: "🇱🇻" },
+  { name: "Líbano", code: "+961", flag: "🇱🇧" },
+  { name: "Libéria", code: "+231", flag: "🇱🇷" },
+  { name: "Líbia", code: "+218", flag: "🇱🇾" },
+  { name: "Liechtenstein", code: "+423", flag: "🇱🇮" },
+  { name: "Lituânia", code: "+370", flag: "🇱🇹" },
+  { name: "Luxemburgo", code: "+352", flag: "🇱🇺" },
+  { name: "Madagascar", code: "+261", flag: "🇲🇬" },
+  { name: "Malásia", code: "+60", flag: "🇲🇾" },
+  { name: "Malawi", code: "+265", flag: "🇲🇼" },
+  { name: "Maldivas", code: "+960", flag: "🇲🇻" },
+  { name: "Mali", code: "+223", flag: "🇲🇱" },
+  { name: "Malta", code: "+356", flag: "🇲🇹" },
+  { name: "Marrocos", code: "+212", flag: "🇲🇦" },
+  { name: "Mauritânia", code: "+222", flag: "🇲🇷" },
+  { name: "Maurício", code: "+230", flag: "🇲🇺" },
+  { name: "México", code: "+52", flag: "🇲🇽" },
+  { name: "Mianmar", code: "+95", flag: "🇲🇲" },
+  { name: "Micronésia", code: "+691", flag: "🇫🇲" },
+  { name: "Moçambique", code: "+258", flag: "🇲🇿" },
+  { name: "Moldávia", code: "+373", flag: "🇲🇩" },
+  { name: "Mônaco", code: "+377", flag: "🇲🇨" },
+  { name: "Mongólia", code: "+976", flag: "🇲🇳" },
+  { name: "Montenegro", code: "+382", flag: "🇲🇪" },
+  { name: "Namíbia", code: "+264", flag: "🇳🇦" },
+  { name: "Nauru", code: "+674", flag: "🇳🇷" },
+  { name: "Nepal", code: "+977", flag: "🇳🇵" },
+  { name: "Nicarágua", code: "+505", flag: "🇳🇮" },
+  { name: "Níger", code: "+227", flag: "🇳🇪" },
+  { name: "Nigéria", code: "+234", flag: "🇳🇬" },
+  { name: "Noruega", code: "+47", flag: "🇳🇴" },
+  { name: "Nova Zelândia", code: "+64", flag: "🇳🇿" },
+  { name: "Omã", code: "+968", flag: "🇴🇲" },
+  { name: "Países Baixos", code: "+31", flag: "🇳🇱" },
+  { name: "Palau", code: "+680", flag: "🇵🇼" },
+  { name: "Palestina", code: "+970", flag: "🇵🇸" },
+  { name: "Panamá", code: "+507", flag: "🇵🇦" },
+  { name: "Papua Nova Guiné", code: "+675", flag: "🇵🇬" },
+  { name: "Paraguai", code: "+595", flag: "🇵🇾" },
+  { name: "Peru", code: "+51", flag: "🇵🇪" },
+  { name: "Polônia", code: "+48", flag: "🇵🇱" },
+  { name: "Portugal", code: "+351", flag: "🇵🇹" },
+  { name: "Quirguistão", code: "+996", flag: "🇰🇬" },
+  { name: "Quênia", code: "+254", flag: "🇰🇪" },
+  { name: "Reino Unido", code: "+44", flag: "🇬🇧" },
+  { name: "Rep. Centro-Africana", code: "+236", flag: "🇨🇫" },
+  { name: "Rep. Dominicana", code: "+1809", flag: "🇩🇴" },
+  { name: "República Checa", code: "+420", flag: "🇨🇿" },
+  { name: "Romênia", code: "+40", flag: "🇷🇴" },
+  { name: "Ruanda", code: "+250", flag: "🇷🇼" },
+  { name: "Rússia", code: "+7", flag: "🇷🇺" },
+  { name: "Samoa", code: "+685", flag: "🇼🇸" },
+  { name: "San Marino", code: "+378", flag: "🇸🇲" },
+  { name: "Santa Lúcia", code: "+1758", flag: "🇱🇨" },
+  { name: "São Cristóvão e Névis", code: "+1869", flag: "🇰🇳" },
+  { name: "São Tomé e Príncipe", code: "+239", flag: "🇸🇹" },
+  { name: "São Vicente e Granadinas", code: "+1784", flag: "🇻🇨" },
+  { name: "Senegal", code: "+221", flag: "🇸🇳" },
+  { name: "Serra Leoa", code: "+232", flag: "🇸🇱" },
+  { name: "Sérvia", code: "+381", flag: "🇷🇸" },
+  { name: "Singapura", code: "+65", flag: "🇸🇬" },
+  { name: "Síria", code: "+963", flag: "🇸🇾" },
+  { name: "Somália", code: "+252", flag: "🇸🇴" },
+  { name: "Sri Lanka", code: "+94", flag: "🇱🇰" },
+  { name: "Sudão", code: "+249", flag: "🇸🇩" },
+  { name: "Sudão do Sul", code: "+211", flag: "🇸🇸" },
+  { name: "Suécia", code: "+46", flag: "🇸🇪" },
+  { name: "Suíça", code: "+41", flag: "🇨🇭" },
+  { name: "Suriname", code: "+597", flag: "🇸🇷" },
+  { name: "Tailândia", code: "+66", flag: "🇹🇭" },
+  { name: "Taiwan", code: "+886", flag: "🇹🇼" },
+  { name: "Tajiquistão", code: "+992", flag: "🇹🇯" },
+  { name: "Tanzânia", code: "+255", flag: "🇹🇿" },
+  { name: "Timor-Leste", code: "+670", flag: "🇹🇱" },
+  { name: "Togo", code: "+228", flag: "🇹🇬" },
+  { name: "Tonga", code: "+676", flag: "🇹🇴" },
+  { name: "Trinidad e Tobago", code: "+1868", flag: "🇹🇹" },
+  { name: "Tunísia", code: "+216", flag: "🇹🇳" },
+  { name: "Turcomenistão", code: "+993", flag: "🇹🇲" },
+  { name: "Turquia", code: "+90", flag: "🇹🇷" },
+  { name: "Tuvalu", code: "+688", flag: "🇹🇻" },
+  { name: "Ucrânia", code: "+380", flag: "🇺🇦" },
+  { name: "Uganda", code: "+256", flag: "🇺🇬" },
+  { name: "Uruguai", code: "+598", flag: "🇺🇾" },
+  { name: "Uzbequistão", code: "+998", flag: "🇺🇿" },
+  { name: "Vanuatu", code: "+678", flag: "🇻🇺" },
+  { name: "Venezuela", code: "+58", flag: "🇻🇪" },
+  { name: "Vietnã", code: "+84", flag: "🇻🇳" },
+  { name: "Estados Unidos", code: "+1", flag: "🇺🇸" },
+  { name: "Zâmbia", code: "+260", flag: "🇿🇲" },
+  { name: "Zimbábue", code: "+263", flag: "🇿🇼" },
 ];
 
 const clientFormSchema = z.object({
@@ -79,6 +254,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   const [daysToExpiry, setDaysToExpiry] = useState<number>(0);
   const [countryCode, setCountryCode] = useState<string>("+55");
   const [phoneNumber, setPhoneNumber] = useState<string>("");
+  const [countryPickerOpen, setCountryPickerOpen] = useState(false);
   
   const { data: systems = [], isLoading: systemsLoading } = useQuery<System[]>({
     queryKey: ["/api/systems"],
@@ -265,21 +441,55 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                   <div>
                     <FormLabel>Telefone *</FormLabel>
                     <div className="flex gap-2">
-                      <Select value={countryCode} onValueChange={handleCountryCodeChange}>
-                        <SelectTrigger className="w-[160px]" data-testid="select-country-code">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[300px]">
-                          {countries.map((country) => (
-                            <SelectItem key={country.code} value={country.code}>
-                              <span className="flex items-center gap-2">
-                                <span>{country.flag}</span>
-                                <span>{country.name} {country.code}</span>
-                              </span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Popover open={countryPickerOpen} onOpenChange={setCountryPickerOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={countryPickerOpen}
+                            className="w-[150px] justify-between font-normal"
+                            data-testid="select-country-code"
+                          >
+                            <span className="flex items-center gap-1.5 truncate">
+                              <span>{countries.find(c => c.code === countryCode)?.flag ?? "🌍"}</span>
+                              <span className="text-sm">{countryCode}</span>
+                            </span>
+                            <ChevronsUpDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[280px] p-0" align="start">
+                          <Command filter={(value, search) => {
+                            const country = countries.find(c => `${c.name}|${c.code}` === value);
+                            if (!country) return 0;
+                            const q = search.toLowerCase();
+                            return (country.name.toLowerCase().includes(q) || country.code.includes(q)) ? 1 : 0;
+                          }}>
+                            <CommandInput placeholder="Buscar país ou DDI..." />
+                            <CommandList className="max-h-[260px]">
+                              <CommandEmpty>Nenhum país encontrado.</CommandEmpty>
+                              <CommandGroup>
+                                {countries.map((country) => (
+                                  <CommandItem
+                                    key={`${country.name}|${country.code}`}
+                                    value={`${country.name}|${country.code}`}
+                                    onSelect={() => {
+                                      handleCountryCodeChange(country.code);
+                                      setCountryPickerOpen(false);
+                                    }}
+                                  >
+                                    <span className="flex items-center gap-2 flex-1">
+                                      <span>{country.flag}</span>
+                                      <span className="truncate">{country.name}</span>
+                                      <span className="ml-auto text-muted-foreground text-xs shrink-0">{country.code}</span>
+                                    </span>
+                                    <Check className={`ml-2 h-4 w-4 shrink-0 ${countryCode === country.code ? "opacity-100" : "opacity-0"}`} />
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                       <FormField
                         control={form.control}
                         name="phone"
