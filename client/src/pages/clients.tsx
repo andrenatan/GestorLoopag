@@ -226,6 +226,7 @@ export default function Clients() {
         value: renewPlanValue,
         subscriptionStatus: "Ativa",
         paymentStatus: "Pago",
+        isRenewal: true,
       },
     });
     setRenewClient(undefined);

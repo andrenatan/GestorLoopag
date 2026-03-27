@@ -1103,6 +1103,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if expiryDate changed (renewal detected)
       // freeMonth=true skips payment history creation (goodwill gesture, invisible to billing)
+      // isRenewal=true is REQUIRED to create a payment_history record — plain edits never trigger it
+      const isRenewal = req.body.isRenewal === true;
       const isDevMode = process.env.NODE_ENV === 'development';
       if (freeMonth) {
         // Ensure subscriptionStatus is always set to Ativa for free month grants
@@ -1114,11 +1116,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (isDevMode) {
         console.log(`[Client Update] Full payload received:`, JSON.stringify(validatedData, null, 2));
+        console.log(`[Client Update] isRenewal flag:`, isRenewal);
         console.log(`[Client Update] Old client data before update:`, JSON.stringify({
           id: oldClient.id,
           expiryDate: oldClient.expiryDate,
           activationDate: oldClient.activationDate
         }, null, 2));
+      }
+
+      // Only create a renewal payment record when the request explicitly marks it as a renewal.
+      // Regular edits (via the Edit form) that happen to change expiryDate do NOT count as renewals.
+      if (!isRenewal) {
+        if (isDevMode) {
+          console.log(`[Renewal Check] isRenewal=false — skipping payment record (plain edit)`);
+        }
+        return res.json(client);
       }
       
       // Check for renewal based on either payload expiryDate OR client's updated expiryDate
@@ -1129,10 +1141,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Normalize dates to YYYY-MM-DD string format for comparison
         const normalizeDate = (date: string | Date): string => {
           if (typeof date === 'string') {
-            // Already a string in YYYY-MM-DD format
             return date;
           }
-          // Convert Date object to YYYY-MM-DD string
           const d = new Date(date);
           return d.toISOString().split('T')[0];
         };
