@@ -92,7 +92,7 @@ export default function Clients() {
   const [filters, setFilters] = useState<FilterState>(emptyFilters());
   const [selectedClients, setSelectedClients] = useState<number[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | undefined>();
   const [giftClient, setGiftClient] = useState<Client | undefined>();
@@ -591,7 +591,7 @@ export default function Clients() {
           <div className="ml-auto">
             <select
               value={itemsPerPage}
-              onChange={() => setCurrentPage(1)}
+              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
               className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500"
             >
               <option value={10}>10</option>
