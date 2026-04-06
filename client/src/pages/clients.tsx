@@ -88,6 +88,7 @@ function emptyFilters(): FilterState {
 
 export default function Clients() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchField, setSearchField] = useState<"nome" | "usuario" | "telefone" | "id">("nome");
   const [filters, setFilters] = useState<FilterState>(emptyFilters());
   const [selectedClients, setSelectedClients] = useState<number[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -267,15 +268,26 @@ export default function Clients() {
 
   const filteredClients = clients.filter((client) => {
     const days = getDaysToExpiry(client.expiryDate);
-    const term = searchTerm.toLowerCase();
+    const term = searchTerm.toLowerCase().trim();
 
-    const termDigits = term.replace(/\D/g, "");
-    const matchesSearch =
-      !term ||
-      (client.name || "").toLowerCase().includes(term) ||
-      (client.username || "").toLowerCase().includes(term) ||
-      (client.phone || "").toLowerCase().includes(term) ||
-      (termDigits.length > 0 && (client.phone || "").replace(/\D/g, "").includes(termDigits));
+    const matchesSearch = (() => {
+      if (!term) return true;
+      if (searchField === "nome") {
+        return (client.name || "").toLowerCase().includes(term);
+      }
+      if (searchField === "usuario") {
+        return (client.username || "").toLowerCase().startsWith(term);
+      }
+      if (searchField === "telefone") {
+        const termDigits = term.replace(/\D/g, "");
+        const phoneDigits = (client.phone || "").replace(/\D/g, "");
+        return termDigits.length > 0 && phoneDigits === termDigits;
+      }
+      if (searchField === "id") {
+        return String(client.clientNumber) === term.replace(/^#/, "");
+      }
+      return true;
+    })();
 
     const matchesStatus = (() => {
       if (filters.status === "all") return true;
@@ -522,24 +534,41 @@ export default function Clients() {
       <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl p-4">
         <div className="flex items-center gap-4 flex-wrap">
           {/* Search */}
-          <div className="relative flex-1 min-w-[220px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input
-              ref={searchRef}
-              type="text"
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              placeholder="Buscar por nome, usuário ou telefone..."
-              className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg pl-9 pr-9 py-2 focus:outline-none focus:border-cyan-500 placeholder-slate-600"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => { setSearchTerm(""); searchRef.current?.focus(); }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+          <div className="flex flex-1 min-w-[280px] gap-2">
+            <select
+              value={searchField}
+              onChange={(e) => { setSearchField(e.target.value as typeof searchField); setSearchTerm(""); setCurrentPage(1); }}
+              className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 shrink-0"
+            >
+              <option value="nome">Nome</option>
+              <option value="usuario">Usuário</option>
+              <option value="telefone">Telefone</option>
+              <option value="id">ID</option>
+            </select>
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <input
+                ref={searchRef}
+                type="text"
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                placeholder={
+                  searchField === "nome" ? "Buscar por nome..." :
+                  searchField === "usuario" ? "Buscar por usuário..." :
+                  searchField === "telefone" ? "Buscar por telefone (número exato)..." :
+                  "Buscar por ID (ex: 1158)..."
+                }
+                className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg pl-9 pr-9 py-2 focus:outline-none focus:border-cyan-500 placeholder-slate-600"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => { setSearchTerm(""); searchRef.current?.focus(); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Selection info + bulk actions */}
