@@ -499,7 +499,7 @@ export default function Clients() {
               className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 w-40"
             >
               <option value="all">Todos</option>
-              {plansList.map((p) => (
+              {clientPlansList.map((p) => (
                 <option key={p.id} value={p.name}>{p.name}</option>
               ))}
             </select>
