@@ -36,6 +36,7 @@ export interface IStorage {
   // Employees
   getAllEmployees(authUserId: string): Promise<Employee[]>;
   getEmployee(authUserId: string, id: number): Promise<Employee | undefined>;
+  getEmployeeByAccessAuthUserId(accessAuthUserId: string): Promise<Employee | undefined>;
   createEmployee(authUserId: string, employee: InsertEmployee): Promise<Employee>;
   updateEmployee(authUserId: string, id: number, employee: Partial<InsertEmployee>): Promise<Employee | undefined>;
   deleteEmployee(authUserId: string, id: number): Promise<boolean>;
@@ -252,6 +253,13 @@ export class DbStorage implements IStorage {
   async getEmployee(authUserId: string, id: number): Promise<Employee | undefined> {
     const result = await db.select().from(employees)
       .where(and(eq(employees.id, id), eq(employees.authUserId, authUserId)))
+      .limit(1);
+    return result[0];
+  }
+
+  async getEmployeeByAccessAuthUserId(accessAuthUserId: string): Promise<Employee | undefined> {
+    const result = await db.select().from(employees)
+      .where(eq(employees.accessAuthUserId, accessAuthUserId))
       .limit(1);
     return result[0];
   }

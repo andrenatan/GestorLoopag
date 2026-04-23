@@ -242,7 +242,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (!error && supabaseUser) {
           // Get user metadata from database using authUserId
-          const user = await storage.getUserByAuthId(supabaseUser.id);
+          let user = await storage.getUserByAuthId(supabaseUser.id);
+
+          // Auto-repair: if the Supabase user is linked to an employee but
+          // the local users row is missing or has no ownerAuthUserId, fix it.
+          try {
+            const employeeLink = await storage.getEmployeeByAccessAuthUserId(supabaseUser.id);
+            if (employeeLink) {
+              const ownerAuthUserId = employeeLink.authUserId;
+              if (!user) {
+                // Build a unique username
+                const emailForUser = employeeLink.accessEmail || supabaseUser.email || `func${employeeLink.employeeNumber}`;
+                let baseUsername = emailForUser.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "");
+                if (!baseUsername) baseUsername = `func${employeeLink.employeeNumber}`;
+                let candidate = baseUsername;
+                let suffix = 0;
+                while (await storage.getUserByUsername(candidate)) {
+                  suffix += 1;
+                  candidate = `${baseUsername}${suffix}`;
+                }
+                console.log(`[Auth Repair] Creating missing users row for employee ${employeeLink.id} (owner=${ownerAuthUserId})`);
+                user = await storage.createUser({
+                  authUserId: supabaseUser.id,
+                  ownerAuthUserId,
+                  name: employeeLink.name,
+                  username: candidate,
+                  email: employeeLink.accessEmail || supabaseUser.email || null,
+                  phone: employeeLink.phone,
+                  password: null,
+                  role: "operator",
+                  isActive: true,
+                  planId: null,
+                });
+              } else if (!user.ownerAuthUserId) {
+                console.log(`[Auth Repair] Linking users row ${user.id} to owner ${ownerAuthUserId} for employee ${employeeLink.id}`);
+                const updated = await storage.updateUser(user.id, { ownerAuthUserId });
+                if (updated) user = updated;
+              }
+            }
+          } catch (repairErr) {
+            console.error("[Auth Repair Error]:", repairErr);
+          }
+
           if (user) {
             req.user = user;
           }
