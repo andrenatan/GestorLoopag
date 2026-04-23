@@ -286,6 +286,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           if (user) {
             req.user = user;
+            console.log(`[Auth] user.id=${user.id} authUserId=${user.authUserId} ownerAuthUserId=${user.ownerAuthUserId ?? "null"}`);
+          } else {
+            console.log(`[Auth] No local users row found for supabaseUser=${supabaseUser.id}`);
           }
         }
       }
