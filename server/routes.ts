@@ -111,9 +111,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Usuário não encontrado para o auth_user_id configurado" });
       }
 
-      // If the configured auth user is an employee, route data to the owner's tenant
-      const tenantAuthUserId = user.ownerAuthUserId || authUserId;
-
       const body = req.body;
 
       const getBrasiliaDateString = () => {
@@ -167,9 +164,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const validatedData = insertClientSchema.parse(clientData);
-      const client = await storage.createClient(tenantAuthUserId, validatedData);
+      const client = await storage.createClient(authUserId, validatedData);
 
-      await storage.createPaymentHistory(tenantAuthUserId, {
+      await storage.createPaymentHistory(authUserId, {
         clientId: client.id,
         amount: validatedData.value,
         paymentDate: validatedData.activationDate,
@@ -847,13 +844,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Schema for user create/update via the public API — strips privilege/tenant-link fields
+  const publicUserCreateSchema = insertUserSchema.omit({
+    ownerAuthUserId: true,
+    authUserId: true,
+    role: true,
+  });
+  const publicUserUpdateSchema = publicUserCreateSchema.partial();
+
   app.post("/api/users", requireOwner, async (req, res) => {
     try {
-      const validatedData = insertUserSchema.parse(req.body);
-      // Strip privilege/tenant-link fields — never honor client-supplied values
-      delete (validatedData as any).ownerAuthUserId;
-      delete (validatedData as any).authUserId;
-      delete (validatedData as any).role;
+      const validatedData = publicUserCreateSchema.parse(req.body);
       const user = await storage.createUser(validatedData);
       res.status(201).json(user);
     } catch (error) {
@@ -868,10 +869,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.user || req.user.id !== id) {
         return res.status(403).json({ message: "Você só pode atualizar sua própria conta" });
       }
-      const validatedData = insertUserSchema.partial().parse(req.body);
-      // Never honor client-supplied tenant/role escalation fields
-      delete (validatedData as any).ownerAuthUserId;
-      delete (validatedData as any).authUserId;
+      const validatedData = publicUserUpdateSchema.parse(req.body);
       const user = await storage.updateUser(id, validatedData);
       
       if (!user) {

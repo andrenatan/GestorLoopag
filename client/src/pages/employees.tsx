@@ -29,6 +29,8 @@ import {
   ShieldOff,
   Copy,
   RefreshCw,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import type { Employee } from "@shared/schema";
 
@@ -43,6 +45,22 @@ const employeeFormSchema = z.object({
   hireDate: z.string().min(1, "Data de admissão é obrigatória"),
   photo: z.string().optional(),
   isActive: z.boolean().default(true),
+  enableAccess: z.boolean().default(false),
+  accessEmail: z.string().optional(),
+  accessPassword: z.string().optional(),
+  // Hidden flag: true when the employee already has access (we are editing).
+  // Skips email/password validation since those fields are not shown in that case.
+  hasExistingAccess: z.boolean().default(false),
+}).superRefine((data, ctx) => {
+  // Validate access fields only when granting fresh access (toggle on, no existing access).
+  if (data.enableAccess && !data.hasExistingAccess) {
+    if (!data.accessEmail || !/^\S+@\S+\.\S+$/.test(data.accessEmail)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["accessEmail"], message: "Email de acesso inválido" });
+    }
+    if (!data.accessPassword || data.accessPassword.length < 6) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["accessPassword"], message: "Senha deve ter ao menos 6 caracteres" });
+    }
+  }
 });
 
 type EmployeeFormData = z.infer<typeof employeeFormSchema>;
@@ -60,39 +78,10 @@ export default function Employees() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
-  const [accessDialogEmployee, setAccessDialogEmployee] = useState<Employee | null>(null);
-  const [accessEmail, setAccessEmail] = useState("");
-  const [accessPassword, setAccessPassword] = useState("");
+  const [showAccessPassword, setShowAccessPassword] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const grantAccessMutation = useMutation({
-    mutationFn: (data: { id: number; email: string; password: string }) =>
-      api.grantEmployeeAccess(data.id, { email: data.email, password: data.password }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
-      toast({
-        title: "Acesso criado",
-        description: "Envie o email e a senha ao funcionário manualmente.",
-      });
-      setAccessDialogEmployee(null);
-      setAccessEmail("");
-      setAccessPassword("");
-    },
-    onError: async (err: any) => {
-      let message = "Não foi possível criar o acesso.";
-      try {
-        if (err?.response?.json) {
-          const body = await err.response.json();
-          message = body.message || message;
-        } else if (err?.message) {
-          message = err.message;
-        }
-      } catch {}
-      toast({ title: "Erro", description: message, variant: "destructive" });
-    },
-  });
 
   const revokeAccessMutation = useMutation({
     mutationFn: (id: number) => api.revokeEmployeeAccess(id),
@@ -114,12 +103,6 @@ export default function Employees() {
     }
   };
 
-  const openAccessDialog = (employee: Employee) => {
-    setAccessDialogEmployee(employee);
-    setAccessEmail(employee.email || "");
-    setAccessPassword(generateRandomPassword());
-  };
-
   const form = useForm<EmployeeFormData>({
     resolver: zodResolver(employeeFormSchema),
     defaultValues: {
@@ -133,68 +116,53 @@ export default function Employees() {
       hireDate: "",
       photo: "",
       isActive: true,
+      enableAccess: false,
+      accessEmail: "",
+      accessPassword: "",
+      hasExistingAccess: false,
     },
   });
+
+  // Watch toggle and email so we can autofill access email and prefill password
+  const enableAccess = form.watch("enableAccess");
+  const formEmail = form.watch("email");
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ["/api/employees"],
     queryFn: api.getEmployees,
   });
 
+  // Strip access-only fields from the payload sent to /api/employees
+  const buildEmployeePayload = (data: EmployeeFormData) => ({
+    name: data.name,
+    phone: data.phone,
+    email: data.email,
+    position: data.position,
+    isActive: data.isActive,
+    birthDate: data.birthDate || null,
+    address: data.address || null,
+    salary: data.salary ? data.salary : null,
+    hireDate: data.hireDate,
+    photo: data.photo || null,
+  });
+
   const createEmployeeMutation = useMutation({
-    mutationFn: (data: EmployeeFormData) => api.createEmployee({
-      ...data,
-      birthDate: data.birthDate || null,
-      address: data.address || null,
-      salary: data.salary ? data.salary : null,
-      hireDate: data.hireDate,
-      photo: data.photo || null,
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
-      toast({
-        title: "Funcionário criado",
-        description: "Funcionário foi adicionado com sucesso.",
-      });
-      setDialogOpen(false);
-      form.reset();
-    },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Não foi possível criar o funcionário.",
-        variant: "destructive",
-      });
+    mutationFn: async (data: EmployeeFormData): Promise<Employee> => {
+      const res = await api.createEmployee(buildEmployeePayload(data));
+      return (await res.json()) as Employee;
     },
   });
 
   const updateEmployeeMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: EmployeeFormData }) => 
-      api.updateEmployee(id, {
-        ...data,
-        birthDate: data.birthDate || null,
-        address: data.address || null,
-        salary: data.salary ? data.salary : null,
-        hireDate: data.hireDate,
-        photo: data.photo || null,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
-      toast({
-        title: "Funcionário atualizado",
-        description: "Funcionário foi atualizado com sucesso.",
-      });
-      setDialogOpen(false);
-      setEditingEmployee(null);
-      form.reset();
+    mutationFn: async ({ id, data }: { id: number; data: EmployeeFormData }): Promise<Employee> => {
+      const res = await api.updateEmployee(id, buildEmployeePayload(data));
+      return (await res.json()) as Employee;
     },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar o funcionário.",
-        variant: "destructive",
-      });
-    },
+  });
+
+  const grantAccessMutation = useMutation({
+    mutationFn: (data: { id: number; email: string; password: string }) =>
+      api.grantEmployeeAccess(data.id, { email: data.email, password: data.password }),
   });
 
   const deleteEmployeeMutation = useMutation({
@@ -221,16 +189,94 @@ export default function Employees() {
     employee.position.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const onSubmit = (data: EmployeeFormData) => {
-    if (editingEmployee) {
-      updateEmployeeMutation.mutate({ id: editingEmployee.id, data });
+  const extractErrorMessage = async (err: any, fallback: string) => {
+    try {
+      if (err?.response?.json) {
+        const body = await err.response.json();
+        return body.message || fallback;
+      } else if (err?.message) {
+        return err.message;
+      }
+    } catch {}
+    return fallback;
+  };
+
+  const onSubmit = async (data: EmployeeFormData) => {
+    const wasCreating = !editingEmployee;
+    let saved: Employee;
+
+    // 1. Save the employee record (create or update)
+    try {
+      saved = editingEmployee
+        ? await updateEmployeeMutation.mutateAsync({ id: editingEmployee.id, data })
+        : await createEmployeeMutation.mutateAsync(data);
+    } catch (err: any) {
+      const message = await extractErrorMessage(err, "Não foi possível salvar o funcionário.");
+      toast({ title: "Erro ao salvar", description: message, variant: "destructive" });
+      return;
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+
+    const hadAccess = !!editingEmployee?.accessAuthUserId;
+    let createdCredentials: { email: string; password: string } | null = null;
+    let revokedAccess = false;
+
+    // 2. Sync access toggle with backend (grant/revoke). On failure, keep dialog
+    // open in EDIT mode for the just-saved employee so retries don't duplicate.
+    try {
+      if (data.enableAccess && !hadAccess) {
+        const email = (data.accessEmail || data.email).trim();
+        const password = data.accessPassword || generateRandomPassword();
+        await grantAccessMutation.mutateAsync({ id: saved.id, email, password });
+        createdCredentials = { email, password };
+      } else if (!data.enableAccess && hadAccess) {
+        await revokeAccessMutation.mutateAsync(saved.id);
+        revokedAccess = true;
+      }
+    } catch (err: any) {
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      const message = await extractErrorMessage(err, "Erro ao sincronizar o acesso.");
+      // Switch dialog into edit mode for the saved employee — prevents duplicate
+      // creation if the user retries.
+      setEditingEmployee(saved);
+      toast({
+        title: wasCreating
+          ? "Funcionário criado, mas o acesso falhou"
+          : "Funcionário atualizado, mas o acesso falhou",
+        description: `${message} Ajuste os dados de acesso e tente novamente.`,
+        variant: "destructive",
+        duration: 15000,
+      });
+      return;
+    }
+
+    setDialogOpen(false);
+    setEditingEmployee(null);
+    form.reset();
+
+    if (createdCredentials) {
+      toast({
+        title: "Funcionário salvo e acesso criado",
+        description: `Passe manualmente ao funcionário — Email: ${createdCredentials.email} | Senha: ${createdCredentials.password}`,
+        duration: 15000,
+      });
+    } else if (revokedAccess) {
+      toast({
+        title: wasCreating ? "Funcionário criado" : "Funcionário atualizado",
+        description: "Acesso ao sistema foi revogado.",
+      });
     } else {
-      createEmployeeMutation.mutate(data);
+      toast({
+        title: wasCreating ? "Funcionário criado" : "Funcionário atualizado",
+        description: "Alterações salvas com sucesso.",
+      });
     }
   };
 
   const handleEdit = (employee: Employee) => {
     setEditingEmployee(employee);
+    setShowAccessPassword(false);
     form.reset({
       name: employee.name,
       phone: employee.phone,
@@ -242,13 +288,33 @@ export default function Employees() {
       hireDate: employee.hireDate,
       photo: employee.photo || "",
       isActive: employee.isActive,
+      enableAccess: !!employee.accessAuthUserId,
+      accessEmail: employee.accessEmail || employee.email || "",
+      accessPassword: "",
+      hasExistingAccess: !!employee.accessAuthUserId,
     });
     setDialogOpen(true);
   };
 
   const handleAddNew = () => {
     setEditingEmployee(null);
-    form.reset();
+    setShowAccessPassword(false);
+    form.reset({
+      name: "",
+      phone: "",
+      email: "",
+      birthDate: "",
+      address: "",
+      position: "",
+      salary: "",
+      hireDate: "",
+      photo: "",
+      isActive: true,
+      enableAccess: false,
+      accessEmail: "",
+      accessPassword: "",
+      hasExistingAccess: false,
+    });
     setDialogOpen(true);
   };
 
@@ -436,13 +502,147 @@ export default function Employees() {
                   />
                 </div>
 
+                {/* Access section */}
+                <div className="border-t pt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold flex items-center gap-2">
+                        <KeyRound className="w-4 h-4" />
+                        Acesso ao sistema
+                      </h4>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Habilite para criar um login. O funcionário verá Clientes, Sistemas, Cobranças, Templates, Rankings e WhatsApp — não verá Dashboard nem Funcionários.
+                      </p>
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="enableAccess"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center space-x-2">
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={(checked) => {
+                                field.onChange(checked);
+                                if (checked) {
+                                  // Pre-fill access fields when toggle goes on (only if granting fresh access)
+                                  if (!editingEmployee?.accessAuthUserId) {
+                                    if (!form.getValues("accessEmail")) {
+                                      form.setValue("accessEmail", formEmail || "");
+                                    }
+                                    if (!form.getValues("accessPassword")) {
+                                      form.setValue("accessPassword", generateRandomPassword());
+                                    }
+                                  }
+                                }
+                              }}
+                              data-testid="switch-enable-access"
+                            />
+                          </FormControl>
+                          <FormLabel className="!mt-0">Habilitar</FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {enableAccess && editingEmployee?.accessAuthUserId && (
+                    <div className="rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">
+                      Acesso ativo para <strong>{editingEmployee.accessEmail}</strong>. Para alterar a senha, desligue o acesso, salve e habilite novamente.
+                    </div>
+                  )}
+
+                  {enableAccess && !editingEmployee?.accessAuthUserId && (
+                    <div className="grid grid-cols-1 gap-3">
+                      <FormField
+                        control={form.control}
+                        name="accessEmail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email de acesso</FormLabel>
+                            <div className="flex gap-2">
+                              <FormControl>
+                                <Input type="email" placeholder="email@exemplo.com" {...field} />
+                              </FormControl>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => copyToClipboard(field.value || "", "Email")}
+                                title="Copiar email"
+                              >
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="accessPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Senha</FormLabel>
+                            <div className="flex gap-2">
+                              <FormControl>
+                                <Input
+                                  type={showAccessPassword ? "text" : "password"}
+                                  placeholder="Senha (mín. 6 caracteres)"
+                                  className="font-mono"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => setShowAccessPassword((v) => !v)}
+                                title={showAccessPassword ? "Ocultar senha" : "Mostrar senha"}
+                              >
+                                {showAccessPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => form.setValue("accessPassword", generateRandomPassword())}
+                                title="Gerar nova senha"
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => copyToClipboard(field.value || "", "Senha")}
+                                title="Copiar senha"
+                              >
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Anote ou copie agora — após salvar, a senha não poderá ser visualizada.
+                            </p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex justify-end space-x-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                     Cancelar
                   </Button>
-                  <Button 
-                    type="submit" 
-                    disabled={createEmployeeMutation.isPending || updateEmployeeMutation.isPending}
+                  <Button
+                    type="submit"
+                    disabled={
+                      createEmployeeMutation.isPending ||
+                      updateEmployeeMutation.isPending ||
+                      grantAccessMutation.isPending ||
+                      revokeAccessMutation.isPending
+                    }
                   >
                     {editingEmployee ? "Atualizar" : "Criar"}
                   </Button>
@@ -547,16 +747,7 @@ export default function Employees() {
                     >
                       <ShieldOff className="w-4 h-4" />
                     </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openAccessDialog(employee)}
-                      title="Conceder acesso ao sistema"
-                    >
-                      <KeyRound className="w-4 h-4" />
-                    </Button>
-                  )}
+                  ) : null}
                   <Button variant="outline" size="sm" onClick={() => handleEdit(employee)}>
                     <Edit2 className="w-4 h-4" />
                   </Button>
@@ -578,71 +769,6 @@ export default function Employees() {
           </Card>
         ))}
       </div>
-
-      {/* Grant Access Dialog */}
-      <Dialog open={!!accessDialogEmployee} onOpenChange={(open) => !open && setAccessDialogEmployee(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Conceder acesso a {accessDialogEmployee?.name}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Crie um login para o funcionário acessar o sistema. Ele verá Clientes, Sistemas, Cobranças, Templates, Rankings e WhatsApp — mas <strong>não</strong> verá o Dashboard nem a página de Funcionários.
-            </p>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Email de acesso</label>
-              <div className="flex gap-2">
-                <Input
-                  type="email"
-                  value={accessEmail}
-                  onChange={(e) => setAccessEmail(e.target.value)}
-                  placeholder="email@exemplo.com"
-                />
-                <Button type="button" variant="outline" size="icon" onClick={() => copyToClipboard(accessEmail, "Email")} title="Copiar email">
-                  <Copy className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Senha</label>
-              <div className="flex gap-2">
-                <Input
-                  type="text"
-                  value={accessPassword}
-                  onChange={(e) => setAccessPassword(e.target.value)}
-                  placeholder="Senha (mín. 6 caracteres)"
-                  className="font-mono"
-                />
-                <Button type="button" variant="outline" size="icon" onClick={() => setAccessPassword(generateRandomPassword())} title="Gerar nova senha">
-                  <RefreshCw className="w-4 h-4" />
-                </Button>
-                <Button type="button" variant="outline" size="icon" onClick={() => copyToClipboard(accessPassword, "Senha")} title="Copiar senha">
-                  <Copy className="w-4 h-4" />
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">Anote ou copie a senha — ela não poderá ser visualizada novamente depois de salva.</p>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setAccessDialogEmployee(null)}>
-                Cancelar
-              </Button>
-              <Button
-                disabled={grantAccessMutation.isPending || !accessEmail || accessPassword.length < 6}
-                onClick={() =>
-                  accessDialogEmployee &&
-                  grantAccessMutation.mutate({
-                    id: accessDialogEmployee.id,
-                    email: accessEmail.trim(),
-                    password: accessPassword,
-                  })
-                }
-              >
-                {grantAccessMutation.isPending ? "Criando..." : "Criar acesso"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {filteredEmployees.length === 0 && (
         <Card className="glassmorphism neon-border">
