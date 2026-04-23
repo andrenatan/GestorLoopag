@@ -726,7 +726,7 @@ export default function Employees() {
                   {employee.accessAuthUserId ? (
                     <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">
                       <KeyRound className="w-3 h-3 mr-1" />
-                      Acesso ativo
+                      Tem acesso
                     </Badge>
                   ) : (
                     <Badge variant="outline">Sem acesso</Badge>
