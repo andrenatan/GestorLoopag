@@ -21,6 +21,7 @@ export const plans = pgTable("plans", {
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   authUserId: uuid("auth_user_id").unique(),
+  ownerAuthUserId: uuid("owner_auth_user_id"),
   name: text("name"),
   username: text("username").notNull().unique(),
   password: text("password"),
@@ -53,6 +54,8 @@ export const employees = pgTable("employees", {
   hireDate: date("hire_date").notNull(),
   photo: text("photo"),
   isActive: boolean("is_active").notNull().default(true),
+  accessAuthUserId: uuid("access_auth_user_id"),
+  accessEmail: text("access_email"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

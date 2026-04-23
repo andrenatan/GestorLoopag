@@ -14,13 +14,22 @@ import bcrypt from "bcryptjs";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { db } from "../db";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
+import { users } from "@shared/schema";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
   process.env.SUPABASE_ANON_KEY || ''
 );
+
+const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(
+      process.env.SUPABASE_URL || '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+  : null;
 
 // Extend Express types
 declare module 'express-session' {
@@ -33,8 +42,21 @@ declare global {
   namespace Express {
     interface Request {
       user?: User;
+      effectiveAuthUserId?: string;
+      isOwner?: boolean;
     }
   }
+}
+
+// Owner-only middleware: blocks employees (users with ownerAuthUserId set)
+function requireOwner(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Não autenticado" });
+  }
+  if (req.user.ownerAuthUserId) {
+    return res.status(403).json({ message: "Você não tem acesso a esta tela. Verifique com seu gestor." });
+  }
+  next();
 }
 
 function getDateRange(startDateParam?: string, endDateParam?: string): { startDate: string; endDate: string } {
@@ -89,6 +111,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Usuário não encontrado para o auth_user_id configurado" });
       }
 
+      // If the configured auth user is an employee, route data to the owner's tenant
+      const tenantAuthUserId = user.ownerAuthUserId || authUserId;
+
       const body = req.body;
 
       const getBrasiliaDateString = () => {
@@ -142,10 +167,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const validatedData = insertClientSchema.parse(clientData);
-      const client = await storage.createClient(authUserId, validatedData);
+      const client = await storage.createClient(tenantAuthUserId, validatedData);
 
-      await storage.createPaymentHistory(authUserId, {
-        authUserId,
+      await storage.createPaymentHistory(tenantAuthUserId, {
         clientId: client.id,
         amount: validatedData.value,
         paymentDate: validatedData.activationDate,
@@ -233,6 +257,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (user) {
           req.user = user;
         }
+      }
+
+      // Compute effective tenant ID (owner's authUserId for employees)
+      if (req.user) {
+        req.effectiveAuthUserId = req.user.ownerAuthUserId || req.user.authUserId || undefined;
+        req.isOwner = !req.user.ownerAuthUserId;
       }
     } catch (error) {
       console.error("[Auth Middleware Error]:", error);
@@ -684,9 +714,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Dashboard Stats
-  app.get("/api/dashboard/stats", async (req, res) => {
+  app.get("/api/dashboard/stats", requireOwner, async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -699,9 +729,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/new-clients-by-day", async (req, res) => {
+  app.get("/api/dashboard/new-clients-by-day", requireOwner, async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -713,9 +743,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/revenue-by-period", async (req, res) => {
+  app.get("/api/dashboard/revenue-by-period", requireOwner, async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -733,9 +763,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard Charts - New endpoints
-  app.get("/api/dashboard/revenue-by-system", async (req, res) => {
+  app.get("/api/dashboard/revenue-by-system", requireOwner, async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -753,9 +783,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/clients-by-system", async (req, res) => {
+  app.get("/api/dashboard/clients-by-system", requireOwner, async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -773,9 +803,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/clients-by-state", async (req, res) => {
+  app.get("/api/dashboard/clients-by-state", requireOwner, async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -793,9 +823,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/payments-by-day", async (req, res) => {
+  app.get("/api/dashboard/payments-by-day", requireOwner, async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -807,19 +837,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Users Routes
-  app.get("/api/users", async (req, res) => {
+  // Users Routes — owner-only, returns only the calling owner's row (no cross-tenant exposure)
+  app.get("/api/users", requireOwner, async (req, res) => {
     try {
-      const users = await storage.getAllUsers();
-      res.json(users);
+      // Only return the calling owner's own user row (no cross-tenant leak)
+      res.json(req.user ? [req.user] : []);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch users" });
     }
   });
 
-  app.post("/api/users", async (req, res) => {
+  app.post("/api/users", requireOwner, async (req, res) => {
     try {
       const validatedData = insertUserSchema.parse(req.body);
+      // Strip privilege/tenant-link fields — never honor client-supplied values
+      delete (validatedData as any).ownerAuthUserId;
+      delete (validatedData as any).authUserId;
+      delete (validatedData as any).role;
       const user = await storage.createUser(validatedData);
       res.status(201).json(user);
     } catch (error) {
@@ -827,10 +861,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/users/:id", async (req, res) => {
+  app.put("/api/users/:id", requireOwner, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      // Owner can only update their own row
+      if (!req.user || req.user.id !== id) {
+        return res.status(403).json({ message: "Você só pode atualizar sua própria conta" });
+      }
       const validatedData = insertUserSchema.partial().parse(req.body);
+      // Never honor client-supplied tenant/role escalation fields
+      delete (validatedData as any).ownerAuthUserId;
+      delete (validatedData as any).authUserId;
       const user = await storage.updateUser(id, validatedData);
       
       if (!user) {
@@ -844,9 +885,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Employees Routes
-  app.get("/api/employees", async (req, res) => {
+  app.get("/api/employees", requireOwner, async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -858,9 +899,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/employees", async (req, res) => {
+  app.post("/api/employees", requireOwner, async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -873,9 +914,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/employees/:id", async (req, res) => {
+  app.put("/api/employees/:id", requireOwner, async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -894,14 +935,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/employees/:id", async (req, res) => {
+  app.delete("/api/employees/:id", requireOwner, async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
 
       const id = parseInt(req.params.id);
+
+      // If employee has access, revoke it first (delete supabase user + users row)
+      const employee = await storage.getEmployee(authUserId, id);
+      if (employee?.accessAuthUserId && supabaseAdmin) {
+        try {
+          await supabaseAdmin.auth.admin.deleteUser(employee.accessAuthUserId);
+        } catch (e) {
+          console.error("[Revoke on delete] Failed to remove supabase user:", e);
+        }
+        const linkedUser = await storage.getUserByAuthId(employee.accessAuthUserId);
+        if (linkedUser) {
+          await db.delete(users).where(eq(users.id, linkedUser.id));
+        }
+      }
+
       const deleted = await storage.deleteEmployee(authUserId, id);
       
       if (!deleted) {
@@ -914,10 +970,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Grant login access to an employee (creates Supabase user + users metadata row)
+  app.post("/api/employees/:id/grant-access", requireOwner, async (req, res) => {
+    try {
+      const ownerAuthUserId = req.user!.authUserId;
+      if (!ownerAuthUserId) return res.status(401).json({ message: "Not authenticated" });
+      if (!supabaseAdmin) {
+        return res.status(500).json({ message: "Configuração do servidor incompleta (SUPABASE_SERVICE_ROLE_KEY ausente)" });
+      }
+
+      const id = parseInt(req.params.id);
+      const { email, password } = req.body as { email?: string; password?: string };
+
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email e senha são obrigatórios" });
+      }
+      if (password.length < 6) {
+        return res.status(400).json({ message: "Senha deve ter pelo menos 6 caracteres" });
+      }
+
+      const employee = await storage.getEmployee(ownerAuthUserId, id);
+      if (!employee) return res.status(404).json({ message: "Funcionário não encontrado" });
+      if (employee.accessAuthUserId) {
+        return res.status(409).json({ message: "Este funcionário já possui acesso. Revogue antes de criar novamente." });
+      }
+
+      // Check email already exists in our users table
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ message: "Este email já está em uso por outro usuário" });
+      }
+
+      // Create Supabase auth user
+      const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { name: employee.name, employee_id: employee.id, owner_auth_user_id: ownerAuthUserId },
+      });
+
+      if (createErr || !created.user) {
+        console.error("[Grant Access] Supabase createUser error:", createErr);
+        return res.status(400).json({ message: createErr?.message || "Falha ao criar usuário no Supabase" });
+      }
+
+      const newAuthUserId = created.user.id;
+
+      // Build a unique username (employee email's local-part + employee number fallback)
+      let baseUsername = email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "");
+      if (!baseUsername) baseUsername = `func${employee.employeeNumber}`;
+      let candidate = baseUsername;
+      let suffix = 0;
+      while (await storage.getUserByUsername(candidate)) {
+        suffix += 1;
+        candidate = `${baseUsername}${suffix}`;
+      }
+
+      try {
+        await storage.createUser({
+          authUserId: newAuthUserId,
+          ownerAuthUserId,
+          name: employee.name,
+          username: candidate,
+          email,
+          phone: employee.phone,
+          password: null,
+          role: "operator",
+          isActive: true,
+          planId: null,
+        });
+      } catch (e) {
+        // Roll back the Supabase user if metadata insert fails
+        await supabaseAdmin.auth.admin.deleteUser(newAuthUserId).catch(() => {});
+        throw e;
+      }
+
+      await storage.updateEmployee(ownerAuthUserId, id, {
+        accessAuthUserId: newAuthUserId,
+        accessEmail: email,
+      });
+
+      res.json({ success: true, email, employeeId: id });
+    } catch (error: any) {
+      console.error("[Grant Access Error]:", error);
+      res.status(500).json({ message: error?.message || "Erro ao conceder acesso" });
+    }
+  });
+
+  // Revoke login access from an employee
+  app.delete("/api/employees/:id/revoke-access", requireOwner, async (req, res) => {
+    try {
+      const ownerAuthUserId = req.user!.authUserId;
+      if (!ownerAuthUserId) return res.status(401).json({ message: "Not authenticated" });
+      if (!supabaseAdmin) {
+        return res.status(500).json({ message: "Configuração do servidor incompleta" });
+      }
+
+      const id = parseInt(req.params.id);
+      const employee = await storage.getEmployee(ownerAuthUserId, id);
+      if (!employee) return res.status(404).json({ message: "Funcionário não encontrado" });
+      if (!employee.accessAuthUserId) {
+        return res.status(400).json({ message: "Este funcionário não possui acesso" });
+      }
+
+      try {
+        await supabaseAdmin.auth.admin.deleteUser(employee.accessAuthUserId);
+      } catch (e) {
+        console.error("[Revoke Access] Failed to remove supabase user (continuing):", e);
+      }
+
+      const linkedUser = await storage.getUserByAuthId(employee.accessAuthUserId);
+      if (linkedUser) {
+        await db.delete(users).where(eq(users.id, linkedUser.id));
+      }
+
+      await storage.updateEmployee(ownerAuthUserId, id, {
+        accessAuthUserId: null,
+        accessEmail: null,
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("[Revoke Access Error]:", error);
+      res.status(500).json({ message: error?.message || "Erro ao revogar acesso" });
+    }
+  });
+
   // Systems Routes
   app.get("/api/systems", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -931,7 +1113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/systems", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -946,7 +1128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/systems/:id", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -967,7 +1149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/systems/:id", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -988,7 +1170,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Clients Routes
   app.get("/api/clients", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1002,7 +1184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/clients/expiring/:days", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1017,7 +1199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/clients/overdue", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1031,7 +1213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/clients/rankings", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1046,7 +1228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/clients", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1073,7 +1255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/clients/:id", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1194,7 +1376,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/clients/:id", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1215,7 +1397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // WhatsApp Instances Routes
   app.get("/api/whatsapp/instances", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1229,7 +1411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/whatsapp/instances", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1247,7 +1429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/baileys/connect", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
       await baileysManager.connect(authUserId);
       res.json({ message: "Connection started" });
@@ -1258,7 +1440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/baileys/status", (req, res) => {
-    const authUserId = req.user?.authUserId;
+    const authUserId = req.effectiveAuthUserId;
     if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
     const status = baileysManager.getStatus(authUserId);
     res.json(status);
@@ -1266,7 +1448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/baileys/disconnect", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
       await baileysManager.disconnect(authUserId);
       res.json({ message: "Disconnected" });
@@ -1278,7 +1460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/baileys/send", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
       const { to, message } = req.body;
       if (!to || !message) return res.status(400).json({ message: "to and message are required" });
@@ -1292,7 +1474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/whatsapp/instances/:id", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1313,7 +1495,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/whatsapp/instances/:id", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1333,7 +1515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/whatsapp/instances/:id/status", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1351,7 +1533,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/whatsapp/instances/:id/connect", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1372,7 +1554,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Message Templates Routes
   app.get("/api/templates", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1395,7 +1577,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/templates", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1410,7 +1592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/templates/:id", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1431,7 +1613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/templates/:id", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1452,7 +1634,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Billing History Routes
   app.get("/api/billing/history", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1466,7 +1648,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/billing/send", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1519,7 +1701,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Automation Config Routes
   app.get("/api/automation-configs", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1533,7 +1715,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/automation-configs/:type", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1550,7 +1732,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/automation-configs", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1565,7 +1747,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/automation-configs/:type", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1583,7 +1765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Data Migration: Populate payment_history from existing clients
   app.post("/api/migrate/populate-payment-history", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1628,7 +1810,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Test automation trigger (manual)
   app.post("/api/test/trigger-automation/:type", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -1661,7 +1843,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Stripe checkout endpoint - reference from blueprint:javascript_stripe
-  app.post("/api/stripe/create-checkout-session", async (req, res) => {
+  app.post("/api/stripe/create-checkout-session", requireOwner, async (req, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Autenticação necessária" });
@@ -1829,7 +2011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/client-plans", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
       const plans = await storage.getAllClientPlans(authUserId);
       res.json(plans);
@@ -1841,7 +2023,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/client-plans", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
       const data = insertClientPlanSchema.parse(req.body);
       const plan = await storage.createClientPlan(authUserId, data);
@@ -1854,7 +2036,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/client-plans/:id", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
@@ -1870,7 +2052,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/client-plans/:id", async (req, res) => {
     try {
-      const authUserId = req.user?.authUserId;
+      const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });

@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { AuthProvider } from "@/hooks/use-auth";
-import { ProtectedRoute, PublicRoute } from "@/components/auth/protected-route";
+import { ProtectedRoute, PublicRoute, RequireOwner } from "@/components/auth/protected-route";
 import { Sidebar } from "@/components/layout/sidebar";
 
 import NotFound from "@/pages/not-found";
@@ -72,9 +72,11 @@ function Router() {
       {/* Protected dashboard routes */}
       <Route path="/dashboard">
         <ProtectedRoute>
-          <DashboardLayout>
-            <Dashboard />
-          </DashboardLayout>
+          <RequireOwner>
+            <DashboardLayout>
+              <Dashboard />
+            </DashboardLayout>
+          </RequireOwner>
         </ProtectedRoute>
       </Route>
 
@@ -120,17 +122,21 @@ function Router() {
 
       <Route path="/employees">
         <ProtectedRoute>
-          <DashboardLayout>
-            <Employees />
-          </DashboardLayout>
+          <RequireOwner>
+            <DashboardLayout>
+              <Employees />
+            </DashboardLayout>
+          </RequireOwner>
         </ProtectedRoute>
       </Route>
 
       <Route path="/users">
         <ProtectedRoute>
-          <DashboardLayout>
-            <Users />
-          </DashboardLayout>
+          <RequireOwner>
+            <DashboardLayout>
+              <Users />
+            </DashboardLayout>
+          </RequireOwner>
         </ProtectedRoute>
       </Route>
 

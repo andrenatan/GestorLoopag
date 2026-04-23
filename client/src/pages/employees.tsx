@@ -24,7 +24,11 @@ import {
   Calendar,
   DollarSign,
   Phone,
-  Mail
+  Mail,
+  KeyRound,
+  ShieldOff,
+  Copy,
+  RefreshCw,
 } from "lucide-react";
 import type { Employee } from "@shared/schema";
 
@@ -43,13 +47,78 @@ const employeeFormSchema = z.object({
 
 type EmployeeFormData = z.infer<typeof employeeFormSchema>;
 
+function generateRandomPassword(length = 12) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+  let out = "";
+  const arr = new Uint32Array(length);
+  crypto.getRandomValues(arr);
+  for (let i = 0; i < length; i++) out += chars[arr[i] % chars.length];
+  return out;
+}
+
 export default function Employees() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [accessDialogEmployee, setAccessDialogEmployee] = useState<Employee | null>(null);
+  const [accessEmail, setAccessEmail] = useState("");
+  const [accessPassword, setAccessPassword] = useState("");
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const grantAccessMutation = useMutation({
+    mutationFn: (data: { id: number; email: string; password: string }) =>
+      api.grantEmployeeAccess(data.id, { email: data.email, password: data.password }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      toast({
+        title: "Acesso criado",
+        description: "Envie o email e a senha ao funcionário manualmente.",
+      });
+      setAccessDialogEmployee(null);
+      setAccessEmail("");
+      setAccessPassword("");
+    },
+    onError: async (err: any) => {
+      let message = "Não foi possível criar o acesso.";
+      try {
+        if (err?.response?.json) {
+          const body = await err.response.json();
+          message = body.message || message;
+        } else if (err?.message) {
+          message = err.message;
+        }
+      } catch {}
+      toast({ title: "Erro", description: message, variant: "destructive" });
+    },
+  });
+
+  const revokeAccessMutation = useMutation({
+    mutationFn: (id: number) => api.revokeEmployeeAccess(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      toast({ title: "Acesso revogado", description: "O funcionário não pode mais entrar no sistema." });
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Não foi possível revogar o acesso.", variant: "destructive" });
+    },
+  });
+
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "Copiado", description: `${label} copiado para a área de transferência.` });
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível copiar.", variant: "destructive" });
+    }
+  };
+
+  const openAccessDialog = (employee: Employee) => {
+    setAccessDialogEmployee(employee);
+    setAccessEmail(employee.email || "");
+    setAccessPassword(generateRandomPassword());
+  };
 
   const form = useForm<EmployeeFormData>({
     resolver: zodResolver(employeeFormSchema),
@@ -452,23 +521,128 @@ export default function Employees() {
                 <span>Admitido em {new Date(employee.hireDate).toLocaleDateString('pt-BR')}</span>
               </div>
               
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button variant="outline" size="sm" onClick={() => handleEdit(employee)}>
-                  <Edit2 className="w-4 h-4" />
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => deleteEmployeeMutation.mutate(employee.id)}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+              <div className="flex items-center justify-between pt-4">
+                <div>
+                  {employee.accessAuthUserId ? (
+                    <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">
+                      <KeyRound className="w-3 h-3 mr-1" />
+                      Acesso ativo
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline">Sem acesso</Badge>
+                  )}
+                </div>
+                <div className="flex space-x-2">
+                  {employee.accessAuthUserId ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm(`Revogar o acesso de ${employee.name}? Ele(a) não conseguirá mais entrar no sistema.`)) {
+                          revokeAccessMutation.mutate(employee.id);
+                        }
+                      }}
+                      title="Revogar acesso"
+                      className="text-amber-600 hover:text-amber-700"
+                    >
+                      <ShieldOff className="w-4 h-4" />
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openAccessDialog(employee)}
+                      title="Conceder acesso ao sistema"
+                    >
+                      <KeyRound className="w-4 h-4" />
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => handleEdit(employee)}>
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      if (confirm(`Excluir ${employee.name}? Se ele(a) tiver acesso, será revogado também.`)) {
+                        deleteEmployeeMutation.mutate(employee.id);
+                      }
+                    }}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Grant Access Dialog */}
+      <Dialog open={!!accessDialogEmployee} onOpenChange={(open) => !open && setAccessDialogEmployee(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Conceder acesso a {accessDialogEmployee?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Crie um login para o funcionário acessar o sistema. Ele verá Clientes, Sistemas, Cobranças, Templates, Rankings e WhatsApp — mas <strong>não</strong> verá o Dashboard nem a página de Funcionários.
+            </p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email de acesso</label>
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  value={accessEmail}
+                  onChange={(e) => setAccessEmail(e.target.value)}
+                  placeholder="email@exemplo.com"
+                />
+                <Button type="button" variant="outline" size="icon" onClick={() => copyToClipboard(accessEmail, "Email")} title="Copiar email">
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Senha</label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={accessPassword}
+                  onChange={(e) => setAccessPassword(e.target.value)}
+                  placeholder="Senha (mín. 6 caracteres)"
+                  className="font-mono"
+                />
+                <Button type="button" variant="outline" size="icon" onClick={() => setAccessPassword(generateRandomPassword())} title="Gerar nova senha">
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+                <Button type="button" variant="outline" size="icon" onClick={() => copyToClipboard(accessPassword, "Senha")} title="Copiar senha">
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Anote ou copie a senha — ela não poderá ser visualizada novamente depois de salva.</p>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setAccessDialogEmployee(null)}>
+                Cancelar
+              </Button>
+              <Button
+                disabled={grantAccessMutation.isPending || !accessEmail || accessPassword.length < 6}
+                onClick={() =>
+                  accessDialogEmployee &&
+                  grantAccessMutation.mutate({
+                    id: accessDialogEmployee.id,
+                    email: accessEmail.trim(),
+                    password: accessPassword,
+                  })
+                }
+              >
+                {grantAccessMutation.isPending ? "Criando..." : "Criar acesso"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {filteredEmployees.length === 0 && (
         <Card className="glassmorphism neon-border">

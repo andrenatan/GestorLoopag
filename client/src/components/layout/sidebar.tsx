@@ -29,8 +29,12 @@ interface NavItem {
   children?: { title: string; href: string; icon: React.ElementType }[];
 }
 
-const sidebarItems: NavItem[] = [
-  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+interface NavItemEx extends NavItem {
+  ownerOnly?: boolean;
+}
+
+const sidebarItems: NavItemEx[] = [
+  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, ownerOnly: true },
   {
     title: "Clientes",
     href: "/clients",
@@ -44,7 +48,7 @@ const sidebarItems: NavItem[] = [
   { title: "Cobranças", href: "/billing", icon: CreditCard },
   { title: "Templates", href: "/templates", icon: FileText },
   { title: "Rankings", href: "/rankings", icon: Trophy },
-  { title: "Funcionários", href: "/employees", icon: UserCheck },
+  { title: "Funcionários", href: "/employees", icon: UserCheck, ownerOnly: true },
   {
     title: "WhatsApp",
     href: "/whatsapp",
@@ -63,7 +67,8 @@ interface SidebarProps {
 export function Sidebar({ className }: SidebarProps) {
   const [location] = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-  const { logout, user } = useAuth();
+  const { logout, user, isOwner } = useAuth();
+  const visibleItems = sidebarItems.filter((it) => !it.ownerOnly || isOwner);
 
   const isWhatsAppActive = location === "/whatsapp" || location.startsWith("/whatsapp/");
   const isClientsActive = location === "/clients" || location.startsWith("/clients/");
@@ -117,7 +122,7 @@ export function Sidebar({ className }: SidebarProps) {
         {/* Navigation */}
         <ScrollArea className="flex-1 mb-4">
           <nav className="space-y-1">
-            {sidebarItems.map((item) => {
+            {visibleItems.map((item) => {
               const Icon = item.icon;
 
               if (item.children) {

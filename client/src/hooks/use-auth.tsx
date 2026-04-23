@@ -12,6 +12,7 @@ interface UserMetadata {
   phone: string | null;
   planId: number | null;
   role: string;
+  ownerAuthUserId: string | null;
 }
 
 interface AuthContextType {
@@ -19,6 +20,7 @@ interface AuthContextType {
   supabaseUser: SupabaseUser | null;
   isLoading: boolean;
   isReady: boolean;
+  isOwner: boolean;
   login: (username: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
@@ -209,6 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         supabaseUser,
         isLoading,
         isReady,
+        isOwner: !!user && !user.ownerAuthUserId,
         login,
         register,
         logout,

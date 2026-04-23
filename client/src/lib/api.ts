@@ -32,6 +32,10 @@ export const api = {
   createEmployee: (employee: any) => apiRequest("/api/employees", "POST", employee),
   updateEmployee: (id: number, employee: any) => apiRequest(`/api/employees/${id}`, "PUT", employee),
   deleteEmployee: (id: number) => apiRequest(`/api/employees/${id}`, "DELETE"),
+  grantEmployeeAccess: (id: number, data: { email: string; password: string }) =>
+    apiRequest(`/api/employees/${id}/grant-access`, "POST", data),
+  revokeEmployeeAccess: (id: number) =>
+    apiRequest(`/api/employees/${id}/revoke-access`, "DELETE"),
 
   // Users
   getUsers: () => apiRequest("/api/users", "GET").then(res => res.json()),
