@@ -5,6 +5,7 @@ import { startScheduler } from "./scheduler";
 import { baileysManager } from "./baileys-manager";
 import postgres from "postgres";
 import { unifySystemsForAllOwners } from "../scripts/migrate-unify-systems";
+import { normalizeClientSystems } from "../scripts/normalize-client-systems";
 
 // Prevent DB timeouts and other async errors from crashing the process
 process.on('unhandledRejection', (reason) => {
@@ -111,6 +112,13 @@ app.use((req, res, next) => {
           console.log("[Unify Systems] Migration applied:", r);
         } else {
           console.log("[Unify Systems] Nothing to do (already unified)");
+        }
+
+        const n = await normalizeClientSystems(sql);
+        if (n.updated || n.orphans) {
+          console.log("[Normalize Clients] Result:", n);
+        } else {
+          console.log("[Normalize Clients] Nothing to do (no suffixed clients)");
         }
       } catch (err) {
         console.error("[Unify Systems] Migration error:", err);

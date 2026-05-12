@@ -25,6 +25,19 @@ Templates use `{{variable}}` syntax. Available: `{{nome}}`, `{{numero_cliente}}`
 
 ## Recent Critical Fixes
 
+### Systems Unification + Client System Normalization (May 2026)
+**Problem**: Legacy data had per-tenant duplicate systems with `" - IPTV"` / `" - P2P"` suffixes (e.g. `UTM` + `UTM - IPTV`), and ~999 clients still referenced the suffixed names in `clients.system` even after the systems table was cleaned.
+
+**Solution**:
+1. **`scripts/migrate-unify-systems.ts`** — merges per-tenant duplicate systems with suffix variants into a single base-name record and rewrites `clients.system` accordingly. Idempotent, tenant-scoped, case-insensitive grouping.
+2. **`scripts/normalize-client-systems.ts`** — second-pass cleanup: for any client whose `system` still matches `^<base> - (IPTV|P2P)$`, looks up the base in `systems` for that tenant and rewrites `clients.system` to the canonical base name. Logs orphans (no matching base) without touching them. Idempotent.
+3. Both run once at server boot from `server/index.ts` after the existing startup hooks.
+
+**Important Notes**:
+- IPTV/P2P distinction was discarded entirely (user decision). Only the base name survives.
+- Only `clients.system` text is rewritten — `payment_history`, `billing_history`, etc. are untouched.
+- Result on prod: 999 clients normalized; `SELECT COUNT(*) FROM clients WHERE system ~* ' - (IPTV|P2P)$'` returns 0.
+
 ### Revenue History Preservation (February 2026)
 **Problem**: When renewing clients, the revenue for previous months was incorrectly decreasing.
 
