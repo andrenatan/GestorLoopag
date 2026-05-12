@@ -121,7 +121,7 @@ app.use((req, res, next) => {
           console.log("[Normalize Clients] Nothing to do (no suffixed clients)");
         }
       } catch (err) {
-        console.error("[Unify Systems] Migration error:", err);
+        console.error("[Startup Migrations] Error during systems unification/normalization:", err);
       } finally {
         await sql.end();
       }

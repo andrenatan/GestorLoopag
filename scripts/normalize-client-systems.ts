@@ -16,35 +16,48 @@ export async function normalizeClientSystems(sql: postgres.Sql) {
     GROUP BY auth_user_id, system
   `) as unknown as ClientSystemRow[];
 
+  // Group by tenant so each tenant's normalization runs atomically
+  const byTenant = new Map<string, ClientSystemRow[]>();
+  for (const row of rows) {
+    const list = byTenant.get(row.auth_user_id) || [];
+    list.push(row);
+    byTenant.set(row.auth_user_id, list);
+  }
+
   let updated = 0;
   let orphans = 0;
   const orphanDetails: { authUserId: string; system: string; count: number }[] = [];
 
-  for (const row of rows) {
-    const m = row.system.match(SUFFIX_RE);
-    if (!m) continue;
-    const baseName = m[1].trim();
+  const tenantEntries = Array.from(byTenant.entries());
+  for (const [authUserId, tenantRows] of tenantEntries) {
+    await sql.begin(async (tx) => {
+      for (const row of tenantRows) {
+        const m = row.system.match(SUFFIX_RE);
+        if (!m) continue;
+        const baseName = m[1].trim();
 
-    const baseExists = (await sql`
-      SELECT name FROM systems
-      WHERE auth_user_id = ${row.auth_user_id}::uuid
-        AND lower(name) = lower(${baseName})
-      LIMIT 1
-    `) as unknown as { name: string }[];
+        const baseExists = (await tx`
+          SELECT name FROM systems
+          WHERE auth_user_id = ${authUserId}::uuid
+            AND lower(name) = lower(${baseName})
+          LIMIT 1
+        `) as unknown as { name: string }[];
 
-    if (baseExists.length === 0) {
-      orphans += row.qtd;
-      orphanDetails.push({ authUserId: row.auth_user_id, system: row.system, count: row.qtd });
-      continue;
-    }
+        if (baseExists.length === 0) {
+          orphans += row.qtd;
+          orphanDetails.push({ authUserId, system: row.system, count: row.qtd });
+          continue;
+        }
 
-    const canonical = baseExists[0].name;
-    const result = await sql`
-      UPDATE clients SET system = ${canonical}
-      WHERE auth_user_id = ${row.auth_user_id}::uuid AND system = ${row.system}
-    `;
-    updated += result.count;
+        const canonical = baseExists[0].name;
+        const result = await tx`
+          UPDATE clients SET system = ${canonical}
+          WHERE auth_user_id = ${authUserId}::uuid AND system = ${row.system}
+        `;
+        updated += result.count;
+      }
+    });
   }
 
-  return { updated, orphans, orphanDetails };
+  return { updated, orphans, orphanDetails, tenantsProcessed: byTenant.size };
 }
