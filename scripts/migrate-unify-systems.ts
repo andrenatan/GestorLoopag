@@ -98,21 +98,3 @@ export async function unifySystemsForAllOwners(sql: postgres.Sql) {
   return { totalRenamed, totalRemoved, totalClientUpdates, ownersProcessed: byOwner.size };
 }
 
-async function runStandalone() {
-  const url = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
-  if (!url) throw new Error("SUPABASE_DATABASE_URL or DATABASE_URL must be set");
-  const sql = postgres(url, { prepare: false });
-  try {
-    const r = await unifySystemsForAllOwners(sql);
-    console.log("[Unify Systems] Done:", r);
-  } finally {
-    await sql.end();
-  }
-}
-
-if (import.meta.url === `file://${process.argv[1]}`) {
-  runStandalone().catch((err) => {
-    console.error("Migration failed:", err);
-    process.exit(1);
-  });
-}

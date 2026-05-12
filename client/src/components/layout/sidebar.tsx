@@ -126,8 +126,13 @@ export function Sidebar({ className }: SidebarProps) {
               const Icon = item.icon;
 
               if (item.children) {
-                const isParentActive = location === item.href || location.startsWith(`${item.href}/`);
-                const isOpen = openItems.has(item.href);
+                const isParentActive =
+                  location === item.href ||
+                  location.startsWith(`${item.href}/`) ||
+                  item.children.some(
+                    (c) => location === c.href || location.startsWith(`${c.href}/`)
+                  );
+                const isOpen = openItems.has(item.href) || isParentActive;
 
                 return (
                   <div key={item.href}>
