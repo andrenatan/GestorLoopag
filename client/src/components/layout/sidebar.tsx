@@ -42,9 +42,9 @@ const sidebarItems: NavItemEx[] = [
     children: [
       { title: "Listar/Criar", href: "/clients", icon: ListFilter },
       { title: "Planos", href: "/clients/plans", icon: Tag },
+      { title: "Sistemas", href: "/systems", icon: Server },
     ],
   },
-  { title: "Sistemas", href: "/systems", icon: Server },
   { title: "Cobranças", href: "/billing", icon: CreditCard },
   { title: "Templates", href: "/templates", icon: FileText },
   { title: "Rankings", href: "/rankings", icon: Trophy },
@@ -71,7 +71,7 @@ export function Sidebar({ className }: SidebarProps) {
   const visibleItems = sidebarItems.filter((it) => !it.ownerOnly || isOwner);
 
   const isWhatsAppActive = location === "/whatsapp" || location.startsWith("/whatsapp/");
-  const isClientsActive = location === "/clients" || location.startsWith("/clients/");
+  const isClientsActive = location === "/clients" || location.startsWith("/clients/") || location === "/systems" || location.startsWith("/systems/");
 
   const [openItems, setOpenItems] = useState<Set<string>>(() => {
     const initial = new Set<string>();

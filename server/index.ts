@@ -3,6 +3,8 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./scheduler";
 import { baileysManager } from "./baileys-manager";
+import postgres from "postgres";
+import { unifySystemsForAllOwners } from "../scripts/migrate-unify-systems";
 
 // Prevent DB timeouts and other async errors from crashing the process
 process.on('unhandledRejection', (reason) => {
@@ -97,5 +99,24 @@ app.use((req, res, next) => {
     
     // Restore any existing Baileys sessions from disk
     baileysManager.restoreExistingSessions().catch(console.error);
+
+    // One-shot migration: unify systems "X - IPTV" / "X - P2P" into "X" (idempotent)
+    (async () => {
+      const url = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
+      if (!url) return;
+      const sql = postgres(url, { prepare: false });
+      try {
+        const r = await unifySystemsForAllOwners(sql);
+        if (r.totalRenamed || r.totalRemoved || r.totalClientUpdates) {
+          console.log("[Unify Systems] Migration applied:", r);
+        } else {
+          console.log("[Unify Systems] Nothing to do (already unified)");
+        }
+      } catch (err) {
+        console.error("[Unify Systems] Migration error:", err);
+      } finally {
+        await sql.end();
+      }
+    })();
   });
 })();
