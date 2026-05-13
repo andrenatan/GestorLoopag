@@ -600,6 +600,7 @@ function DashboardContent() {
             Churn — {churnPeriod.label}
           </p>
           <div className="h-52">
+            {totalChurn > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={churnChartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                 <defs>
@@ -629,6 +630,11 @@ function DashboardContent() {
                 <Area type="monotone" dataKey="count" stroke="#ef4444" strokeWidth={2} fill="url(#churnGrad)" dot={churnTotalDays <= 31 ? { fill: "#ef4444", r: 3 } : false} activeDot={{ r: 5 }} />
               </AreaChart>
             </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+                Sem dados para este período
+              </div>
+            )}
           </div>
         </div>
       </div>
