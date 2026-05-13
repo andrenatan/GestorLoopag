@@ -19,6 +19,11 @@ import {
   EyeOff,
   Moon,
   Sun,
+  Crown,
+  Trophy,
+  Medal,
+  Map as MapIcon,
+  Download,
 } from "lucide-react";
 import {
   AreaChart,
@@ -561,20 +566,132 @@ function DashboardContent() {
         <div className="rounded-xl bg-[#1a2a3a] border border-[#2a3a4a] p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-white font-semibold">Clientes por Estado</h3>
-              <p className="text-slate-400 text-xs">{getMonthLabel(selectedMonth)}</p>
+              <h3 className="text-white font-semibold">&nbsp;</h3>
+              <p className="text-slate-400 text-xs">&nbsp;</p>
             </div>
           </div>
-          <div className="h-64">
+          <div className="h-64" />
+        </div>
+      </div>
+
+      {/* Row 5 — Mapa Do Brasil (Top 5 + interactive map) */}
+      <div className="rounded-xl bg-[#1a2a3a] border border-[#2a3a4a] p-5">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-start gap-3">
+            <div className="bg-[#243447] p-2 rounded-lg">
+              <MapIcon className="w-5 h-5 text-cyan-400" />
+            </div>
+            <div>
+              <h3 className="text-white font-semibold text-lg leading-tight">Mapa Do Brasil</h3>
+              <p className="text-slate-400 text-xs mt-0.5">Distribuição geográfica de clientes</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="bg-[#243447] hover:bg-[#2a3a4a] border border-[#2a3a4a] rounded-md p-2 text-slate-300"
+            data-testid="button-map-export"
+          >
+            <Download className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-1 rounded-lg bg-[#162232] border border-[#2a3a4a] p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Trophy className="w-4 h-4 text-amber-400" />
+              <h4 className="text-white font-semibold text-sm">Top 5 Estados</h4>
+            </div>
+            <p className="text-slate-400 text-[11px] mb-3">Estados com mais clientes</p>
+
             {clientsByState && clientsByState.length > 0 ? (
-              <BrazilMap data={clientsByState} />
+              <TopStatesList data={clientsByState} />
             ) : (
-              <div className="flex items-center justify-center h-full text-slate-500 text-sm">
-                Sem dados para este período
-              </div>
+              <div className="text-slate-500 text-xs py-6 text-center">Sem dados</div>
             )}
           </div>
+
+          <div className="lg:col-span-2 rounded-lg bg-[#162232] border border-[#2a3a4a] p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <MapIcon className="w-4 h-4 text-cyan-400" />
+              <h4 className="text-white font-semibold text-sm">Clientes por Estado</h4>
+            </div>
+            <p className="text-slate-400 text-[11px] mb-3">Zoom e arraste com o mouse</p>
+
+            <div className="h-[480px] relative overflow-hidden rounded-md">
+              {clientsByState && clientsByState.length > 0 ? (
+                <BrazilMap data={clientsByState} />
+              ) : (
+                <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+                  Sem dados para este período
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+const STATE_FULL_NAMES: Record<string, string> = {
+  AC: "Acre", AL: "Alagoas", AM: "Amazonas", AP: "Amapá", BA: "Bahia",
+  CE: "Ceará", DF: "Distrito Federal", ES: "Espírito Santo", GO: "Goiás",
+  MA: "Maranhão", MG: "Minas Gerais", MS: "Mato Grosso do Sul", MT: "Mato Grosso",
+  PA: "Pará", PB: "Paraíba", PE: "Pernambuco", PI: "Piauí", PR: "Paraná",
+  RJ: "Rio de Janeiro", RN: "Rio Grande do Norte", RO: "Rondônia", RR: "Roraima",
+  RS: "Rio Grande do Sul", SC: "Santa Catarina", SE: "Sergipe", SP: "São Paulo",
+  TO: "Tocantins",
+};
+
+function TopStatesList({ data }: { data: { state: string; count: number }[] }) {
+  const sorted = [...data].sort((a, b) => b.count - a.count);
+  const top5 = sorted.slice(0, 5);
+  const total = data.reduce((s, d) => s + d.count, 0);
+  const max = Math.max(...top5.map((d) => d.count), 1);
+
+  const rankIcon = (idx: number) => {
+    if (idx === 0) return <Crown className="w-3.5 h-3.5 text-amber-400" />;
+    if (idx === 1) return <Medal className="w-3.5 h-3.5 text-slate-300" />;
+    if (idx === 2) return <Medal className="w-3.5 h-3.5 text-amber-700" />;
+    return <span className="text-slate-400 text-[11px] font-semibold">{idx + 1}</span>;
+  };
+
+  const badgeColor = (idx: number) => {
+    if (idx === 0) return "#dc2626";
+    if (idx === 1) return "#f59e0b";
+    if (idx === 2) return "#fbbf24";
+    return "#6366f1";
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      {top5.map((item, idx) => {
+        const pct = (item.count / max) * 100;
+        return (
+          <div
+            key={item.state}
+            className="flex items-center gap-2 rounded-md bg-[#1a2a3a] border border-[#2a3a4a] px-2 py-1.5"
+            data-testid={`top-state-${item.state}`}
+          >
+            <div className="w-5 flex items-center justify-center">{rankIcon(idx)}</div>
+            <span
+              className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: badgeColor(idx) }}
+              title={STATE_FULL_NAMES[item.state] || item.state}
+            >
+              {item.state}
+            </span>
+            <span className="text-white font-bold text-sm w-6 text-center">{item.count}</span>
+            <div className="flex-1 h-1.5 bg-[#0f1a26] rounded overflow-hidden">
+              <div className="h-full rounded" style={{ width: `${pct}%`, background: badgeColor(idx) }} />
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="mt-2 rounded-md bg-[#1a2a3a] border border-[#2a3a4a] py-3 text-center">
+        <div className="text-cyan-300 font-bold text-lg leading-tight">{total}</div>
+        <div className="text-slate-400 text-[11px]">Total de Clientes</div>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
-import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps";
+import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "react-simple-maps";
 import { scaleLinear } from "d3-scale";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { RotateCcw, Move } from "lucide-react";
 
 const geoUrl = "https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson";
 
@@ -68,10 +69,19 @@ interface BrazilMapProps {
   data: { state: string; count: number }[];
 }
 
+const INITIAL_CENTER: [number, number] = [-54, -15];
+const INITIAL_ZOOM = 1;
+
 export function BrazilMap({ data }: BrazilMapProps) {
   const [hoveredState, setHoveredState] = useState<{ name: string; count: number; percentage: string } | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  
+  const [position, setPosition] = useState<{ coordinates: [number, number]; zoom: number }>({
+    coordinates: INITIAL_CENTER,
+    zoom: INITIAL_ZOOM,
+  });
+  const [hint, setHint] = useState<"idle" | "moving" | "zooming">("idle");
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const dataByState = data.reduce((acc, item) => {
     acc[item.state] = item.count;
     return acc;
@@ -82,102 +92,161 @@ export function BrazilMap({ data }: BrazilMapProps) {
 
   const colorScale = scaleLinear<string>()
     .domain([0, maxValue])
-    .range(["#3b82f6", "#dc2626"]);
+    .range(["#fbbf24", "#dc2626"]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
     setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   };
 
+  const flashHint = (mode: "moving" | "zooming") => {
+    setHint(mode);
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+    hintTimer.current = setTimeout(() => setHint("idle"), 600);
+  };
+
+  useEffect(() => () => {
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+  }, []);
+
+  const handleReset = () => {
+    setPosition({ coordinates: INITIAL_CENTER, zoom: INITIAL_ZOOM });
+    setHint("idle");
+  };
+
+  const hintLabel = hint === "moving" ? "Movendo..." : hint === "zooming" ? "Fazendo zoom..." : "Arraste e zoom";
+
   return (
     <div className="relative w-full h-full" onMouseMove={handleMouseMove}>
+      <button
+        type="button"
+        onClick={handleReset}
+        className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-md bg-[#243447] hover:bg-[#2a3a4a] border border-[#2a3a4a] px-2.5 py-1 text-xs text-cyan-300"
+        data-testid="button-map-reset"
+      >
+        <RotateCcw className="w-3 h-3" />
+        Reset
+      </button>
+
       <ComposableMap
         projection="geoMercator"
-        projectionConfig={{
-          scale: 750,
-          center: [-54, -15]
-        }}
+        projectionConfig={{ scale: 750, center: INITIAL_CENTER }}
         style={{ width: "100%", height: "100%" }}
       >
-        <Geographies geography={geoUrl}>
-          {({ geographies }) =>
-            geographies.map((geo) => {
-              const stateName = geo.properties.name;
-              const stateCode = stateNameMap[stateName] || stateName;
-              const count = dataByState[stateCode] || 0;
-              const percentage = totalClients > 0 ? ((count / totalClients) * 100).toFixed(1) : "0.0";
+        <ZoomableGroup
+          center={position.coordinates}
+          zoom={position.zoom}
+          minZoom={1}
+          maxZoom={8}
+          onMoveStart={() => flashHint("moving")}
+          onMove={({ zoom }) => {
+            if (zoom !== position.zoom) flashHint("zooming");
+          }}
+          onMoveEnd={(pos) => {
+            setPosition({ coordinates: pos.coordinates as [number, number], zoom: pos.zoom });
+            setHint("idle");
+          }}
+        >
+          <Geographies geography={geoUrl}>
+            {({ geographies }) =>
+              geographies.map((geo) => {
+                const stateName = geo.properties.name;
+                const stateCode = stateNameMap[stateName] || stateName;
+                const count = dataByState[stateCode] || 0;
+                const percentage = totalClients > 0 ? ((count / totalClients) * 100).toFixed(1) : "0.0";
 
-              return (
-                <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  fill={count > 0 ? colorScale(count) : "#374151"}
-                  stroke="#1f2937"
-                  strokeWidth={0.5}
-                  style={{
-                    default: { outline: "none" },
-                    hover: { outline: "none", fill: "#6366f1" },
-                    pressed: { outline: "none" },
-                  }}
-                  onMouseEnter={() => {
-                    setHoveredState({ name: stateName, count, percentage });
-                  }}
-                  onMouseLeave={() => {
-                    setHoveredState(null);
-                  }}
-                />
-              );
-            })
-          }
-        </Geographies>
-        
-        {Object.entries(stateCenters).map(([stateCode, coords]) => {
-          const count = dataByState[stateCode] || 0;
-          return (
-            <Marker key={stateCode} coordinates={coords}>
-              <text
-                textAnchor="middle"
-                dominantBaseline="central"
-                style={{
-                  fontSize: "14px",
-                  fontWeight: "bold",
-                  fill: "#ffffff",
-                  pointerEvents: "none",
-                  textShadow: "0 1px 3px rgba(0,0,0,0.9)",
-                }}
-              >
-                {count}
-              </text>
-            </Marker>
-          );
-        })}
+                return (
+                  <Geography
+                    key={geo.rsmKey}
+                    geography={geo}
+                    fill={count > 0 ? colorScale(count) : "#e5e7eb"}
+                    stroke="#1f2937"
+                    strokeWidth={0.5}
+                    style={{
+                      default: { outline: "none" },
+                      hover: { outline: "none", fill: "#6366f1" },
+                      pressed: { outline: "none" },
+                    }}
+                    onMouseEnter={() => {
+                      setHoveredState({ name: stateName, count, percentage });
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredState(null);
+                    }}
+                  />
+                );
+              })
+            }
+          </Geographies>
+
+          {Object.entries(stateCenters).map(([stateCode, coords]) => {
+            const count = dataByState[stateCode] || 0;
+            if (count <= 0) return null;
+            const labelW = 30;
+            const labelH = 26;
+            return (
+              <Marker key={stateCode} coordinates={coords}>
+                <g style={{ pointerEvents: "none" }}>
+                  <rect
+                    x={-labelW / 2}
+                    y={-labelH / 2}
+                    width={labelW}
+                    height={labelH}
+                    rx={4}
+                    fill="#1f2937"
+                    opacity={0.9}
+                  />
+                  <text
+                    textAnchor="middle"
+                    y={-3}
+                    style={{ fontSize: "9px", fontWeight: 700, fill: "#ffffff" }}
+                  >
+                    {stateCode}
+                  </text>
+                  <text
+                    textAnchor="middle"
+                    y={9}
+                    style={{ fontSize: "10px", fontWeight: 700, fill: "#ffffff" }}
+                  >
+                    {count}
+                  </text>
+                </g>
+              </Marker>
+            );
+          })}
+        </ZoomableGroup>
       </ComposableMap>
 
       {hoveredState && (
-        <div 
-          className="absolute bg-background border border-border rounded-lg p-3 shadow-lg pointer-events-none z-50"
+        <div
+          className="absolute bg-[#1a2a3a] border border-[#2a3a4a] rounded-lg p-3 shadow-lg pointer-events-none z-30"
           style={{
-            left: Math.min(mousePos.x + 10, 200),
-            top: mousePos.y - 60,
+            left: Math.min(mousePos.x + 10, 240),
+            top: Math.max(10, mousePos.y - 60),
           }}
         >
-          <div className="text-sm font-semibold mb-1">Clientes por Estado</div>
-          <div className="text-sm">
+          <div className="text-xs font-semibold mb-1 text-slate-300">Clientes por Estado</div>
+          <div className="text-sm text-white">
             {hoveredState.name}: <span className="font-medium">{hoveredState.count}</span> ({hoveredState.percentage}%)
           </div>
         </div>
       )}
 
-      <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex flex-col items-center gap-1">
-        <span className="text-xs text-muted-foreground">Mais</span>
-        <div 
-          className="w-3 h-20 rounded"
-          style={{
-            background: `linear-gradient(to bottom, #dc2626, #3b82f6)`
-          }}
+      <div className="absolute left-3 bottom-3 z-20 flex items-center gap-2 rounded-md bg-[#243447]/90 border border-[#2a3a4a] px-2.5 py-1.5 text-xs text-slate-300">
+        <Move className="w-3 h-3 text-cyan-300" />
+        {hintLabel}
+      </div>
+
+      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex flex-col items-center gap-1 z-20">
+        <span className="text-[10px] text-slate-400">Mais</span>
+        <div
+          className="w-2.5 h-20 rounded"
+          style={{ background: "linear-gradient(to bottom, #dc2626, #f59e0b, #fbbf24)" }}
         />
-        <span className="text-xs text-muted-foreground">0</span>
+        <span className="text-[10px] text-slate-400">Menos</span>
       </div>
     </div>
   );
 }
+
+export { stateNameMap };
