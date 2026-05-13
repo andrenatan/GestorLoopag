@@ -608,8 +608,11 @@ function InfoRowMoney({ icon, label, value }: { icon: React.ReactNode; label: st
 
 function MiniCard({ label, value, color, small }: { label: string; value: string; color: string; small?: boolean }) {
   return (
-    <div className="rounded-lg bg-[#243447] p-3 text-center">
-      <p className={`font-bold text-white ${small ? "text-sm" : "text-lg"}`} style={{ color }}>
+    <div
+      className="rounded-lg bg-[#243447] p-3 text-center border"
+      style={{ borderColor: color }}
+    >
+      <p className={`font-bold ${small ? "text-sm" : "text-lg"}`} style={{ color }}>
         {value}
       </p>
       <p className="text-slate-400 text-xs mt-0.5 leading-tight">{label}</p>
