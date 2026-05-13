@@ -107,6 +107,7 @@ export interface IStorage {
     revenueTomorrow: number;
   }>;
   getNewClientsByDay(authUserId: string, startDate: string, endDate: string): Promise<{ day: number; date: string; count: number }[]>;
+  getChurnByDay(authUserId: string, startDate: string, endDate: string): Promise<{ day: number; date: string; count: number }[]>;
   getRevenueByPeriod(authUserId: string, period: 'current_month' | 'last_month' | '3_months' | '6_months' | '12_months'): Promise<{ label: string; value: number }[]>;
   getPaymentsByDay(authUserId: string, startDate: string, endDate: string): Promise<{
     total: number;
@@ -770,6 +771,34 @@ export class DbStorage implements IStorage {
       if (!client.activationDate) return;
       if (byDate[client.activationDate] !== undefined) {
         byDate[client.activationDate] += 1;
+      }
+    });
+
+    return Object.entries(byDate)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, count], idx) => ({
+        day: idx + 1,
+        date,
+        count,
+      }));
+  }
+
+  async getChurnByDay(authUserId: string, startDate: string, endDate: string): Promise<{ day: number; date: string; count: number }[]> {
+    const allClients = await db.select().from(clients).where(eq(clients.authUserId, authUserId));
+
+    const byDate: { [date: string]: number } = {};
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T00:00:00');
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      byDate[key] = 0;
+    }
+
+    allClients.forEach(client => {
+      if (!client.expiryDate) return;
+      if (client.subscriptionStatus !== 'Inativa') return;
+      if (byDate[client.expiryDate] !== undefined) {
+        byDate[client.expiryDate] += 1;
       }
     });
 

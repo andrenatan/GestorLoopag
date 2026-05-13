@@ -864,6 +864,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/dashboard/churn-by-day", requireOwner, async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const { startDate, endDate } = getDateRange(req.query.startDate as string, req.query.endDate as string);
+      const data = await storage.getChurnByDay(authUserId, startDate, endDate);
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch churn by day", error: String(error) });
+    }
+  });
+
   app.get("/api/dashboard/payments-by-day", requireOwner, async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;

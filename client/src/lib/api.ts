@@ -14,6 +14,8 @@ export const api = {
     apiRequest(`/api/dashboard/clients-by-state?month=${month}`, "GET").then(res => res.json()),
   getPaymentsByDay: (startDate: string, endDate: string) =>
     apiRequest(`/api/dashboard/payments-by-day?startDate=${startDate}&endDate=${endDate}`, "GET").then(res => res.json()),
+  getChurnByDay: (startDate: string, endDate: string) =>
+    apiRequest(`/api/dashboard/churn-by-day?startDate=${startDate}&endDate=${endDate}`, "GET").then(res => res.json()),
 
   // Clients
   getClients: () => apiRequest("/api/clients", "GET").then(res => res.json()),

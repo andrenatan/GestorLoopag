@@ -136,6 +136,7 @@ function DashboardContent() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [clientsPeriod, setClientsPeriod] = useState<PeriodValue>(defaultPeriod());
   const [paymentsPeriod, setPaymentsPeriod] = useState<PeriodValue>(defaultPeriod());
+  const [churnPeriod, setChurnPeriod] = useState<PeriodValue>(defaultPeriod());
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
 
@@ -154,6 +155,12 @@ function DashboardContent() {
   const { data: paymentsByDay } = useQuery<PaymentsByDayResult>({
     queryKey: ["/api/dashboard/payments-by-day", paymentsPeriod.startDate, paymentsPeriod.endDate],
     queryFn: () => api.getPaymentsByDay(paymentsPeriod.startDate, paymentsPeriod.endDate),
+    refetchInterval: 30000,
+  });
+
+  const { data: churnByDay } = useQuery<ClientsByDayItem[]>({
+    queryKey: ["/api/dashboard/churn-by-day", churnPeriod.startDate, churnPeriod.endDate],
+    queryFn: () => api.getChurnByDay(churnPeriod.startDate, churnPeriod.endDate),
     refetchInterval: 30000,
   });
 
@@ -187,6 +194,13 @@ function DashboardContent() {
   const paymentsData: PaymentsByDayResult = paymentsByDay || { total: 0, count: 0, average: 0, bestDayAmount: 0, dailyData: [] };
   const paymentsChartData = paymentsData.dailyData;
   const paymentsTotalDays = paymentsChartData.length || 1;
+
+  const churnChartData: ClientsByDayItem[] = churnByDay || [];
+  const churnTotalDays = churnChartData.length || 1;
+  const totalChurn = churnChartData.reduce((s, d) => s + d.count, 0);
+  const daysWithChurn = churnChartData.filter((d) => d.count > 0).length || 1;
+  const avgChurnPerDay = totalChurn / daysWithChurn;
+  const worstChurnDay = Math.max(...churnChartData.map((d) => d.count), 0);
 
   if (isLoading) {
     return (
@@ -567,11 +581,55 @@ function DashboardContent() {
         <div className="rounded-xl bg-[#1a2a3a] border border-[#2a3a4a] p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-white font-semibold">&nbsp;</h3>
-              <p className="text-slate-400 text-xs">&nbsp;</p>
+              <h3 className="text-white font-semibold flex items-center gap-2">
+                <UserX className="w-4 h-4 text-red-400" />
+                Churn por Dia
+              </h3>
+              <p className="text-slate-400 text-xs mt-0.5">Clientes que não renovaram no período</p>
             </div>
+            <PeriodSelector value={churnPeriod} onChange={setChurnPeriod} />
           </div>
-          <div className="h-64" />
+
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <MiniCard label="Total no Período" value={String(totalChurn)} color="#ef4444" />
+            <MiniCard label="Média por Dia" value={avgChurnPerDay.toFixed(1)} color="#f59e0b" />
+            <MiniCard label="Pior Dia" value={String(worstChurnDay)} color="#8b5cf6" />
+          </div>
+
+          <p className="text-center text-xs text-slate-400 mb-2">
+            Churn — {churnPeriod.label}
+          </p>
+          <div className="h-52">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={churnChartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="churnGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2a3a4a" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: "#94a3b8", fontSize: 10 }}
+                  tickLine={false}
+                  tickFormatter={(d) => formatXLabel(d, churnTotalDays)}
+                  interval={churnTotalDays <= 31 ? 0 : Math.floor(churnTotalDays / 8)}
+                />
+                <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={cardTooltipStyle}
+                  formatter={(v: number) => [v, "Churn"]}
+                  labelFormatter={(d) => {
+                    if (!d) return "";
+                    const [y, m, day] = String(d).split("-").map(Number);
+                    return `${String(day).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`;
+                  }}
+                />
+                <Area type="monotone" dataKey="count" stroke="#ef4444" strokeWidth={2} fill="url(#churnGrad)" dot={churnTotalDays <= 31 ? { fill: "#ef4444", r: 3 } : false} activeDot={{ r: 5 }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
