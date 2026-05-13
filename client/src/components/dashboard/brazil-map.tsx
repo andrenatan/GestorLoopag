@@ -92,7 +92,7 @@ export function BrazilMap({ data }: BrazilMapProps) {
 
   const colorScale = scaleLinear<string>()
     .domain([0, maxValue])
-    .range(["#fbbf24", "#dc2626"]);
+    .range(["#3b82f6", "#dc2626"]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -159,7 +159,7 @@ export function BrazilMap({ data }: BrazilMapProps) {
                   <Geography
                     key={geo.rsmKey}
                     geography={geo}
-                    fill={count > 0 ? colorScale(count) : "#e5e7eb"}
+                    fill={count > 0 ? colorScale(count) : "#374151"}
                     stroke="#1f2937"
                     strokeWidth={0.5}
                     style={{
@@ -241,7 +241,7 @@ export function BrazilMap({ data }: BrazilMapProps) {
         <span className="text-[10px] text-slate-400">Mais</span>
         <div
           className="w-2.5 h-20 rounded"
-          style={{ background: "linear-gradient(to bottom, #dc2626, #f59e0b, #fbbf24)" }}
+          style={{ background: "linear-gradient(to bottom, #dc2626, #3b82f6)" }}
         />
         <span className="text-[10px] text-slate-400">Menos</span>
       </div>

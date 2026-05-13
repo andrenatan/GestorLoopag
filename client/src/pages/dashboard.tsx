@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { BrazilMap } from "@/components/dashboard/brazil-map";
+import { scaleLinear } from "d3-scale";
 import { PeriodSelector, defaultPeriod } from "@/components/dashboard/period-selector";
 import type { PeriodValue } from "@/components/dashboard/period-selector";
 import { useTheme } from "@/hooks/use-theme";
@@ -647,7 +648,11 @@ function TopStatesList({ data }: { data: { state: string; count: number }[] }) {
   const sorted = [...data].sort((a, b) => b.count - a.count);
   const top5 = sorted.slice(0, 5);
   const total = data.reduce((s, d) => s + d.count, 0);
-  const max = Math.max(...top5.map((d) => d.count), 1);
+  const maxValue = Math.max(...data.map((d) => d.count), 1);
+
+  const colorScale = scaleLinear<string>()
+    .domain([0, maxValue])
+    .range(["#3b82f6", "#dc2626"]);
 
   const rankIcon = (idx: number) => {
     if (idx === 0) return <Crown className="w-3.5 h-3.5 text-amber-400" />;
@@ -656,17 +661,11 @@ function TopStatesList({ data }: { data: { state: string; count: number }[] }) {
     return <span className="text-slate-400 text-[11px] font-semibold">{idx + 1}</span>;
   };
 
-  const badgeColor = (idx: number) => {
-    if (idx === 0) return "#dc2626";
-    if (idx === 1) return "#f59e0b";
-    if (idx === 2) return "#fbbf24";
-    return "#6366f1";
-  };
-
   return (
     <div className="flex flex-col gap-2">
       {top5.map((item, idx) => {
-        const pct = (item.count / max) * 100;
+        const pct = (item.count / maxValue) * 100;
+        const color = colorScale(item.count);
         return (
           <div
             key={item.state}
@@ -676,14 +675,14 @@ function TopStatesList({ data }: { data: { state: string; count: number }[] }) {
             <div className="w-5 flex items-center justify-center">{rankIcon(idx)}</div>
             <span
               className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded"
-              style={{ backgroundColor: badgeColor(idx) }}
+              style={{ backgroundColor: color }}
               title={STATE_FULL_NAMES[item.state] || item.state}
             >
               {item.state}
             </span>
             <span className="text-white font-bold text-sm w-6 text-center">{item.count}</span>
             <div className="flex-1 h-1.5 bg-[#0f1a26] rounded overflow-hidden">
-              <div className="h-full rounded" style={{ width: `${pct}%`, background: badgeColor(idx) }} />
+              <div className="h-full rounded" style={{ width: `${pct}%`, background: color }} />
             </div>
           </div>
         );
