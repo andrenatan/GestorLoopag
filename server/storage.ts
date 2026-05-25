@@ -83,6 +83,14 @@ export interface IStorage {
   getPaymentHistoryByClient(authUserId: string, clientId: number): Promise<PaymentHistory[]>;
   createPaymentHistory(authUserId: string, payment: InsertPaymentHistory): Promise<PaymentHistory>;
   getPaymentHistoryByDateRange(authUserId: string, startDate: string, endDate: string): Promise<PaymentHistory[]>;
+  createAddonPayment(
+    authUserId: string,
+    clientId: number,
+    amount: string,
+    paymentDate: string,
+    description: string | null,
+    bumpClientValue: boolean,
+  ): Promise<{ payment: PaymentHistory; client: Client | undefined }>;
 
   // Dashboard Stats
   getDashboardStats(authUserId: string): Promise<{

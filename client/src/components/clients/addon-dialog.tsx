@@ -43,6 +43,10 @@ export function AddonDialog({ client, onClose }: AddonDialogProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ predicate: (q) => {
+        const k = q.queryKey?.[0];
+        return typeof k === "string" && k.startsWith("/api/dashboard/");
+      } });
       toast({ title: "Adesão extra registrada." });
       onClose();
     },
