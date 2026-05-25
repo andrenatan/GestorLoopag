@@ -28,6 +28,8 @@ export const api = {
   createClient: (client: any) => apiRequest("/api/clients", "POST", client),
   updateClient: (id: number, client: any) => apiRequest(`/api/clients/${id}`, "PUT", client),
   deleteClient: (id: number) => apiRequest(`/api/clients/${id}`, "DELETE"),
+  createClientAddon: (id: number, data: { amount: string; paymentDate: string; description?: string | null; bumpClientValue: boolean }) =>
+    apiRequest(`/api/clients/${id}/addon`, "POST", data),
 
   // Employees
   getEmployees: () => apiRequest("/api/employees", "GET").then(res => res.json()),

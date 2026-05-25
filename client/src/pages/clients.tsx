@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ClientForm } from "@/components/clients/client-form";
+import { AddonDialog } from "@/components/clients/addon-dialog";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -21,6 +22,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Gift,
+  PlusCircle,
 } from "lucide-react";
 import type { Client, MessageTemplate, ClientPlan } from "@shared/schema";
 import { getBrasiliaStartOfDay, parseDateString } from "@/lib/timezone";
@@ -96,6 +98,7 @@ export default function Clients() {
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | undefined>();
   const [giftClient, setGiftClient] = useState<Client | undefined>();
+  const [addonClient, setAddonClient] = useState<Client | undefined>();
   const [giftDate, setGiftDate] = useState<string>("");
   const [giftTemplateId, setGiftTemplateId] = useState<string>("");
 
@@ -715,6 +718,9 @@ export default function Clients() {
                         <ActionBtn title="Mês Gratuito" onClick={() => openGiftModal(client)}>
                           <Gift className="w-3.5 h-3.5" />
                         </ActionBtn>
+                        <ActionBtn title="Adesão Extra" onClick={() => setAddonClient(client)}>
+                          <PlusCircle className="w-3.5 h-3.5" />
+                        </ActionBtn>
                         <ActionBtn title="Excluir" onClick={() => {
                           if (window.confirm(`Excluir ${client.name}?`)) deleteMutation.mutate(client.id);
                         }} danger>
@@ -935,6 +941,11 @@ export default function Clients() {
           </div>
         </div>
       </div>
+    )}
+
+    {/* ── Addon (Adesão Extra) Modal ── */}
+    {addonClient && (
+      <AddonDialog client={addonClient} onClose={() => setAddonClient(undefined)} />
     )}
     </>
   );

@@ -513,6 +513,52 @@ export class DbStorage implements IStorage {
       .orderBy(paymentHistory.paymentDate);
   }
 
+  async createAddonPayment(
+    authUserId: string,
+    clientId: number,
+    amount: string,
+    paymentDate: string,
+    description: string | null,
+    bumpClientValue: boolean,
+  ): Promise<{ payment: PaymentHistory; client: Client | undefined }> {
+    return await db.transaction(async (tx) => {
+      const inserted = await tx.insert(paymentHistory)
+        .values({
+          authUserId,
+          clientId,
+          amount,
+          paymentDate,
+          type: 'addon',
+          previousExpiryDate: null,
+          newExpiryDate: null,
+          description,
+        })
+        .returning();
+
+      let updatedClient: Client | undefined;
+      if (bumpClientValue) {
+        const current = await tx.select().from(clients)
+          .where(and(eq(clients.id, clientId), eq(clients.authUserId, authUserId)))
+          .limit(1);
+        if (current[0]) {
+          const newValue = (Number(current[0].value || 0) + Number(amount)).toFixed(2);
+          const updated = await tx.update(clients)
+            .set({ value: newValue, updatedAt: new Date() })
+            .where(and(eq(clients.id, clientId), eq(clients.authUserId, authUserId)))
+            .returning();
+          updatedClient = updated[0];
+        }
+      } else {
+        const current = await tx.select().from(clients)
+          .where(and(eq(clients.id, clientId), eq(clients.authUserId, authUserId)))
+          .limit(1);
+        updatedClient = current[0];
+      }
+
+      return { payment: inserted[0], client: updatedClient };
+    });
+  }
+
   async createRenewalPayment(
     authUserId: string,
     clientId: number,

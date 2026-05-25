@@ -150,10 +150,11 @@ export const paymentHistory = pgTable("payment_history", {
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   paymentDate: date("payment_date").notNull(),
   type: text("type", {
-    enum: ["new_client", "renewal"]
+    enum: ["new_client", "renewal", "addon"]
   }).notNull(),
   previousExpiryDate: date("previous_expiry_date"),
-  newExpiryDate: date("new_expiry_date").notNull(),
+  newExpiryDate: date("new_expiry_date"),
+  description: text("description"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

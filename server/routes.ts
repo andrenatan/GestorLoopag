@@ -16,6 +16,7 @@ import connectPgSimple from "connect-pg-simple";
 import { db } from "../db";
 import { sql, eq } from "drizzle-orm";
 import { users } from "@shared/schema";
+import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -1304,8 +1305,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       res.status(201).json(client);
-    } catch (error) {
-      res.status(400).json({ message: "Invalid client data", error });
+    } catch (error: any) {
+      console.error("[POST /api/clients] Error:", error);
+      const message = error?.issues
+        ? error.issues.map((i: any) => `${i.path.join('.')}: ${i.message}`).join('; ')
+        : error?.message || "Erro ao cadastrar cliente";
+      res.status(400).json({ message, error: String(error?.message || error) });
+    }
+  });
+
+  app.post("/api/clients/:id/addon", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const clientId = parseInt(req.params.id);
+      if (Number.isNaN(clientId)) {
+        return res.status(400).json({ message: "ID de cliente inválido" });
+      }
+
+      const addonSchema = z.object({
+        amount: z.string().min(1, "Valor é obrigatório").regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
+        paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
+        description: z.string().max(255).optional().nullable(),
+        bumpClientValue: z.boolean().optional().default(false),
+      });
+      const parsed = addonSchema.parse(req.body);
+
+      const existing = await storage.getClient(authUserId, clientId);
+      if (!existing) {
+        return res.status(404).json({ message: "Cliente não encontrado" });
+      }
+
+      const result = await storage.createAddonPayment(
+        authUserId,
+        clientId,
+        parsed.amount,
+        parsed.paymentDate,
+        parsed.description ?? null,
+        parsed.bumpClientValue === true,
+      );
+
+      console.log(`[Addon] Client ${clientId}: registered R$ ${parsed.amount} on ${parsed.paymentDate} (bumpValue=${parsed.bumpClientValue})`);
+      res.status(201).json(result);
+    } catch (error: any) {
+      console.error("[POST /api/clients/:id/addon] Error:", error);
+      const message = error?.issues
+        ? error.issues.map((i: any) => `${i.path.join('.')}: ${i.message}`).join('; ')
+        : error?.message || "Erro ao registrar adesão";
+      res.status(400).json({ message, error: String(error?.message || error) });
     }
   });
 
