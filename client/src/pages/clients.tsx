@@ -74,8 +74,8 @@ function dotColor(status: string, days: number): string {
 // ─── Filter Bar ─────────────────────────────────────────────────────────────
 
 interface FilterState {
-  dateStart: string;
-  dateEnd: string;
+  activationDate: string;
+  expiryDate: string;
   status: string;
   paymentStatus: string;
   plan: string;
@@ -83,7 +83,7 @@ interface FilterState {
 }
 
 function emptyFilters(): FilterState {
-  return { dateStart: "", dateEnd: "", status: "all", paymentStatus: "all", plan: "all", system: "all" };
+  return { activationDate: "", expiryDate: "", status: "all", paymentStatus: "all", plan: "all", system: "all" };
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
@@ -313,13 +313,13 @@ export default function Clients() {
     const matchesSystem =
       filters.system === "all" || client.system === filters.system;
 
-    const matchesDateStart =
-      !filters.dateStart || client.expiryDate >= filters.dateStart;
+    const matchesActivationDate =
+      !filters.activationDate || (client.activationDate || "").slice(0, 10) === filters.activationDate;
 
-    const matchesDateEnd =
-      !filters.dateEnd || client.expiryDate <= filters.dateEnd;
+    const matchesExpiryDate =
+      !filters.expiryDate || (client.expiryDate || "").slice(0, 10) === filters.expiryDate;
 
-    return matchesSearch && matchesStatus && matchesPayment && matchesPlan && matchesSystem && matchesDateStart && matchesDateEnd;
+    return matchesSearch && matchesStatus && matchesPayment && matchesPlan && matchesSystem && matchesActivationDate && matchesExpiryDate;
   });
 
   // ── Pagination ─────────────────────────────────────────────────────────────
@@ -437,24 +437,24 @@ export default function Clients() {
       <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl p-4">
         <div className="flex flex-wrap items-end gap-3">
 
-          {/* Date Start */}
+          {/* Activation Date */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-400">Data inicial</label>
+            <label className="text-xs text-slate-400">Data de Ativação</label>
             <input
               type="date"
-              value={filters.dateStart}
-              onChange={(e) => setFilter("dateStart", e.target.value)}
+              value={filters.activationDate}
+              onChange={(e) => setFilter("activationDate", e.target.value)}
               className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 w-40"
             />
           </div>
 
-          {/* Date End */}
+          {/* Expiry Date */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-400">Data final</label>
+            <label className="text-xs text-slate-400">Data de Vencimento</label>
             <input
               type="date"
-              value={filters.dateEnd}
-              onChange={(e) => setFilter("dateEnd", e.target.value)}
+              value={filters.expiryDate}
+              onChange={(e) => setFilter("expiryDate", e.target.value)}
               className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 w-40"
             />
           </div>
