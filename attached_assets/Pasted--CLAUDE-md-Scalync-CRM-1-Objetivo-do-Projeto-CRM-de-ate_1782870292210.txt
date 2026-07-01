@@ -1,0 +1,309 @@
+# CLAUDE.md — Scalync CRM
+
+---
+
+## 1. Objetivo do Projeto
+
+CRM de atendimento via WhatsApp para equipes B2B. O produto se chama Scalync CRM e e construido pela agencia Scalync. O objetivo central e permitir que empresas gerenciem multiplos atendentes e conversas de WhatsApp em escala, com atribuicao, etiquetagem e metricas.
+
+O Claude deve sempre priorizar funcionalidade completa e codigo de producao. Nunca gerar stubs, placeholders ou TODOs sem implementacao reclaudal.
+
+---
+
+## 2. Regras Inegociaveis
+
+- Nunca expor tokens, secrets ou API keys no frontend ou em logs.
+- Nunca armazenar tokens do WhatsApp sem criptografia AES-256 no banco.
+- Nunca usar `any` no TypeScript. Tipar tudo explicitamente.
+- Nunca deixar `console.log` no codigo. Usar o logger configurado em `lib/logger`.
+- Nunca ignorar erros silenciosamente. Todo catch deve logar e retornar resposta padronizada.
+- Todas as rotas autenticadas devem validar sessao e papel do usuario antes de qualquer logica.
+- Validar `X-Hub-Signature-256` em todo request recebido no webhook do WhatsApp antes de processar.
+- Componentes React nao podem ultrapassar 200 linhas. Extrair sub-componentes quando necessario.
+- Respostas de API sempre no formato: `{ success: boolean, data?: T, error?: string }`.
+
+---
+
+## 3. Contexto de Negocio e Publico-Alvo
+
+- Clientes: medias e grandes empresas brasileiras com equipes de atendimento via WhatsApp.
+- Canal principal: WhatsApp Business API (Meta Cloud API) via Embedded Signup.
+- Canal futuro: Instagram DM — nao implementar agora, mas a arquitetura deve suportar multiplos canais desde o inicio (modelo `Channel` com campo `type`).
+- Deploy: Easypanel self-hosted com Cloudflare na frente para DNS e proxy.
+- Fuso horario padrao do workspace: `America/Sao_Paulo`.
+- Idioma da interface: portugues brasileiro.
+- Idioma do codigo: ingles.
+
+---
+
+## 4. Stack e Decisoes Arquiteturais
+
+### Tecnologias
+
+```
+Frontend:  Next.js 14+ (App Router) + TypeScript
+Styling:   Tailwind CSS + CSS Variables customizadas
+State:     Zustand (global UI) + React Query (server state)
+Realtime:  Socket.io
+Backend:   Next.js API Routes
+Database:  PostgreSQL via Supabase
+ORM:       Prisma
+Auth:      NextAuth.js (JWT curto + refresh token httpOnly cookie)
+Storage:   Cloudflare R2 (midia das conversas)
+Icons:     Lucide React (unico set permitido)
+```
+
+### Decisoes fixas
+
+- App Router do Next.js 14. Nunca usar Pages Router.
+- NextAuth com JWT curto + refresh token httpOnly. Nao usar cookies de sessao simples.
+- Zustand para estado de UI e conversas abertas. React Query para dados do servidor.
+- Socket.io para mensagens em tempo real. Nao usar polling.
+- Prisma como unico ORM. Nao escrever queries SQL diretas fora de migrations.
+- Todos os uploads de midia devem ir para Cloudflare R2, nunca para o servidor local.
+- Papeis de usuario: `ADMIN`, `SUPERVISOR`, `AGENT`. Controle baseado nesses papeis em todas as rotas e componentes.
+
+### Design System
+
+```css
+--color-primary:        #0ABFA3;
+--color-primary-dark:   #089e87;
+--color-primary-glow:   rgba(10, 191, 163, 0.15);
+--color-bg-base:        #0A0A0F;
+--color-bg-surface:     #111118;
+--color-bg-elevated:    #1A1A24;
+--color-bg-hover:       #20202E;
+--color-border:         #1E1E2E;
+--color-text-primary:   #F0F0F5;
+--color-text-secondary: #8A8AA0;
+--color-text-muted:     #4A4A60;
+--color-success:        #22C55E;
+--color-warning:        #F59E0B;
+--color-danger:         #EF4444;
+--color-whatsapp:       #25D366;
+```
+
+Fontes: `Syne 800` (headings), `DM Sans 400/500` (corpo), `Space Mono` (timestamps, IDs, codigo).
+Tema: dark mode obrigatorio. Light mode nao existe neste projeto.
+Border radius: `8px` padrao, `12px` cards, `16px` modais.
+
+---
+
+## 5. Comandos e Informacoes de Suporte
+
+### Comandos do projeto
+
+```bash
+npm install
+npm run dev
+npm run build
+npm run lint
+npx tsc --noEmit
+npx prisma migrate dev
+npx prisma generate
+npx prisma db seed
+```
+
+### Variaveis de ambiente obrigatorias
+
+O projeto nao inicia sem todas essas variaveis. Consultar `.env.example` na raiz.
+
+```env
+DATABASE_URL=
+NEXTAUTH_SECRET=
+NEXTAUTH_URL=
+WHATSAPP_APP_ID=
+WHATSAPP_APP_SECRET=
+WHATSAPP_VERIFY_TOKEN=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+STORAGE_BUCKET=
+STORAGE_ENDPOINT=
+STORAGE_ACCESS_KEY=
+STORAGE_SECRET_KEY=
+NEXT_PUBLIC_APP_URL=
+ENCRYPTION_KEY=
+```
+
+### Convencoes de branch e commit
+
+- `main` — producao, protegida
+- `dev` — integracao
+- Features: `feat/nome-da-feature`
+- Fixes: `fix/descricao-do-bug`
+- Commits: Conventional Commits (`feat:`, `fix:`, `chore:`, `refactor:`, `docs:`)
+- PRs sempre apontam para `dev`, nunca para `main` diretamente.
+
+### Armadilhas conhecidas
+
+- O webhook do WhatsApp exige resposta HTTP 200 em menos de 5 segundos. Toda logica pesada deve rodar de forma assincrona apos responder ao webhook.
+- A Meta Cloud API retorna o ID da mensagem enviada em `messages[0].id`. Armazenar em `waMessageId` para rastrear status.
+- Status updates (delivered, read) chegam pelo mesmo webhook que mensagens. Diferenciar pelo campo `statuses` vs `messages` no payload.
+- Google People API pagina os contatos (max 1000 por request). Implementar paginacao completa na importacao, nao assumir que um request traz tudo.
+- NextAuth em App Router requer `authOptions` exportado de `lib/auth.ts` e importado em `app/api/auth/[...nextauth]/route.ts`.
+- Zustand `persist` middleware deve ser usado apenas para preferencias de UI (ex: sidebar aberta/fechada). Nunca persistir dados de negocio no localStorage.
+- Socket.io no Next.js 14 App Router requer server customizado (`server.ts`). Nao tentar usar dentro de API Routes normais.
+
+### Estrutura de pastas
+
+```
+/app
+  /dashboard
+  /conversations
+  /conversations/[id]
+  /contacts
+  /team
+  /settings
+  /settings/channels
+  /settings/labels
+  /api/auth/[...nextauth]
+  /api/conversations
+  /api/contacts
+  /api/team
+  /api/labels
+  /api/metrics
+  /api/webhooks/whatsapp
+
+/components
+  /ui              (Button, Input, Badge, Modal, Dropdown, Avatar)
+  /chat            (MessageBubble, ConversationHeader, MessageInput, MediaPreview)
+  /contacts        (ContactCard, ContactDetails)
+  /team            (AgentCard, AgentStatus)
+  /layout          (Sidebar, Topbar, ThreePanelLayout)
+
+/lib
+  /whatsapp        (send, receive, templates, signature-verify)
+  /google          (oauth, contacts-sync)
+  /prisma          (client singleton — usar export unico, nao instanciar diretamente)
+  /auth            (helpers de sessao e verificacao de papel)
+  /encryption      (AES-256 para tokens sensiveis)
+  /logger          (wrapper de log estruturado)
+
+/hooks
+  useConversations.ts
+  useMessages.ts
+  useContacts.ts
+  useTeam.ts
+  useLabels.ts
+
+/store
+  conversationStore.ts
+  uiStore.ts
+
+/prisma
+  schema.prisma
+  seed.ts
+```
+
+### Modelo de dados (Prisma schema completo)
+
+```prisma
+model Workspace {
+  id            String         @id @default(cuid())
+  name          String
+  logo          String?
+  timezone      String         @default("America/Sao_Paulo")
+  users         User[]
+  channels      Channel[]
+  labels        Label[]
+  conversations Conversation[]
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  passwordHash  String
+  avatar        String?
+  role          Role           @default(AGENT)
+  status        AgentStatus    @default(OFFLINE)
+  maxChats      Int            @default(5)
+  department    String?
+  workspaceId   String
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id])
+  conversations Conversation[]
+  createdAt     DateTime       @default(now())
+}
+
+model Channel {
+  id            String         @id @default(cuid())
+  type          ChannelType
+  name          String
+  phoneNumberId String?
+  accessToken   String
+  webhookToken  String
+  status        ChannelStatus  @default(CONNECTED)
+  workspaceId   String
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id])
+  conversations Conversation[]
+}
+
+model Contact {
+  id            String         @id @default(cuid())
+  name          String
+  phone         String?
+  email         String?
+  avatar        String?
+  googleId      String?
+  notes         String?
+  workspaceId   String
+  conversations Conversation[]
+  createdAt     DateTime       @default(now())
+}
+
+model Conversation {
+  id            String              @id @default(cuid())
+  status        ConvStatus          @default(OPEN)
+  contactId     String
+  contact       Contact             @relation(fields: [contactId], references: [id])
+  assigneeId    String?
+  assignee      User?               @relation(fields: [assigneeId], references: [id])
+  channelId     String
+  channel       Channel             @relation(fields: [channelId], references: [id])
+  workspaceId   String
+  labels        ConversationLabel[]
+  messages      Message[]
+  lastMessageAt DateTime?
+  createdAt     DateTime            @default(now())
+}
+
+model Message {
+  id             String        @id @default(cuid())
+  waMessageId    String?
+  content        String?
+  type           MessageType
+  mediaUrl       String?
+  status         MessageStatus @default(SENT)
+  direction      Direction
+  senderId       String?
+  conversationId String
+  conversation   Conversation  @relation(fields: [conversationId], references: [id])
+  createdAt      DateTime      @default(now())
+}
+
+model Label {
+  id            String              @id @default(cuid())
+  name          String
+  color         String
+  workspaceId   String
+  workspace     Workspace           @relation(fields: [workspaceId], references: [id])
+  conversations ConversationLabel[]
+}
+
+model ConversationLabel {
+  conversationId String
+  labelId        String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  label          Label        @relation(fields: [labelId], references: [id])
+  @@id([conversationId, labelId])
+}
+
+enum Role          { ADMIN SUPERVISOR AGENT }
+enum AgentStatus   { ONLINE AWAY BUSY OFFLINE }
+enum ChannelType   { WHATSAPP INSTAGRAM }
+enum ChannelStatus { CONNECTED DISCONNECTED ERROR }
+enum ConvStatus    { OPEN IN_PROGRESS RESOLVED ARCHIVED }
+enum MessageType   { TEXT IMAGE AUDIO VIDEO DOCUMENT STICKER LOCATION TEMPLATE }
+enum MessageStatus { SENT DELIVERED READ FAILED }
+enum Direction     { INBOUND OUTBOUND }
+```
