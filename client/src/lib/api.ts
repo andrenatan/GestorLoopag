@@ -46,24 +46,6 @@ export const api = {
   createUser: (user: any) => apiRequest("/api/users", "POST", user),
   updateUser: (id: number, user: any) => apiRequest(`/api/users/${id}`, "PUT", user),
 
-  // WhatsApp
-  getWhatsappInstances: () => apiRequest("/api/whatsapp/instances", "GET").then(res => res.json()),
-  createWhatsappInstance: (instance: any) => apiRequest("/api/whatsapp/instances", "POST", instance),
-  updateWhatsappInstance: (id: number, instance: any) => apiRequest(`/api/whatsapp/instances/${id}`, "PUT", instance),
-  deleteWhatsappInstance: (id: number) => apiRequest(`/api/whatsapp/instances/${id}`, "DELETE"),
-  connectWhatsappInstance: (id: number) => apiRequest(`/api/whatsapp/instances/${id}/connect`, "POST", {}),
-  refreshWhatsappStatus: (id: number) => apiRequest(`/api/whatsapp/instances/${id}/status`, "GET").then(res => res.json()),
-
-  // Templates
-  getMessageTemplates: () => apiRequest("/api/templates", "GET").then(res => res.json()),
-  createMessageTemplate: (template: any) => apiRequest("/api/templates", "POST", template),
-  updateMessageTemplate: (id: number, template: any) => apiRequest(`/api/templates/${id}`, "PUT", template),
-
-  // Billing
-  getBillingHistory: () => apiRequest("/api/billing/history", "GET").then(res => res.json()),
-  sendBillingMessages: (data: { clientIds: number[]; templateId: number; instanceId: number }) => 
-    apiRequest("/api/billing/send", "POST", data),
-
   // Systems
   getSystems: () => apiRequest("/api/systems", "GET").then(res => res.json()),
 };

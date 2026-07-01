@@ -7,16 +7,12 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   LayoutDashboard,
   Users,
-  CreditCard,
   Trophy,
   UserCheck,
-  MessageCircle,
   Menu,
   Zap,
   Server,
-  FileText,
   LogOut,
-  Smartphone,
   ChevronDown,
   ListFilter,
   Tag,
@@ -45,19 +41,8 @@ const sidebarItems: NavItemEx[] = [
       { title: "Sistemas", href: "/systems", icon: Server },
     ],
   },
-  { title: "Cobranças", href: "/billing", icon: CreditCard },
-  { title: "Templates", href: "/templates", icon: FileText },
   { title: "Rankings", href: "/rankings", icon: Trophy },
   { title: "Funcionários", href: "/employees", icon: UserCheck, ownerOnly: true },
-  {
-    title: "WhatsApp",
-    href: "/whatsapp",
-    icon: MessageCircle,
-    children: [
-      { title: "Conectar WhatsApp", href: "/whatsapp/connect", icon: Smartphone },
-      { title: "Criar Templates", href: "/whatsapp/templates", icon: FileText },
-    ],
-  },
 ];
 
 interface SidebarProps {
@@ -70,12 +55,10 @@ export function Sidebar({ className }: SidebarProps) {
   const { logout, user, isOwner } = useAuth();
   const visibleItems = sidebarItems.filter((it) => !it.ownerOnly || isOwner);
 
-  const isWhatsAppActive = location === "/whatsapp" || location.startsWith("/whatsapp/");
   const isClientsActive = location === "/clients" || location.startsWith("/clients/") || location === "/systems" || location.startsWith("/systems/");
 
   const [openItems, setOpenItems] = useState<Set<string>>(() => {
     const initial = new Set<string>();
-    if (isWhatsAppActive) initial.add("/whatsapp");
     if (isClientsActive) initial.add("/clients");
     return initial;
   });

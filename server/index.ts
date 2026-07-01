@@ -2,7 +2,6 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./scheduler";
-import { baileysManager } from "./baileys-manager";
 import postgres from "postgres";
 import { unifySystemsForAllOwners } from "../scripts/migrate-unify-systems";
 import { normalizeClientSystems } from "../scripts/normalize-client-systems";
@@ -95,11 +94,8 @@ app.use((req, res, next) => {
     const n8nVars = Object.keys(process.env).filter(k => k.includes("N8N"));
     console.log(`[Startup] Env vars containing "N8N": ${n8nVars.length > 0 ? n8nVars.join(", ") : "NONE FOUND"}`);
     
-    // Start automation scheduler
+    // Start scheduler (marks expired clients as inactive)
     startScheduler();
-    
-    // Restore any existing Baileys sessions from disk
-    baileysManager.restoreExistingSessions().catch(console.error);
 
     // One-shot migration: unify systems "X - IPTV" / "X - P2P" into "X" (idempotent)
     (async () => {

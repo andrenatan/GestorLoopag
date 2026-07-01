@@ -1,15 +1,11 @@
 import { 
-  plans, users, employees, systems, clients, whatsappInstances, messageTemplates, billingHistory, paymentHistory, automationConfigs, clientPlans,
+  plans, users, employees, systems, clients, paymentHistory, clientPlans,
   type Plan, type InsertPlan,
   type User, type InsertUser,
   type Employee, type InsertEmployee,
   type System, type InsertSystem,
   type Client, type InsertClient,
-  type WhatsappInstance, type InsertWhatsappInstance,
-  type MessageTemplate, type InsertMessageTemplate,
-  type BillingHistory, type InsertBillingHistory,
   type PaymentHistory, type InsertPaymentHistory,
-  type AutomationConfig, type InsertAutomationConfig,
   type ClientPlan, type InsertClientPlan,
 } from "@shared/schema";
 import { getBrasiliaDate, getBrasiliaDateString, getBrasiliaStartOfDay, parseDateString } from "./utils/timezone";
@@ -57,26 +53,6 @@ export interface IStorage {
   getExpiringClients(authUserId: string, days: number): Promise<Client[]>;
   getOverdueClients(authUserId: string): Promise<Client[]>;
   getReferralRankings(authUserId: string, days?: number): Promise<{ client: Client; referralCount: number }[]>;
-
-  // WhatsApp Instances
-  getAllWhatsappInstances(authUserId: string): Promise<WhatsappInstance[]>;
-  getWhatsappInstance(authUserId: string, id: number): Promise<WhatsappInstance | undefined>;
-  createWhatsappInstance(authUserId: string, instance: InsertWhatsappInstance): Promise<WhatsappInstance>;
-  updateWhatsappInstance(authUserId: string, id: number, instance: Partial<InsertWhatsappInstance>): Promise<WhatsappInstance | undefined>;
-  deleteWhatsappInstance(authUserId: string, id: number): Promise<boolean>;
-
-  // Message Templates
-  getAllMessageTemplates(authUserId: string, type?: "baileys" | "official"): Promise<MessageTemplate[]>;
-  getMessageTemplate(authUserId: string, id: number): Promise<MessageTemplate | undefined>;
-  createMessageTemplate(authUserId: string, template: InsertMessageTemplate): Promise<MessageTemplate>;
-  updateMessageTemplate(authUserId: string, id: number, template: Partial<InsertMessageTemplate>): Promise<MessageTemplate | undefined>;
-  deleteMessageTemplate(authUserId: string, id: number): Promise<boolean>;
-
-  // Billing History
-  getAllBillingHistory(authUserId: string): Promise<BillingHistory[]>;
-  getBillingHistory(authUserId: string, clientId: number): Promise<BillingHistory[]>;
-  createBillingHistory(authUserId: string, billing: InsertBillingHistory): Promise<BillingHistory>;
-  updateBillingHistory(authUserId: string, id: number, billing: Partial<InsertBillingHistory>): Promise<BillingHistory | undefined>;
 
   // Payment History
   getAllPaymentHistory(authUserId: string): Promise<PaymentHistory[]>;
@@ -130,19 +106,7 @@ export interface IStorage {
   getActiveClientsBySystem(authUserId: string, month: string): Promise<{ system: string; count: number }[]>;
   getActiveClientsByState(authUserId: string, month: string): Promise<{ state: string; count: number }[]>;
 
-  // Automation Configs
-  getAllAutomationConfigs(authUserId: string): Promise<AutomationConfig[]>;
-  getAutomationConfig(authUserId: string, automationType: string): Promise<AutomationConfig | undefined>;
-  createAutomationConfig(authUserId: string, config: InsertAutomationConfig): Promise<AutomationConfig>;
-  updateAutomationConfig(authUserId: string, automationType: string, config: Partial<InsertAutomationConfig> & { lastRunAt?: Date | null }): Promise<AutomationConfig | undefined>;
-
-  // Client counting for automations
-  getClientsExpiringInDays(authUserId: string, days: number): Promise<Client[]>;
-  getClientsExpiredForDays(authUserId: string, days: number): Promise<Client[]>;
-  getClientsActiveForDays(authUserId: string, days: number): Promise<Client[]>;
-  
   // Scheduler helpers
-  getAllUsersWithActiveAutomations(): Promise<string[]>;
   getAllActiveUsers(): Promise<User[]>;
 
   // Stripe subscription methods
@@ -390,107 +354,6 @@ export class DbStorage implements IStorage {
       .sort((a, b) => b.referralCount - a.referralCount);
   }
 
-  // WhatsApp Instances
-  async getAllWhatsappInstances(authUserId: string): Promise<WhatsappInstance[]> {
-    return await db.select().from(whatsappInstances).where(eq(whatsappInstances.authUserId, authUserId));
-  }
-
-  async getWhatsappInstance(authUserId: string, id: number): Promise<WhatsappInstance | undefined> {
-    const result = await db.select().from(whatsappInstances)
-      .where(and(eq(whatsappInstances.id, id), eq(whatsappInstances.authUserId, authUserId)))
-      .limit(1);
-    return result[0];
-  }
-
-  async createWhatsappInstance(authUserId: string, insertInstance: InsertWhatsappInstance): Promise<WhatsappInstance> {
-    const result = await db.insert(whatsappInstances).values({ ...insertInstance, authUserId }).returning();
-    return result[0];
-  }
-
-  async updateWhatsappInstance(authUserId: string, id: number, updateData: Partial<InsertWhatsappInstance>): Promise<WhatsappInstance | undefined> {
-    const result = await db.update(whatsappInstances)
-      .set(updateData)
-      .where(and(eq(whatsappInstances.id, id), eq(whatsappInstances.authUserId, authUserId)))
-      .returning();
-    return result[0];
-  }
-
-  async deleteWhatsappInstance(authUserId: string, id: number): Promise<boolean> {
-    // First, update all automation configs that reference this instance to null
-    await db
-      .update(automationConfigs)
-      .set({ whatsappInstanceId: null })
-      .where(and(eq(automationConfigs.whatsappInstanceId, id), eq(automationConfigs.authUserId, authUserId)));
-    
-    // Then delete the instance
-    const result = await db.delete(whatsappInstances)
-      .where(and(eq(whatsappInstances.id, id), eq(whatsappInstances.authUserId, authUserId)))
-      .returning();
-    return result.length > 0;
-  }
-
-  // Message Templates
-  async getAllMessageTemplates(authUserId: string, type?: "baileys" | "official"): Promise<MessageTemplate[]> {
-    if (type) {
-      return await db.select().from(messageTemplates)
-        .where(and(eq(messageTemplates.authUserId, authUserId), eq(messageTemplates.type, type)));
-    }
-    return await db.select().from(messageTemplates).where(eq(messageTemplates.authUserId, authUserId));
-  }
-
-  async getMessageTemplate(authUserId: string, id: number): Promise<MessageTemplate | undefined> {
-    const result = await db.select().from(messageTemplates)
-      .where(and(eq(messageTemplates.id, id), eq(messageTemplates.authUserId, authUserId)))
-      .limit(1);
-    return result[0];
-  }
-
-  async createMessageTemplate(authUserId: string, insertTemplate: InsertMessageTemplate): Promise<MessageTemplate> {
-    const result = await db.insert(messageTemplates).values({ ...insertTemplate, authUserId }).returning();
-    return result[0];
-  }
-
-  async updateMessageTemplate(authUserId: string, id: number, updateData: Partial<InsertMessageTemplate>): Promise<MessageTemplate | undefined> {
-    const result = await db.update(messageTemplates)
-      .set(updateData)
-      .where(and(eq(messageTemplates.id, id), eq(messageTemplates.authUserId, authUserId)))
-      .returning();
-    return result[0];
-  }
-
-  async deleteMessageTemplate(authUserId: string, id: number): Promise<boolean> {
-    const result = await db.delete(messageTemplates)
-      .where(and(eq(messageTemplates.id, id), eq(messageTemplates.authUserId, authUserId)))
-      .returning();
-    return result.length > 0;
-  }
-
-  // Billing History
-  async getAllBillingHistory(authUserId: string): Promise<BillingHistory[]> {
-    return await db.select().from(billingHistory)
-      .where(eq(billingHistory.authUserId, authUserId))
-      .orderBy(desc(billingHistory.createdAt));
-  }
-
-  async getBillingHistory(authUserId: string, clientId: number): Promise<BillingHistory[]> {
-    return await db.select().from(billingHistory)
-      .where(and(eq(billingHistory.clientId, clientId), eq(billingHistory.authUserId, authUserId)))
-      .orderBy(desc(billingHistory.createdAt));
-  }
-
-  async createBillingHistory(authUserId: string, insertBilling: InsertBillingHistory): Promise<BillingHistory> {
-    const result = await db.insert(billingHistory).values({ ...insertBilling, authUserId }).returning();
-    return result[0];
-  }
-
-  async updateBillingHistory(authUserId: string, id: number, updateData: Partial<InsertBillingHistory>): Promise<BillingHistory | undefined> {
-    const result = await db.update(billingHistory)
-      .set(updateData)
-      .where(and(eq(billingHistory.id, id), eq(billingHistory.authUserId, authUserId)))
-      .returning();
-    return result[0];
-  }
-
   // Payment History
   async getAllPaymentHistory(authUserId: string): Promise<PaymentHistory[]> {
     return await db.select().from(paymentHistory)
@@ -615,7 +478,6 @@ export class DbStorage implements IStorage {
     revenueTomorrow: number;
   }> {
     const allClients = await db.select().from(clients).where(eq(clients.authUserId, authUserId));
-    const allBilling = await db.select().from(billingHistory).where(eq(billingHistory.authUserId, authUserId));
     
     // Use Brasília timezone (GMT-3) for all date calculations
     const today = getBrasiliaStartOfDay();
@@ -682,9 +544,7 @@ export class DbStorage implements IStorage {
       }
     });
     
-    const billingSentToday = allBilling.filter(b => 
-      b.createdAt.toISOString().split('T')[0] === todayStr
-    ).length;
+    const billingSentToday = 0;
     
     const newClientsToday = allClients.filter(c => c.activationDate === todayStr).length;
     const newClientsThisWeek = allClients.filter(c => c.activationDate >= weekStartStr && c.activationDate <= todayStr).length;
@@ -944,85 +804,7 @@ export class DbStorage implements IStorage {
     }
   }
 
-  // Automation Configs
-  async getAllAutomationConfigs(authUserId: string): Promise<AutomationConfig[]> {
-    return await db.select().from(automationConfigs).where(eq(automationConfigs.authUserId, authUserId));
-  }
-
-  async getAutomationConfig(authUserId: string, automationType: string): Promise<AutomationConfig | undefined> {
-    const result = await db.select().from(automationConfigs)
-      .where(and(eq(automationConfigs.automationType, automationType), eq(automationConfigs.authUserId, authUserId)))
-      .limit(1);
-    return result[0];
-  }
-
-  async createAutomationConfig(authUserId: string, insertConfig: InsertAutomationConfig): Promise<AutomationConfig> {
-    const result = await db.insert(automationConfigs).values({ ...insertConfig, authUserId }).returning();
-    return result[0];
-  }
-
-  async updateAutomationConfig(authUserId: string, automationType: string, updateConfig: Partial<InsertAutomationConfig> & { lastRunAt?: Date | null }): Promise<AutomationConfig | undefined> {
-    const result = await db.update(automationConfigs)
-      .set(updateConfig)
-      .where(and(eq(automationConfigs.automationType, automationType), eq(automationConfigs.authUserId, authUserId)))
-      .returning();
-    return result[0];
-  }
-
-  // Client counting for automations
-  async getClientsExpiringInDays(authUserId: string, days: number): Promise<Client[]> {
-    const allClients = await db.select().from(clients).where(eq(clients.authUserId, authUserId));
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const targetDate = new Date(today);
-    targetDate.setDate(today.getDate() + days);
-    
-    return allClients.filter(client => {
-      const [year, month, day] = client.expiryDate.split('-').map(Number);
-      const expiryDate = new Date(year, month - 1, day);
-      return expiryDate.getTime() === targetDate.getTime();
-    });
-  }
-
-  async getClientsExpiredForDays(authUserId: string, days: number): Promise<Client[]> {
-    const allClients = await db.select().from(clients).where(eq(clients.authUserId, authUserId));
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const targetDate = new Date(today);
-    targetDate.setDate(today.getDate() - days);
-    
-    return allClients.filter(client => {
-      const [year, month, day] = client.expiryDate.split('-').map(Number);
-      const expiryDate = new Date(year, month - 1, day);
-      return expiryDate.getTime() === targetDate.getTime();
-    });
-  }
-
-  async getClientsActiveForDays(authUserId: string, days: number): Promise<Client[]> {
-    const allClients = await db.select().from(clients).where(eq(clients.authUserId, authUserId));
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const targetDate = new Date(today);
-    targetDate.setDate(today.getDate() - days);
-    
-    return allClients.filter(client => {
-      const [year, month, day] = client.activationDate.split('-').map(Number);
-      const activationDate = new Date(year, month - 1, day);
-      return activationDate.getTime() === targetDate.getTime();
-    });
-  }
-  
   // Scheduler helpers
-  async getAllUsersWithActiveAutomations(): Promise<string[]> {
-    const configs = await db.select().from(automationConfigs).where(eq(automationConfigs.isActive, true));
-    const authUserIdSet = new Set<string>();
-    configs.forEach(c => authUserIdSet.add(c.authUserId));
-    return Array.from(authUserIdSet);
-  }
-  
   async getAllActiveUsers(): Promise<User[]> {
     // Return all users that have an authUserId (are registered users)
     return await db.select().from(users).where(sql`${users.authUserId} IS NOT NULL`);

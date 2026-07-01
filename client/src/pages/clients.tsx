@@ -12,19 +12,17 @@ import {
   Search,
   X,
   Edit2,
-  MessageCircle,
   Trash2,
   ArrowLeft,
   RefreshCw,
   FileText,
   User,
-  Send,
   ChevronLeft,
   ChevronRight,
   Gift,
   PlusCircle,
 } from "lucide-react";
-import type { Client, MessageTemplate, ClientPlan } from "@shared/schema";
+import type { Client, ClientPlan } from "@shared/schema";
 import { getBrasiliaStartOfDay, parseDateString } from "@/lib/timezone";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -100,13 +98,11 @@ export default function Clients() {
   const [giftClient, setGiftClient] = useState<Client | undefined>();
   const [addonClient, setAddonClient] = useState<Client | undefined>();
   const [giftDate, setGiftDate] = useState<string>("");
-  const [giftTemplateId, setGiftTemplateId] = useState<string>("");
 
   const [renewClient, setRenewClient] = useState<Client | undefined>();
   const [renewPlanName, setRenewPlanName] = useState<string>("");
   const [renewPlanValue, setRenewPlanValue] = useState<string>("");
   const [renewDate, setRenewDate] = useState<string>("");
-  const [renewTemplateId, setRenewTemplateId] = useState<string>("");
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -168,10 +164,6 @@ export default function Clients() {
     onError: () => toast({ title: "Erro ao excluir cliente.", variant: "destructive" }),
   });
 
-  const { data: messageTemplates = [] } = useQuery<MessageTemplate[]>({
-    queryKey: ["/api/templates"],
-  });
-
   const { data: clientPlansList = [] } = useQuery<ClientPlan[]>({
     queryKey: ["/api/client-plans"],
   });
@@ -204,7 +196,6 @@ export default function Clients() {
     setRenewPlanName(client.plan || "");
     setRenewPlanValue(client.value || "");
     setRenewDate(newDate);
-    setRenewTemplateId("");
   }
 
   function handleRenewPlanChange(planName: string) {
@@ -258,7 +249,6 @@ export default function Clients() {
     expiry.setMonth(expiry.getMonth() + 1);
     const newDate = expiry.toISOString().split("T")[0];
     setGiftDate(newDate);
-    setGiftTemplateId("");
     setGiftClient(client);
   }
 
@@ -712,9 +702,6 @@ export default function Clients() {
                         <ActionBtn title="Perfil" onClick={() => {}}>
                           <User className="w-3.5 h-3.5" />
                         </ActionBtn>
-                        <ActionBtn title="WhatsApp" onClick={() => {}}>
-                          <Send className="w-3.5 h-3.5" />
-                        </ActionBtn>
                         <ActionBtn title="Mês Gratuito" onClick={() => openGiftModal(client)}>
                           <Gift className="w-3.5 h-3.5" />
                         </ActionBtn>
@@ -789,24 +776,6 @@ export default function Clients() {
             {/* ── Body ── */}
             <div className="bg-[#0a1929] px-6 py-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-
-                {/* Mensagem */}
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1.5 font-medium">Mensagem</label>
-                  <select
-                    value={renewTemplateId}
-                    onChange={(e) => setRenewTemplateId(e.target.value)}
-                    className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-teal-500"
-                  >
-                    <option value="">Prestes a Vencer</option>
-                    {messageTemplates.map((t) => (
-                      <option key={t.id} value={String(t.id)}>{t.title}</option>
-                    ))}
-                  </select>
-                  <p className="text-slate-500 text-[11px] mt-1 leading-tight">
-                    Se deseja enviar uma confirmação de renovação, escolha uma mensagem
-                  </p>
-                </div>
 
                 {/* Fatura */}
                 <div>
@@ -902,22 +871,6 @@ export default function Clients() {
                 className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500"
               />
             </div>
-
-            {messageTemplates.length > 0 && (
-              <div>
-                <label className="text-xs text-slate-400 block mb-1.5">Template de mensagem (opcional)</label>
-                <select
-                  value={giftTemplateId}
-                  onChange={(e) => setGiftTemplateId(e.target.value)}
-                  className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="">Nenhum template</option>
-                  {messageTemplates.map((t) => (
-                    <option key={t.id} value={String(t.id)}>{t.title}</option>
-                  ))}
-                </select>
-              </div>
-            )}
 
             <p className="text-slate-500 text-xs bg-[#1a2d42]/50 border border-[#1a2d42] rounded-lg px-3 py-2">
               O mês gratuito estende o vencimento sem gerar cobrança ou histórico de pagamento.

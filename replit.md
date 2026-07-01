@@ -4,24 +4,31 @@
 
 Loopag is a comprehensive IPTV subscription management system built with modern web technologies. The application features a futuristic glassmorphism design with dual theme support (dark/light mode), real-time dashboard analytics, client management, billing automation, WhatsApp integration, and employee management capabilities.
 
-## WhatsApp Baileys Integration (March 2026)
+## WhatsApp / Templates / Billing Removal (July 2026)
 
-### Architecture
-- **`server/baileys-manager.ts`**: Singleton class managing one Baileys WebSocket connection per `authUserId`. Persists auth state to `./baileys_auth/<authUserId>/` for session resume on restart.
-- **New API routes** in `server/routes.ts`:
-  - `POST /api/baileys/connect` — starts connection, emits QR code events
-  - `GET /api/baileys/status` — returns `{ status, qrCode, phoneNumber }`
-  - `POST /api/baileys/disconnect` — logs out and wipes auth files
-  - `POST /api/baileys/send` — sends text message to a phone number
-- **Frontend pages**:
-  - `/whatsapp/connect` (`client/src/pages/whatsapp-connect.tsx`) — QR code display with 2.5s polling, auto-detects connected state
-  - `/whatsapp/templates` (`client/src/pages/whatsapp-templates.tsx`) — template editor with 9 variable buttons ({{nome}}, {{vencimento}}, etc.) and live preview
-- **Sidebar**: WhatsApp item is now expandable with "Conectar" and "Templates" subitems; auto-expands when on a WhatsApp route.
-- **QR Code flow**: Baileys emits raw QR string → `qrcode.toDataURL()` converts to PNG data URL → stored in memory → polled by frontend every 2.5s.
-- **Session persistence**: Uses `useMultiFileAuthState` from Baileys; session files survive server restarts. Reconnects automatically on non-logout disconnects.
+The legacy Baileys/QR WhatsApp integration, the message Templates system, and the
+old Cobranças/Automações (billing + automation) pages were **completely removed**.
 
-### Template Variables
-Templates use `{{variable}}` syntax. Available: `{{nome}}`, `{{numero_cliente}}`, `{{telefone}}`, `{{plano}}`, `{{valor}}`, `{{vencimento}}`, `{{usuario}}`, `{{senha}}`, `{{sistema}}`.
+**What was removed:**
+- Files: `server/baileys-manager.ts`, `baileys_auth/`, and the frontend pages
+  `whatsapp-connect.tsx`, `whatsapp-templates.tsx`, `whatsapp.tsx`, `templates.tsx`,
+  `billing.tsx` plus `client/src/components/whatsapp/`.
+- Schema tables (Drizzle definitions): `whatsappInstances`, `messageTemplates`,
+  `billingHistory`, `automationConfigs` and their insert schemas/types.
+- API routes: all `/api/whatsapp/*`, `/api/baileys/*`, `/api/templates/*`,
+  `/api/billing/*`, `/api/automation-configs/*`, and the test-automation trigger.
+- Scheduler: automation webhook logic dropped. The scheduler now **only** marks
+  expired clients as `Inativa` (`updateExpiredClientsStatus`).
+- Dependencies: `@whiskeysockets/baileys`, `qrcode`, `@types/qrcode` uninstalled.
+
+**What was preserved (unchanged):** client CRUD, revenue tracking via
+`payment_history`, dashboard analytics, and the expiry-marking scheduler.
+
+**Note:** The underlying database tables (`whatsapp_instances`, `message_templates`,
+`billing_history`, `automation_configs`) were intentionally **left in the database**
+(not dropped) to avoid irreversible data loss; they are simply no longer referenced
+by the app. A future rebuild with the official WhatsApp Business API + CRM is planned
+but out of scope for this change.
 
 ## Recent Critical Fixes
 
@@ -127,7 +134,7 @@ Preferred communication style: Simple, everyday language.
 - **Complete Data Isolation**: Each user sees only their own data across all entities
 - **Tenant Scoping**: All multi-tenant tables include `auth_user_id` foreign key to users.authUserId
 - **Automatic Filtering**: Storage layer enforces tenant-scoped queries on all operations
-- **Multi-Tenant Tables**: clients, employees, systems, whatsapp_instances, message_templates, billing_history, payment_history, automation_configs
+- **Multi-Tenant Tables**: clients, employees, systems, payment_history
 - **Global Tables**: plans (shared subscription tiers for all tenants)
 - **Security**: JWT-based authentication required for all protected endpoints, owner-only access verification
 
@@ -146,11 +153,7 @@ Preferred communication style: Simple, everyday language.
 - **Clients**: IPTV subscriber management with auth_user_id scoping
 - **Employees**: Staff management with auth_user_id scoping
 - **Systems**: Available systems per tenant with auth_user_id scoping
-- **WhatsApp Instances**: Messaging integration with auth_user_id scoping
-- **Message Templates**: Customizable templates with auth_user_id scoping
-- **Billing History**: Transaction tracking with auth_user_id scoping
 - **Payment History**: Revenue tracking with auth_user_id scoping
-- **Automation Configs**: Automation settings with auth_user_id scoping
 
 ### 2. Dashboard
 - Real-time metrics with animated cards

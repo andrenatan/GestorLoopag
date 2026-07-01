@@ -511,7 +511,7 @@ export default function Employees() {
                         Acesso ao sistema
                       </h4>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Habilite para criar um login. O funcionário verá Clientes, Sistemas, Cobranças, Templates, Rankings e WhatsApp — não verá Dashboard nem Funcionários.
+                        Habilite para criar um login. O funcionário verá Clientes, Sistemas e Rankings — não verá Dashboard nem Funcionários.
                       </p>
                     </div>
                     <FormField

@@ -1,5 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
-import { useEffect } from "react";
+import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -13,13 +12,9 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Clients from "@/pages/clients";
 import Systems from "@/pages/systems";
-import Billing from "@/pages/billing";
 import Rankings from "@/pages/rankings";
 import Employees from "@/pages/employees";
 import Users from "@/pages/users";
-import Templates from "@/pages/templates";
-import WhatsAppConnect from "@/pages/whatsapp-connect";
-import WhatsAppTemplates from "@/pages/whatsapp-templates";
 import Landing from "@/pages/landing";
 import Sales from "@/pages/sales";
 import Plans from "@/pages/plans";
@@ -35,14 +30,6 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
       </main>
     </div>
   );
-}
-
-function WhatsAppRedirect() {
-  const [, navigate] = useLocation();
-  useEffect(() => {
-    navigate("/whatsapp/connect", { replace: true });
-  }, []);
-  return null;
 }
 
 function Router() {
@@ -104,14 +91,6 @@ function Router() {
         </ProtectedRoute>
       </Route>
 
-      <Route path="/billing">
-        <ProtectedRoute>
-          <DashboardLayout>
-            <Billing />
-          </DashboardLayout>
-        </ProtectedRoute>
-      </Route>
-
       <Route path="/rankings">
         <ProtectedRoute>
           <DashboardLayout>
@@ -137,39 +116,6 @@ function Router() {
               <Users />
             </DashboardLayout>
           </RequireOwner>
-        </ProtectedRoute>
-      </Route>
-
-      <Route path="/templates">
-        <ProtectedRoute>
-          <DashboardLayout>
-            <Templates />
-          </DashboardLayout>
-        </ProtectedRoute>
-      </Route>
-
-      {/* WhatsApp – redirect base path to /connect */}
-      <Route path="/whatsapp">
-        <ProtectedRoute>
-          <DashboardLayout>
-            <WhatsAppRedirect />
-          </DashboardLayout>
-        </ProtectedRoute>
-      </Route>
-
-      <Route path="/whatsapp/connect">
-        <ProtectedRoute>
-          <DashboardLayout>
-            <WhatsAppConnect />
-          </DashboardLayout>
-        </ProtectedRoute>
-      </Route>
-
-      <Route path="/whatsapp/templates">
-        <ProtectedRoute>
-          <DashboardLayout>
-            <WhatsAppTemplates />
-          </DashboardLayout>
         </ProtectedRoute>
       </Route>
 

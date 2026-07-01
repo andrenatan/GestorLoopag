@@ -98,50 +98,6 @@ export const clients = pgTable("clients", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// WhatsApp instances table
-export const whatsappInstances = pgTable("whatsapp_instances", {
-  id: serial("id").primaryKey(),
-  authUserId: uuid("auth_user_id").notNull().references(() => users.authUserId),
-  name: text("name").notNull(),
-  instanceId: text("instance_id").unique(),
-  qrCode: text("qr_code"),
-  status: text("status", {
-    enum: ["disconnected", "connecting", "connected"]
-  }).notNull().default("disconnected"),
-  webhookUrl: text("webhook_url"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
-
-// Message templates table
-export const messageTemplates = pgTable("message_templates", {
-  id: serial("id").primaryKey(),
-  authUserId: uuid("auth_user_id").notNull().references(() => users.authUserId),
-  title: text("title").notNull(),
-  content: text("content").notNull(),
-  imageUrl: text("image_url"),
-  isActive: boolean("is_active").notNull().default(true),
-  type: text("type", { enum: ["baileys", "official"] }).notNull().default("baileys"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
-
-// Billing history table
-export const billingHistory = pgTable("billing_history", {
-  id: serial("id").primaryKey(),
-  authUserId: uuid("auth_user_id").notNull().references(() => users.authUserId),
-  clientId: integer("client_id").notNull().references(() => clients.id),
-  instanceId: integer("instance_id").notNull().references(() => whatsappInstances.id),
-  templateId: integer("template_id").notNull().references(() => messageTemplates.id),
-  message: text("message").notNull(),
-  status: text("status", {
-    enum: ["sent", "failed", "pending"]
-  }).notNull().default("pending"),
-  sentAt: timestamp("sent_at"),
-  errorMessage: text("error_message"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
-
 // Payment history table - tracks actual revenue from new clients and renewals
 export const paymentHistory = pgTable("payment_history", {
   id: serial("id").primaryKey(),
@@ -168,29 +124,6 @@ export const clientPlans = pgTable("client_plans", {
   durationQuantity: integer("duration_quantity").notNull().default(1),
   description: text("description"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
-
-// Automation configurations table
-export const automationConfigs = pgTable("automation_configs", {
-  id: serial("id").primaryKey(),
-  authUserId: uuid("auth_user_id").notNull().references(() => users.authUserId),
-  automationType: text("automation_type", {
-    enum: ["cobrancas", "reativacao", "novosClientes"]
-  }).notNull(),
-  isActive: boolean("is_active").notNull().default(false),
-  scheduledTime: text("scheduled_time").notNull(),
-  whatsappInstanceId: integer("whatsapp_instance_id").references(() => whatsappInstances.id),
-  subItems: jsonb("sub_items").$type<Array<{
-    id: string;
-    name: string;
-    active: boolean;
-    templateId: number | null;
-    clientCount: number;
-  }>>().notNull().default([]),
-  webhookUrl: text("webhook_url").notNull(),
-  lastRunAt: timestamp("last_run_at"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Insert schemas
@@ -226,38 +159,10 @@ export const insertClientSchema = createInsertSchema(clients).omit({
   updatedAt: true,
 });
 
-export const insertWhatsappInstanceSchema = createInsertSchema(whatsappInstances).omit({
-  id: true,
-  authUserId: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).omit({
-  id: true,
-  authUserId: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertBillingHistorySchema = createInsertSchema(billingHistory).omit({
-  id: true,
-  authUserId: true,
-  createdAt: true,
-});
-
 export const insertPaymentHistorySchema = createInsertSchema(paymentHistory).omit({
   id: true,
   authUserId: true,
   createdAt: true,
-});
-
-export const insertAutomationConfigSchema = createInsertSchema(automationConfigs).omit({
-  id: true,
-  authUserId: true,
-  createdAt: true,
-  updatedAt: true,
-  lastRunAt: true,
 });
 
 export const insertClientPlanSchema = createInsertSchema(clientPlans).omit({
@@ -282,20 +187,9 @@ export type InsertSystem = z.infer<typeof insertSystemSchema>;
 export type Client = typeof clients.$inferSelect;
 export type InsertClient = z.infer<typeof insertClientSchema>;
 
-export type WhatsappInstance = typeof whatsappInstances.$inferSelect;
-export type InsertWhatsappInstance = z.infer<typeof insertWhatsappInstanceSchema>;
-
-export type MessageTemplate = typeof messageTemplates.$inferSelect;
-export type InsertMessageTemplate = z.infer<typeof insertMessageTemplateSchema>;
-
-export type BillingHistory = typeof billingHistory.$inferSelect;
-export type InsertBillingHistory = z.infer<typeof insertBillingHistorySchema>;
-
 export type PaymentHistory = typeof paymentHistory.$inferSelect;
 export type InsertPaymentHistory = z.infer<typeof insertPaymentHistorySchema>;
 
-export type AutomationConfig = typeof automationConfigs.$inferSelect;
-export type InsertAutomationConfig = z.infer<typeof insertAutomationConfigSchema>;
 
 export type ClientPlan = typeof clientPlans.$inferSelect;
 export type InsertClientPlan = z.infer<typeof insertClientPlanSchema>;
