@@ -20,6 +20,15 @@ import Sales from "@/pages/sales";
 import Plans from "@/pages/plans";
 import Success from "@/pages/success";
 import ClientPlans from "@/pages/client-plans";
+import Apps from "@/pages/apps";
+import ManualRenewals from "@/pages/manual-renewals";
+import FinancialOverview from "@/pages/financial-overview";
+import FinancialReports from "@/pages/financial-reports";
+import CrmConnection from "@/pages/crm-connection";
+import Crm from "@/pages/crm";
+import CrmAutomations from "@/pages/crm-automations";
+import CrmTemplates from "@/pages/crm-templates";
+import CrmTemplateNew from "@/pages/crm-template-new";
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -91,6 +100,42 @@ function Router() {
         </ProtectedRoute>
       </Route>
 
+      <Route path="/apps">
+        <ProtectedRoute>
+          <DashboardLayout>
+            <Apps />
+          </DashboardLayout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/manual-renewals">
+        <ProtectedRoute>
+          <DashboardLayout>
+            <ManualRenewals />
+          </DashboardLayout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/financeiro">
+        <ProtectedRoute>
+          <RequireOwner>
+            <DashboardLayout>
+              <FinancialOverview />
+            </DashboardLayout>
+          </RequireOwner>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/financeiro/relatorios">
+        <ProtectedRoute>
+          <RequireOwner>
+            <DashboardLayout>
+              <FinancialReports />
+            </DashboardLayout>
+          </RequireOwner>
+        </ProtectedRoute>
+      </Route>
+
       <Route path="/rankings">
         <ProtectedRoute>
           <DashboardLayout>
@@ -114,6 +159,56 @@ function Router() {
           <RequireOwner>
             <DashboardLayout>
               <Users />
+            </DashboardLayout>
+          </RequireOwner>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/crm">
+        <ProtectedRoute>
+          <RequireOwner>
+            <DashboardLayout>
+              <Crm />
+            </DashboardLayout>
+          </RequireOwner>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/crm/automations">
+        <ProtectedRoute>
+          <RequireOwner>
+            <DashboardLayout>
+              <CrmAutomations />
+            </DashboardLayout>
+          </RequireOwner>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/crm/templates/new">
+        <ProtectedRoute>
+          <RequireOwner>
+            <DashboardLayout>
+              <CrmTemplateNew />
+            </DashboardLayout>
+          </RequireOwner>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/crm/templates">
+        <ProtectedRoute>
+          <RequireOwner>
+            <DashboardLayout>
+              <CrmTemplates />
+            </DashboardLayout>
+          </RequireOwner>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/crm/connection">
+        <ProtectedRoute>
+          <RequireOwner>
+            <DashboardLayout>
+              <CrmConnection />
             </DashboardLayout>
           </RequireOwner>
         </ProtectedRoute>

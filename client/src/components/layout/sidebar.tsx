@@ -16,6 +16,13 @@ import {
   ChevronDown,
   ListFilter,
   Tag,
+  MessageCircle,
+  Link2,
+  FileText,
+  Smartphone,
+  CalendarClock,
+  Wallet,
+  BarChart3,
 } from "lucide-react";
 
 interface NavItem {
@@ -39,10 +46,34 @@ const sidebarItems: NavItemEx[] = [
       { title: "Listar/Criar", href: "/clients", icon: ListFilter },
       { title: "Planos", href: "/clients/plans", icon: Tag },
       { title: "Sistemas", href: "/systems", icon: Server },
+      { title: "Aplicativos", href: "/apps", icon: Smartphone },
+      { title: "Renovações Manuais", href: "/manual-renewals", icon: CalendarClock },
     ],
   },
   { title: "Rankings", href: "/rankings", icon: Trophy },
   { title: "Funcionários", href: "/employees", icon: UserCheck, ownerOnly: true },
+  {
+    title: "Financeiro",
+    href: "/financeiro",
+    icon: Wallet,
+    ownerOnly: true,
+    children: [
+      { title: "Visão Geral", href: "/financeiro", icon: ListFilter },
+      { title: "Relatórios", href: "/financeiro/relatorios", icon: BarChart3 },
+    ],
+  },
+  {
+    title: "CRM WhatsApp",
+    href: "/crm",
+    icon: MessageCircle,
+    ownerOnly: true,
+    children: [
+      { title: "Conversas", href: "/crm", icon: MessageCircle },
+      { title: "Automações", href: "/crm/automations", icon: Zap },
+      { title: "Templates", href: "/crm/templates", icon: FileText },
+      { title: "Conexão", href: "/crm/connection", icon: Link2 },
+    ],
+  },
 ];
 
 interface SidebarProps {
@@ -55,7 +86,7 @@ export function Sidebar({ className }: SidebarProps) {
   const { logout, user, isOwner } = useAuth();
   const visibleItems = sidebarItems.filter((it) => !it.ownerOnly || isOwner);
 
-  const isClientsActive = location === "/clients" || location.startsWith("/clients/") || location === "/systems" || location.startsWith("/systems/");
+  const isClientsActive = location === "/clients" || location.startsWith("/clients/") || location === "/systems" || location.startsWith("/systems/") || location === "/apps" || location.startsWith("/apps/") || location === "/manual-renewals" || location.startsWith("/manual-renewals/");
 
   const [openItems, setOpenItems] = useState<Set<string>>(() => {
     const initial = new Set<string>();
