@@ -12,10 +12,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileSpreadsheet, AlertTriangle, ChevronsUpDown, Check } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertTriangle, ChevronsUpDown, Check, Smartphone, ChevronDown, Plus, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import type { Client, System, ClientPlan } from "@shared/schema";
+import type { Client, System, ClientPlan, App } from "@shared/schema";
 import { getBrasiliaStartOfDay, parseDateString } from "@/lib/timezone";
 
 const FALLBACK_PLANS = [
@@ -230,6 +230,7 @@ const clientFormSchema = z.object({
   paymentStatus: z.enum(["Pago", "Vencido", "A Pagar"]).default("Pago"),
   plan: z.string().min(1, "Plano é obrigatório"),
   value: z.string().min(1, "Valor é obrigatório"),
+  renewalMode: z.enum(["automatic", "manual"]).default("automatic"),
   referralSource: z.string().optional(),
   referredById: z.number().optional(),
   notes: z.string().optional(),
@@ -242,6 +243,19 @@ interface ClientFormProps {
   onSubmit: (data: ClientFormData) => void;
   onCancel: () => void;
   isLoading?: boolean;
+}
+
+interface ClientAppLink {
+  id: number;
+  appId: number;
+  isPrimary: boolean;
+  expiryDate: string | null;
+  appName: string;
+}
+
+interface AdditionalAppRow {
+  appId: string;
+  expiryDate: string;
 }
 
 const paymentMethodOptions = [
@@ -263,6 +277,71 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   const { data: clientPlans = [] } = useQuery<ClientPlan[]>({
     queryKey: ["/api/client-plans"],
   });
+
+  const { data: apps = [], isLoading: appsLoading } = useQuery<App[]>({
+    queryKey: ["/api/apps"],
+  });
+  const activeApps = apps.filter((a) => a.isActive);
+
+  const { data: existingClientApps = [] } = useQuery<ClientAppLink[]>({
+    queryKey: ["/api/clients", initialData?.id, "apps"],
+    queryFn: async () => {
+      const res = await fetch(`/api/clients/${initialData!.id}/apps`, { credentials: "include" });
+      if (!res.ok) throw new Error("Falha ao carregar aplicativos do cliente");
+      return res.json();
+    },
+    enabled: !!initialData?.id,
+  });
+
+  const [appId, setAppId] = useState<string>("");
+  const [appExpiryDate, setAppExpiryDate] = useState<string>("");
+  const [additionalApps, setAdditionalApps] = useState<AdditionalAppRow[]>([]);
+  const [showAdditionalApps, setShowAdditionalApps] = useState(false);
+
+  useEffect(() => {
+    if (existingClientApps.length === 0) return;
+    const primary = existingClientApps.find((c) => c.isPrimary);
+    const extras = existingClientApps.filter((c) => !c.isPrimary);
+    if (primary) {
+      setAppId(String(primary.appId));
+      setAppExpiryDate(primary.expiryDate || "");
+    }
+    if (extras.length > 0) {
+      setAdditionalApps(extras.map((e) => ({ appId: String(e.appId), expiryDate: e.expiryDate || "" })));
+      setShowAdditionalApps(true);
+    }
+  }, [existingClientApps]);
+
+  const addAdditionalAppRow = () => {
+    setAdditionalApps((prev) => [...prev, { appId: "", expiryDate: "" }]);
+  };
+
+  const updateAdditionalAppRow = (index: number, field: keyof AdditionalAppRow, value: string) => {
+    setAdditionalApps((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+  };
+
+  const { data: existingManualPlan } = useQuery<{ renewDay: number } | null>({
+    queryKey: ["/api/clients", initialData?.id, "manual-renewal-plan"],
+    queryFn: async () => {
+      const res = await fetch(`/api/clients/${initialData!.id}/manual-renewal-plan`, { credentials: "include" });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error("Falha ao carregar plano de renovação manual");
+      return res.json();
+    },
+    enabled: !!initialData?.id,
+  });
+
+  const [renewDay, setRenewDay] = useState<string>("");
+
+  useEffect(() => {
+    if (existingManualPlan?.renewDay) {
+      setRenewDay(String(existingManualPlan.renewDay));
+    }
+  }, [existingManualPlan]);
+
+  const removeAdditionalAppRow = (index: number) => {
+    setAdditionalApps((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const planOptions = clientPlans.length > 0
     ? clientPlans.map((p) => ({ name: p.name, value: String(p.value) }))
@@ -304,11 +383,24 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
       paymentStatus: initialData?.paymentStatus || "Pago",
       plan: initialData?.plan || "",
       value: initialData?.value || "",
+      renewalMode: initialData?.renewalMode || "automatic",
       referralSource: initialData?.referralSource || "",
       referredById: initialData?.referredById || undefined,
       notes: initialData?.notes || "",
     },
   });
+
+  const selectedPlanName = form.watch("plan");
+  const renewalModeValue = form.watch("renewalMode");
+  const selectedClientPlan = clientPlans.find((p) => p.name === selectedPlanName);
+  const selectedPlanPeriod =
+    selectedClientPlan?.durationType === "months" && [3, 6, 12].includes(selectedClientPlan.durationQuantity)
+      ? selectedClientPlan.durationQuantity === 3
+        ? "Trimestral"
+        : selectedClientPlan.durationQuantity === 6
+          ? "Semestral"
+          : "Anual"
+      : null;
 
   // Auto-generate username from name and phone
   const handleNameChange = (name: string) => {
@@ -366,14 +458,24 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   };
 
   const handleSubmit = (data: ClientFormData) => {
+    const appsPayload = {
+      appId: appId ? parseInt(appId) : null,
+      appExpiryDate: appId ? (appExpiryDate || null) : null,
+      additionalApps: additionalApps
+        .filter((row) => row.appId)
+        .map((row) => ({ appId: parseInt(row.appId), expiryDate: row.expiryDate || null })),
+      ...(data.renewalMode === "manual" && renewDay ? { renewDay: parseInt(renewDay) } : {}),
+      manualRenewalPlanPeriod: data.renewalMode === "manual" ? selectedPlanPeriod : null,
+    };
+
     // When editing, remove activationDate from the payload
     // activationDate is immutable after creation to preserve historical revenue data
     if (initialData) {
       const { activationDate, ...dataWithoutActivationDate } = data;
       console.log('[ClientForm] Editing client - activationDate removed from payload to preserve revenue history');
-      onSubmit(dataWithoutActivationDate as ClientFormData);
+      onSubmit({ ...dataWithoutActivationDate, ...appsPayload } as unknown as ClientFormData);
     } else {
-      onSubmit(data);
+      onSubmit({ ...data, ...appsPayload } as unknown as ClientFormData);
     }
   };
 
@@ -760,6 +862,51 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                     )}
                   />
                 </div>
+
+                {selectedPlanPeriod && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <FormField
+                      control={form.control}
+                      name="renewalMode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Modo de renovação no servidor
+                            <span className="text-xs text-muted-foreground ml-2">
+                              (plano {selectedPlanPeriod})
+                            </span>
+                          </FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-renewal-mode">
+                                <SelectValue placeholder="Selecione o modo" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="automatic">Automática</SelectItem>
+                              <SelectItem value="manual">Manual</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {renewalModeValue === "manual" && (
+                      <div className="space-y-2">
+                        <FormLabel>Dia de renovação</FormLabel>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={31}
+                          value={renewDay}
+                          onChange={(e) => setRenewDay(e.target.value)}
+                          placeholder="Ex: 15"
+                          data-testid="input-renew-day"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <Separator />
@@ -817,6 +964,106 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                     </FormItem>
                   )}
                 />
+              </div>
+
+              <Separator />
+
+              {/* Aplicativo */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Smartphone className="w-5 h-5 text-primary" />
+                  Aplicativo
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <FormLabel>Aplicativo</FormLabel>
+                    <Select value={appId} onValueChange={setAppId} disabled={appsLoading}>
+                      <SelectTrigger data-testid="select-app">
+                        <SelectValue placeholder={appsLoading ? "Carregando aplicativos..." : "Selecione o aplicativo"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeApps.map((app) => (
+                          <SelectItem key={app.id} value={String(app.id)}>
+                            {app.name}
+                          </SelectItem>
+                        ))}
+                        {activeApps.length === 0 && (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            Nenhum aplicativo ativo encontrado
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <FormLabel>Vencimento do App</FormLabel>
+                    <Input
+                      type="date"
+                      value={appExpiryDate}
+                      onChange={(e) => setAppExpiryDate(e.target.value)}
+                      disabled={!appId}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdditionalApps((v) => !v)}
+                    className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                  >
+                    <ChevronDown className={`w-4 h-4 transition-transform ${showAdditionalApps ? "rotate-180" : ""}`} />
+                    Aplicativos Adicionais (Opcional)
+                  </button>
+
+                  {showAdditionalApps && (
+                    <div className="mt-3 space-y-3">
+                      {additionalApps.map((row, index) => (
+                        <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+                          <div className="space-y-2">
+                            <FormLabel className="text-xs text-muted-foreground">Aplicativo</FormLabel>
+                            <Select
+                              value={row.appId}
+                              onValueChange={(val) => updateAdditionalAppRow(index, "appId", val)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione o aplicativo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {activeApps.map((app) => (
+                                  <SelectItem key={app.id} value={String(app.id)}>
+                                    {app.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <FormLabel className="text-xs text-muted-foreground">Vencimento</FormLabel>
+                            <Input
+                              type="date"
+                              value={row.expiryDate}
+                              onChange={(e) => updateAdditionalAppRow(index, "expiryDate", e.target.value)}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-600"
+                            onClick={() => removeAdditionalAppRow(index)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button type="button" variant="outline" size="sm" onClick={addAdditionalAppRow} className="space-x-2">
+                        <Plus className="w-4 h-4" />
+                        <span>Adicionar Aplicativo</span>
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Form Actions */}
