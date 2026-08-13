@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,6 +8,7 @@ import { ClientForm } from "@/components/clients/client-form";
 import { AddonDialog } from "@/components/clients/addon-dialog";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import {
   Plus,
   Search,
@@ -108,6 +110,28 @@ export default function Clients() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
+
+  const MANUAL_RENEWAL_TAB: Record<string, string> = {
+    Trimestral: "trimestral",
+    Semestral: "semestral",
+    Anual: "anual",
+  };
+
+  const notifyManualRenewal = (data: any) => {
+    if (data?.renewalMode !== "manual" || !data?.manualRenewalPlanPeriod) return;
+    const tab = MANUAL_RENEWAL_TAB[data.manualRenewalPlanPeriod];
+    if (!tab) return;
+    toast({
+      title: "Renovação manual configurada",
+      description: `Este cliente será acompanhado mês a mês em Renovações Manuais (${data.manualRenewalPlanPeriod}).`,
+      action: (
+        <ToastAction altText="Ver na tela de Renovações Manuais" onClick={() => navigate(`/manual-renewals?tab=${tab}`)}>
+          Ver Renovações Manuais
+        </ToastAction>
+      ),
+    });
+  };
 
   const { data: clients = [], isLoading } = useQuery<Client[]>({
     queryKey: ["/api/clients"],
@@ -125,11 +149,12 @@ export default function Clients() {
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.createClient(data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       setShowForm(false);
       setEditingClient(undefined);
       toast({ title: "Cliente cadastrado com sucesso." });
+      notifyManualRenewal(variables);
     },
     onError: () => toast({ title: "Erro ao cadastrar cliente.", variant: "destructive" }),
   });
@@ -150,6 +175,7 @@ export default function Clients() {
       } else {
         toast({ title: "Cliente atualizado com sucesso." });
       }
+      notifyManualRenewal(variables.data);
     },
     onError: () => toast({ title: "Erro ao atualizar cliente.", variant: "destructive" }),
   });
