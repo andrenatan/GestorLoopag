@@ -1,11 +1,14 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { 
-  insertUserSchema, insertEmployeeSchema, insertSystemSchema, insertClientSchema, 
+import {
+  insertUserSchema, insertEmployeeSchema, insertSystemSchema, insertClientSchema,
   insertPaymentHistorySchema, insertPlanSchema, insertClientPlanSchema,
-  type User
+  insertCrmAutomationSchema, insertAppSchema, insertSystemCreditRuleSchema,
+  insertManualFinancialEntrySchema,
+  type User, type Client as ClientRow
 } from "@shared/schema";
+import { runAutomationNow } from "./automation-engine";
 import multer from "multer";
 import { Client } from "@replit/object-storage";
 import bcrypt from "bcryptjs";
@@ -16,6 +19,14 @@ import { sql, eq } from "drizzle-orm";
 import { users } from "@shared/schema";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
+import { randomUUID } from "crypto";
+import {
+  sendWhatsappText,
+  countTemplateVariables,
+  createMetaMessageTemplate,
+  fetchMetaMessageTemplateStatus,
+  deleteMetaMessageTemplate,
+} from "./utils/whatsapp";
 
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
@@ -57,6 +68,31 @@ function requireOwner(req: Request, res: Response, next: NextFunction) {
   }
   next();
 }
+
+function maskPhoneNumber(phone: string | null): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length <= 4) return phone;
+  const visible = digits.slice(-4);
+  return `${"*".repeat(digits.length - 4)}${visible}`;
+}
+
+const manualConnectSchema = z.object({
+  phoneNumberId: z.string().min(1),
+  accessToken: z.string().min(1),
+  verifyToken: z.string().min(1),
+});
+
+const embeddedSignupSchema = z.object({
+  code: z.string().min(1),
+  phoneNumberId: z.string().min(1),
+  wabaId: z.string().optional(),
+});
+
+const crmSendSchema = z.object({
+  phone: z.string().min(1),
+  content: z.string().min(1),
+});
 
 function getDateRange(startDateParam?: string, endDateParam?: string): { startDate: string; endDate: string } {
   const now = new Date();
@@ -192,13 +228,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("[n8n Client Error]:", error.message || error);
-      res.status(400).json({ 
-        message: "Erro ao criar cliente via n8n", 
+      res.status(400).json({
+        message: "Erro ao criar cliente via n8n",
         error: error.message || "Dados inválidos"
       });
     }
   });
-  
+
+  // ============================================
+  // WHATSAPP CLOUD API WEBHOOK (público, registrado antes do middleware de sessão/auth)
+  // ============================================
+  app.get("/api/whatsapp/webhook", async (req: Request, res: Response) => {
+    const mode = req.query["hub.mode"];
+    const token = req.query["hub.verify_token"];
+    const challenge = req.query["hub.challenge"];
+
+    if (mode !== "subscribe" || typeof token !== "string") {
+      return res.sendStatus(403);
+    }
+
+    const globalToken = process.env.WHATSAPP_VERIFY_TOKEN;
+    if (globalToken && token === globalToken) {
+      return res.status(200).send(challenge);
+    }
+
+    const connection = await storage.getWhatsappConnectionByVerifyToken(token);
+    if (connection) {
+      return res.status(200).send(challenge);
+    }
+
+    console.warn("[WhatsApp Webhook] Verification failed: token did not match any known verify_token");
+    return res.sendStatus(403);
+  });
+
+  app.post("/api/whatsapp/webhook", async (req: Request, res: Response) => {
+    // Responde rápido; a Meta reenvia agressivamente em respostas != 200
+    res.sendStatus(200);
+
+    try {
+      const entries = req.body?.entry || [];
+      for (const entry of entries) {
+        for (const change of entry.changes || []) {
+          const value = change.value;
+          if (!value) continue;
+
+          const phoneNumberId = value.metadata?.phone_number_id;
+          if (!phoneNumberId) continue;
+
+          const connection = await storage.getWhatsappConnectionByPhoneNumberId(phoneNumberId);
+          if (!connection) {
+            console.warn(`[WhatsApp Webhook] Nenhuma conexão encontrada para phone_number_id=${phoneNumberId}`);
+            continue;
+          }
+
+          const authUserId = connection.authUserId;
+
+          for (const message of value.messages || []) {
+            const contact = await storage.getCrmContactByPhone(authUserId, message.from);
+            if (!contact) {
+              console.warn(`[WhatsApp Webhook] Nenhum crm_contact para phone=${message.from} (tenant=${authUserId}), mensagem descartada`);
+              continue;
+            }
+
+            const content = message.type === "text"
+              ? (message.text?.body ?? "")
+              : `[mensagem não suportada: ${message.type}]`;
+
+            await storage.createCrmMessage(authUserId, {
+              contactId: contact.id,
+              direction: "inbound",
+              content,
+              status: "received",
+              waMessageId: message.id,
+            });
+            await storage.touchCrmContactLastMessage(authUserId, contact.id, new Date());
+          }
+
+          for (const status of value.statuses || []) {
+            if (status.id && status.status) {
+              await storage.updateCrmMessageStatusByWaId(authUserId, status.id, status.status);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[WhatsApp Webhook Processing Error]:", error);
+    }
+  });
+
   // Supabase config endpoint (anon key is public by design)
   app.get("/api/config/supabase", (req, res) => {
     res.json({
@@ -1211,14 +1328,513 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const id = parseInt(req.params.id);
       const deleted = await storage.deleteSystem(authUserId, id);
-      
+
       if (!deleted) {
         return res.status(404).json({ message: "System not found" });
       }
-      
+
+      res.status(204).send();
+    } catch (error: any) {
+      if (error?.message === "SYSTEM_IN_USE_BY_MANUAL_RENEWAL_PLANS") {
+        return res.status(409).json({ message: "Sistema em uso por planos de renovação manual — não pode ser excluído" });
+      }
+      res.status(500).json({ message: "Failed to delete system" });
+    }
+  });
+
+  // ============================================
+  // WHATSAPP CRM - Connection management (seção 6 do CLAUDE.md)
+  // ============================================
+
+  app.get("/api/whatsapp/connection", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+
+      const connection = await storage.getWhatsappConnection(authUserId);
+      if (!connection) {
+        return res.json({ status: "disconnected" as const });
+      }
+
+      res.json({
+        status: connection.status,
+        connectionType: connection.connectionType,
+        displayPhoneNumber: maskPhoneNumber(connection.displayPhoneNumber),
+        connectedAt: connection.connectedAt,
+      });
+    } catch (error) {
+      console.error("[WhatsApp Connection Error]:", error);
+      res.status(500).json({ message: "Failed to fetch WhatsApp connection" });
+    }
+  });
+
+  app.post("/api/whatsapp/connect/manual", requireOwner, async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+
+      const { phoneNumberId, accessToken, verifyToken } = manualConnectSchema.parse(req.body);
+
+      // Validate the credentials against the Graph API before persisting them
+      const graphRes = await fetch(
+        `https://graph.facebook.com/v21.0/${phoneNumberId}?fields=display_phone_number`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+
+      if (!graphRes.ok) {
+        const errBody = await graphRes.text();
+        console.error("[WhatsApp Manual Connect] Graph API validation failed:", errBody);
+        return res.status(400).json({ message: "Não foi possível validar as credenciais informadas com a Meta" });
+      }
+
+      const graphData = await graphRes.json();
+
+      const connection = await storage.upsertWhatsappConnection(authUserId, {
+        connectionType: "manual",
+        phoneNumberId,
+        accessToken,
+        verifyToken,
+        wabaId: null,
+        displayPhoneNumber: graphData.display_phone_number || null,
+        status: "connected",
+        connectedAt: new Date(),
+      });
+
+      res.json({
+        status: connection.status,
+        connectionType: connection.connectionType,
+        displayPhoneNumber: maskPhoneNumber(connection.displayPhoneNumber),
+        connectedAt: connection.connectedAt,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      console.error("[WhatsApp Manual Connect Error]:", error);
+      res.status(500).json({ message: "Falha ao conectar o WhatsApp" });
+    }
+  });
+
+  app.post("/api/whatsapp/connect/embedded-signup", requireOwner, async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+
+      const { code, phoneNumberId, wabaId } = embeddedSignupSchema.parse(req.body);
+
+      const appId = process.env.WHATSAPP_APP_ID;
+      const appSecret = process.env.WHATSAPP_APP_SECRET;
+      if (!appId || !appSecret) {
+        return res.status(500).json({ message: "WHATSAPP_APP_ID/WHATSAPP_APP_SECRET não configurados no servidor" });
+      }
+
+      // Exchange the Embedded Signup authorization code for a system user access token
+      const tokenRes = await fetch(
+        `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&code=${encodeURIComponent(code)}`
+      );
+
+      if (!tokenRes.ok) {
+        const errBody = await tokenRes.text();
+        console.error("[WhatsApp Embedded Signup] Token exchange failed:", errBody);
+        return res.status(400).json({ message: "Falha ao trocar o código pelo access token na Meta" });
+      }
+
+      const tokenData = await tokenRes.json();
+      const accessToken = tokenData.access_token as string | undefined;
+      if (!accessToken) {
+        return res.status(400).json({ message: "Meta não retornou um access_token válido" });
+      }
+
+      const phoneRes = await fetch(
+        `https://graph.facebook.com/v21.0/${phoneNumberId}?fields=display_phone_number`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const phoneData = phoneRes.ok ? await phoneRes.json() : {};
+
+      const connection = await storage.upsertWhatsappConnection(authUserId, {
+        connectionType: "embedded_signup",
+        phoneNumberId,
+        accessToken,
+        verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || randomUUID(),
+        wabaId: wabaId || null,
+        displayPhoneNumber: phoneData.display_phone_number || null,
+        status: "connected",
+        connectedAt: new Date(),
+      });
+
+      res.json({
+        status: connection.status,
+        connectionType: connection.connectionType,
+        displayPhoneNumber: maskPhoneNumber(connection.displayPhoneNumber),
+        connectedAt: connection.connectedAt,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      console.error("[WhatsApp Embedded Signup Error]:", error);
+      res.status(500).json({ message: "Falha ao concluir o Login Incorporado" });
+    }
+  });
+
+  app.delete("/api/whatsapp/connection", requireOwner, async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+
+      await storage.deleteWhatsappConnection(authUserId);
       res.status(204).send();
     } catch (error) {
-      res.status(500).json({ message: "Failed to delete system" });
+      console.error("[WhatsApp Disconnect Error]:", error);
+      res.status(500).json({ message: "Failed to disconnect WhatsApp" });
+    }
+  });
+
+  app.get("/api/crm/conversations", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+
+      const conversations = await storage.getCrmConversations(authUserId);
+      res.json(conversations);
+    } catch (error) {
+      console.error("[CRM Conversations Error]:", error);
+      res.status(500).json({ message: "Failed to fetch conversations" });
+    }
+  });
+
+  app.get("/api/crm/conversations/:phone/messages", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+
+      const contact = await storage.getCrmContactByPhone(authUserId, req.params.phone);
+      if (!contact) return res.status(404).json({ message: "Contato não encontrado" });
+
+      const messages = await storage.getCrmMessagesByContact(authUserId, contact.id);
+      res.json({ contact, messages });
+    } catch (error) {
+      console.error("[CRM Messages Error]:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  app.post("/api/crm/send", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+
+      const { phone, content } = crmSendSchema.parse(req.body);
+
+      const connection = await storage.getWhatsappConnection(authUserId);
+      if (!connection || connection.status !== "connected") {
+        return res.status(400).json({ message: "Nenhuma conexão de WhatsApp ativa para este tenant" });
+      }
+
+      const contact = await storage.getCrmContactByPhone(authUserId, phone);
+      if (!contact) {
+        return res.status(404).json({ message: "Contato não encontrado" });
+      }
+
+      const result = await sendWhatsappText(connection, contact.phone, content);
+      if (!result.ok) {
+        console.error("[CRM Send Error] Graph API rejeitou a mensagem:", result.error);
+        return res.status(400).json({ message: "Falha ao enviar mensagem via Cloud API" });
+      }
+
+      const message = await storage.createCrmMessage(authUserId, {
+        contactId: contact.id,
+        direction: "outbound",
+        content,
+        status: "sent",
+        waMessageId: result.waMessageId,
+      });
+      await storage.touchCrmContactLastMessage(authUserId, contact.id, new Date());
+
+      res.status(201).json(message);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      console.error("[CRM Send Error]:", error);
+      res.status(500).json({ message: "Falha ao enviar mensagem" });
+    }
+  });
+
+  const runNowSchema = z.object({
+    clientId: z.number().int().optional(),
+  });
+
+  app.get("/api/crm/automations", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+      const automations = await storage.getAllCrmAutomations(authUserId);
+      res.json(automations);
+    } catch (error) {
+      console.error("[CRM Automations Error]:", error);
+      res.status(500).json({ message: "Failed to fetch automations" });
+    }
+  });
+
+  app.post("/api/crm/automations", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+      const validatedData = insertCrmAutomationSchema.parse(req.body);
+
+      const template = await storage.getCrmTemplate(authUserId, validatedData.templateId);
+      if (!template) return res.status(404).json({ message: "Template não encontrado" });
+      if (template.status !== "approved") {
+        return res.status(400).json({ message: "Apenas templates aprovados podem ser usados em automações" });
+      }
+      const mapping = (validatedData.templateVariableMapping as string[]) || [];
+      if (mapping.length !== template.variablesCount) {
+        return res.status(400).json({
+          message: `O template espera ${template.variablesCount} variável(is), mas ${mapping.length} foram informadas`,
+        });
+      }
+
+      const automation = await storage.createCrmAutomation(authUserId, validatedData);
+      res.status(201).json(automation);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      console.error("[CRM Automation Create Error]:", error);
+      res.status(500).json({ message: "Failed to create automation" });
+    }
+  });
+
+  app.put("/api/crm/automations/:id", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+      const id = parseInt(req.params.id);
+      const validatedData = insertCrmAutomationSchema.partial().parse(req.body);
+
+      if (validatedData.templateId !== undefined || validatedData.templateVariableMapping !== undefined) {
+        const existing = await storage.getCrmAutomation(authUserId, id);
+        if (!existing) return res.status(404).json({ message: "Automação não encontrada" });
+
+        const templateId = validatedData.templateId ?? existing.templateId;
+        const mapping = (validatedData.templateVariableMapping ?? existing.templateVariableMapping) as string[];
+
+        const template = await storage.getCrmTemplate(authUserId, templateId);
+        if (!template) return res.status(404).json({ message: "Template não encontrado" });
+        if (template.status !== "approved") {
+          return res.status(400).json({ message: "Apenas templates aprovados podem ser usados em automações" });
+        }
+        if (mapping.length !== template.variablesCount) {
+          return res.status(400).json({
+            message: `O template espera ${template.variablesCount} variável(is), mas ${mapping.length} foram informadas`,
+          });
+        }
+      }
+
+      const automation = await storage.updateCrmAutomation(authUserId, id, validatedData);
+      if (!automation) return res.status(404).json({ message: "Automação não encontrada" });
+      res.json(automation);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      console.error("[CRM Automation Update Error]:", error);
+      res.status(500).json({ message: "Failed to update automation" });
+    }
+  });
+
+  app.delete("/api/crm/automations/:id", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteCrmAutomation(authUserId, id);
+      if (!deleted) return res.status(404).json({ message: "Automação não encontrada" });
+      res.status(204).send();
+    } catch (error) {
+      console.error("[CRM Automation Delete Error]:", error);
+      res.status(500).json({ message: "Failed to delete automation" });
+    }
+  });
+
+  app.post("/api/crm/automations/:id/run-now", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+      const id = parseInt(req.params.id);
+      const { clientId } = runNowSchema.parse(req.body ?? {});
+      const result = await runAutomationNow(authUserId, id, clientId);
+      res.json(result);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      console.error("[CRM Automation Run-Now Error]:", error);
+      res.status(400).json({ message: (error as Error).message || "Falha ao disparar automação" });
+    }
+  });
+
+  app.get("/api/crm/automations/:id/runs", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+      const id = parseInt(req.params.id);
+      const { startDate, endDate, status } = req.query;
+      const runs = await storage.getCrmAutomationRuns(authUserId, id, {
+        startDate: typeof startDate === "string" ? startDate : undefined,
+        endDate: typeof endDate === "string" ? endDate : undefined,
+        status: typeof status === "string" ? status : undefined,
+      });
+      res.json(runs);
+    } catch (error) {
+      console.error("[CRM Automation Runs Error]:", error);
+      res.status(500).json({ message: "Failed to fetch automation runs" });
+    }
+  });
+
+  const templateButtonSchema = z.object({
+    type: z.enum(["QUICK_REPLY", "URL", "PHONE_NUMBER"]),
+    text: z.string().min(1),
+    url: z.string().url().optional(),
+    phoneNumber: z.string().optional(),
+  });
+
+  const createTemplateSchema = z.object({
+    name: z.string().regex(/^[a-z0-9_]+$/, "Use apenas letras minúsculas, números e underscore"),
+    category: z.enum(["utility", "marketing", "authentication"]),
+    language: z.string().min(2).default("pt_BR"),
+    headerText: z.string().max(60).optional(),
+    bodyText: z.string().min(1),
+    footerText: z.string().max(60).optional(),
+    buttons: z.array(templateButtonSchema).max(3).optional(),
+  });
+
+  app.get("/api/crm/templates", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+      const templates = await storage.getAllCrmTemplates(authUserId);
+      res.json(templates);
+    } catch (error) {
+      console.error("[CRM Templates Error]:", error);
+      res.status(500).json({ message: "Failed to fetch templates" });
+    }
+  });
+
+  app.post("/api/crm/templates", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+
+      const validatedData = createTemplateSchema.parse(req.body);
+
+      const existing = await storage.getCrmTemplateByName(authUserId, validatedData.name);
+      if (existing) {
+        return res.status(409).json({ message: "Já existe um template com esse nome" });
+      }
+
+      const connection = await storage.getWhatsappConnection(authUserId);
+      if (!connection || connection.status !== "connected") {
+        return res.status(400).json({ message: "Nenhuma conexão de WhatsApp ativa para este tenant" });
+      }
+      if (!connection.wabaId) {
+        return res.status(400).json({ message: "A conexão atual não tem um WABA ID configurado, necessário para gerenciar templates" });
+      }
+
+      const metaResult = await createMetaMessageTemplate(connection, connection.wabaId, validatedData);
+      if (!metaResult.ok) {
+        console.error("[CRM Template Create Error] Meta rejeitou o template:", metaResult.error);
+        return res.status(400).json({ message: "A Meta rejeitou o template", error: metaResult.error });
+      }
+
+      const template = await storage.createCrmTemplate(authUserId, {
+        metaTemplateId: metaResult.id,
+        name: validatedData.name,
+        category: validatedData.category,
+        language: validatedData.language,
+        status: metaResult.status as "pending" | "approved" | "rejected" | "disabled",
+        headerText: validatedData.headerText ?? null,
+        bodyText: validatedData.bodyText,
+        footerText: validatedData.footerText ?? null,
+        variablesCount: countTemplateVariables(validatedData.bodyText),
+        buttons: validatedData.buttons ?? null,
+        rejectionReason: null,
+      });
+
+      res.status(201).json(template);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      console.error("[CRM Template Create Error]:", error);
+      res.status(500).json({ message: "Falha ao criar template" });
+    }
+  });
+
+  app.post("/api/crm/templates/:id/sync", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+
+      const id = parseInt(req.params.id);
+      const template = await storage.getCrmTemplate(authUserId, id);
+      if (!template) return res.status(404).json({ message: "Template não encontrado" });
+
+      const connection = await storage.getWhatsappConnection(authUserId);
+      if (!connection || !connection.wabaId) {
+        return res.status(400).json({ message: "Conexão de WhatsApp sem WABA ID configurado" });
+      }
+
+      const result = await fetchMetaMessageTemplateStatus(connection, connection.wabaId, template.name);
+      if (!result.ok) {
+        return res.status(400).json({ message: "Falha ao consultar status na Meta", error: result.error });
+      }
+
+      const updated = await storage.updateCrmTemplate(authUserId, id, {
+        status: result.status as "pending" | "approved" | "rejected" | "disabled",
+        rejectionReason: result.rejectionReason,
+        metaTemplateId: result.metaTemplateId ?? template.metaTemplateId,
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("[CRM Template Sync Error]:", error);
+      res.status(500).json({ message: "Falha ao sincronizar status do template" });
+    }
+  });
+
+  app.delete("/api/crm/templates/:id", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
+
+      const id = parseInt(req.params.id);
+      const template = await storage.getCrmTemplate(authUserId, id);
+      if (!template) return res.status(404).json({ message: "Template não encontrado" });
+
+      const automations = await storage.getAllCrmAutomations(authUserId);
+      const inUse = automations.filter((a) => a.templateId === id);
+      if (inUse.length > 0) {
+        return res.status(409).json({
+          message: `Este template está em uso por ${inUse.length} automação(ões). Remova ou edite a automação antes de excluir o template.`,
+          automations: inUse.map((a) => ({ id: a.id, name: a.name })),
+        });
+      }
+
+      const connection = await storage.getWhatsappConnection(authUserId);
+      if (connection?.wabaId) {
+        const result = await deleteMetaMessageTemplate(connection, connection.wabaId, template.name);
+        if (!result.ok && !result.notFound) {
+          return res.status(400).json({ message: "Falha ao remover o template na Meta", error: result.error });
+        }
+      }
+
+      await storage.deleteCrmTemplate(authUserId, id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("[CRM Template Delete Error]:", error);
+      res.status(500).json({ message: "Falha ao excluir template" });
     }
   });
 
@@ -1281,6 +1897,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  const clientAppLinkSchema = z.object({
+    appId: z.number().int().positive(),
+    expiryDate: z.string().nullable().optional(),
+  });
+
+  // Syncs client_apps for a client from optional appId/appExpiryDate (primary)
+  // and additionalApps (array) fields in the request body. No-op if neither
+  // field is present in the payload, so plain client edits that don't touch
+  // apps never clear existing links.
+  async function syncClientAppsFromBody(authUserId: string, clientId: number, body: any) {
+    const hasPrimary = "appId" in body;
+    const hasAdditional = "additionalApps" in body;
+    if (!hasPrimary && !hasAdditional) return;
+
+    const primary = body.appId
+      ? clientAppLinkSchema.parse({ appId: body.appId, expiryDate: body.appExpiryDate ?? null })
+      : null;
+    const additionalRaw = Array.isArray(body.additionalApps) ? body.additionalApps : [];
+    const additional = additionalRaw.map((item: any) => clientAppLinkSchema.parse(item));
+
+    await storage.setClientApps(authUserId, clientId, primary, additional);
+  }
+
+  // Syncs the manual renewal plan for a client based on its (already-persisted)
+  // renewalMode: creates a plan on first switch to 'manual' (using body.renewDay),
+  // closes any active plan on switch back to 'automatic'. Never regenerates an
+  // already-active plan, so plain edits to other fields don't duplicate it.
+  async function syncManualRenewalFromBody(authUserId: string, client: ClientRow, body: any) {
+    const existing = await storage.getActiveManualRenewalPlanForClient(authUserId, client.id);
+
+    if (client.renewalMode === "manual") {
+      if (existing) return;
+      const renewDayRaw = body.renewDay;
+      const renewDay = typeof renewDayRaw === "number" ? renewDayRaw : parseInt(renewDayRaw, 10);
+      if (!Number.isInteger(renewDay) || renewDay < 1 || renewDay > 31) return;
+      await storage.createManualRenewalPlanForClient(authUserId, client, renewDay);
+    } else if (existing) {
+      await storage.closeManualRenewalPlan(authUserId, existing.id);
+    }
+  }
+
   app.post("/api/clients", async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
@@ -1290,7 +1947,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = insertClientSchema.parse(req.body);
       const client = await storage.createClient(authUserId, validatedData);
-      
+
       // Register initial payment in payment_history
       await storage.createPaymentHistory(authUserId, {
         authUserId,
@@ -1301,7 +1958,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newExpiryDate: validatedData.expiryDate,
         previousExpiryDate: null
       });
-      
+
+      await syncClientAppsFromBody(authUserId, client.id, req.body);
+      await syncManualRenewalFromBody(authUserId, client, req.body);
+
       res.status(201).json(client);
     } catch (error: any) {
       console.error("[POST /api/clients] Error:", error);
@@ -1381,12 +2041,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Client not found" });
       }
       
-      // Update client
-      const client = await storage.updateClient(authUserId, id, validatedData);
+      // Update client (skip the no-op update call when the payload only carries
+      // app-linking fields, since Drizzle's .set({}) on an empty object errors)
+      const client = Object.keys(validatedData).length > 0
+        ? await storage.updateClient(authUserId, id, validatedData)
+        : oldClient;
       if (!client) {
         return res.status(404).json({ message: "Client not found" });
       }
-      
+
+      await syncClientAppsFromBody(authUserId, client.id, req.body);
+      await syncManualRenewalFromBody(authUserId, client, req.body);
+
       // Check if expiryDate changed (renewal detected)
       // freeMonth=true skips payment history creation (goodwill gesture, invisible to billing)
       // isRenewal=true is REQUIRED to create a payment_history record — plain edits never trigger it
@@ -1761,8 +2427,339 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!deleted) return res.status(404).json({ message: "Plano não encontrado" });
       res.json({ message: "Plano excluído com sucesso" });
     } catch (error: any) {
+      if (error?.message === "CLIENT_PLAN_IN_USE_BY_MANUAL_RENEWAL_PLANS") {
+        return res.status(409).json({ message: "Plano em uso por renovações manuais — não pode ser excluído" });
+      }
       console.error("[ClientPlans DELETE]:", error);
       res.status(500).json({ message: "Erro ao excluir plano" });
+    }
+  });
+
+  // ============================================
+  // APPS ROUTES (IPTV client apps catalog)
+  // ============================================
+
+  app.get("/api/apps", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const allApps = await storage.getAllApps(authUserId);
+      res.json(allApps);
+    } catch (error) {
+      console.error("[Apps GET]:", error);
+      res.status(500).json({ message: "Erro ao buscar aplicativos" });
+    }
+  });
+
+  app.post("/api/apps", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const data = insertAppSchema.parse(req.body);
+      const app = await storage.createApp(authUserId, data);
+      res.status(201).json(app);
+    } catch (error: any) {
+      console.error("[Apps POST]:", error);
+      res.status(400).json({ message: error.message || "Erro ao criar aplicativo" });
+    }
+  });
+
+  app.put("/api/apps/:id", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      const updateData = insertAppSchema.partial().parse(req.body);
+      const app = await storage.updateApp(authUserId, id, updateData);
+      if (!app) return res.status(404).json({ message: "Aplicativo não encontrado" });
+      res.json(app);
+    } catch (error: any) {
+      console.error("[Apps PUT]:", error);
+      res.status(400).json({ message: error.message || "Erro ao atualizar aplicativo" });
+    }
+  });
+
+  app.delete("/api/apps/:id", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      const deleted = await storage.deleteApp(authUserId, id);
+      if (!deleted) return res.status(404).json({ message: "Aplicativo não encontrado" });
+      res.json({ message: "Aplicativo excluído com sucesso" });
+    } catch (error: any) {
+      console.error("[Apps DELETE]:", error);
+      res.status(500).json({ message: "Erro ao excluir aplicativo" });
+    }
+  });
+
+  app.patch("/api/apps/:id/toggle-status", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      const app = await storage.toggleAppStatus(authUserId, id);
+      if (!app) return res.status(404).json({ message: "Aplicativo não encontrado" });
+      res.json(app);
+    } catch (error: any) {
+      console.error("[Apps Toggle Status]:", error);
+      res.status(500).json({ message: "Erro ao alterar status do aplicativo" });
+    }
+  });
+
+  app.get("/api/clients/:id/manual-renewal-plan", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const clientId = parseInt(req.params.id);
+      if (isNaN(clientId)) return res.status(400).json({ message: "ID inválido" });
+      const plan = await storage.getActiveManualRenewalPlanForClient(authUserId, clientId);
+      if (!plan) return res.status(404).json({ message: "Nenhum plano de renovação manual ativo" });
+      res.json(plan);
+    } catch (error) {
+      console.error("[Manual Renewal Plan GET]:", error);
+      res.status(500).json({ message: "Erro ao buscar plano de renovação manual" });
+    }
+  });
+
+  app.get("/api/clients/:id/apps", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const clientId = parseInt(req.params.id);
+      if (isNaN(clientId)) return res.status(400).json({ message: "ID inválido" });
+      const links = await storage.getClientApps(authUserId, clientId);
+      res.json(links);
+    } catch (error) {
+      console.error("[Client Apps GET]:", error);
+      res.status(500).json({ message: "Erro ao buscar aplicativos do cliente" });
+    }
+  });
+
+  // ============================================
+  // SYSTEM CREDIT RULES ROUTES
+  // ============================================
+
+  app.get("/api/systems/:systemId/credit-rules", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const systemId = parseInt(req.params.systemId);
+      if (isNaN(systemId)) return res.status(400).json({ message: "ID inválido" });
+      const rules = await storage.getSystemCreditRules(authUserId, systemId);
+      res.json(rules);
+    } catch (error) {
+      console.error("[Credit Rules GET]:", error);
+      res.status(500).json({ message: "Erro ao buscar regras de crédito" });
+    }
+  });
+
+  app.post("/api/systems/:systemId/credit-rules", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const systemId = parseInt(req.params.systemId);
+      if (isNaN(systemId)) return res.status(400).json({ message: "ID inválido" });
+      const data = insertSystemCreditRuleSchema.parse({ ...req.body, systemId });
+      const rule = await storage.createSystemCreditRule(authUserId, data);
+      res.status(201).json(rule);
+    } catch (error: any) {
+      console.error("[Credit Rules POST]:", error);
+      res.status(400).json({ message: error.message || "Erro ao criar regra de crédito" });
+    }
+  });
+
+  app.put("/api/credit-rules/:id", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      const data = insertSystemCreditRuleSchema.partial().parse(req.body);
+      const rule = await storage.updateSystemCreditRule(authUserId, id, data);
+      if (!rule) return res.status(404).json({ message: "Regra não encontrada" });
+      res.json(rule);
+    } catch (error: any) {
+      console.error("[Credit Rules PUT]:", error);
+      res.status(400).json({ message: error.message || "Erro ao atualizar regra de crédito" });
+    }
+  });
+
+  app.delete("/api/credit-rules/:id", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      const deleted = await storage.deleteSystemCreditRule(authUserId, id);
+      if (!deleted) return res.status(404).json({ message: "Regra não encontrada" });
+      res.json({ message: "Regra excluída com sucesso" });
+    } catch (error) {
+      console.error("[Credit Rules DELETE]:", error);
+      res.status(500).json({ message: "Erro ao excluir regra de crédito" });
+    }
+  });
+
+  // ============================================
+  // MANUAL RENEWALS ROUTES
+  // ============================================
+
+  app.get("/api/manual-renewals", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const period = req.query.period as string;
+      if (!["trimestral", "semestral", "anual"].includes(period)) {
+        return res.status(400).json({ message: "period deve ser trimestral, semestral ou anual" });
+      }
+      const plans = await storage.getManualRenewalPlans(authUserId, period as "trimestral" | "semestral" | "anual");
+      res.json(plans);
+    } catch (error) {
+      console.error("[Manual Renewals GET]:", error);
+      res.status(500).json({ message: "Erro ao buscar renovações manuais" });
+    }
+  });
+
+  app.patch("/api/manual-renewals/:planId/installments/:monthNumber/toggle", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const planId = parseInt(req.params.planId);
+      const monthNumber = parseInt(req.params.monthNumber);
+      if (isNaN(planId) || isNaN(monthNumber)) return res.status(400).json({ message: "Parâmetros inválidos" });
+      const result = await storage.toggleManualRenewalInstallment(authUserId, planId, monthNumber);
+      if (!result) return res.status(404).json({ message: "Parcela não encontrada" });
+      res.json(result);
+    } catch (error) {
+      console.error("[Manual Renewals Toggle]:", error);
+      res.status(500).json({ message: "Erro ao alternar parcela" });
+    }
+  });
+
+  // ============================================
+  // FINANCIAL ROUTES (Financeiro > Visão Geral)
+  // ============================================
+
+  app.get("/api/financial/summary", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate e endDate são obrigatórios" });
+      }
+      const summary = await storage.getFinancialSummary(authUserId, startDate, endDate);
+      res.json(summary);
+    } catch (error) {
+      console.error("[Financial Summary]:", error);
+      res.status(500).json({ message: "Erro ao buscar resumo financeiro" });
+    }
+  });
+
+  app.get("/api/financial/projections", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const projections = await storage.getFinancialProjections(authUserId);
+      res.json(projections);
+    } catch (error) {
+      console.error("[Financial Projections]:", error);
+      res.status(500).json({ message: "Erro ao calcular projeções" });
+    }
+  });
+
+  app.get("/api/financial/movements", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+      const type = req.query.type as "entrada" | "saida" | undefined;
+      const productId = req.query.productId ? parseInt(req.query.productId as string) : undefined;
+      const search = (req.query.search as string | undefined) || undefined;
+      const page = req.query.page ? Math.max(1, parseInt(req.query.page as string)) : 1;
+      const limit = req.query.limit ? Math.max(1, parseInt(req.query.limit as string)) : 10;
+
+      const result = await storage.getFinancialMovements(authUserId, {
+        startDate, endDate, type, productId, search, page, limit,
+      });
+      res.json(result);
+    } catch (error) {
+      console.error("[Financial Movements GET]:", error);
+      res.status(500).json({ message: "Erro ao buscar movimentações" });
+    }
+  });
+
+  app.post("/api/financial/movements", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const data = insertManualFinancialEntrySchema.parse(req.body);
+      const entry = await storage.createManualFinancialEntry(authUserId, data);
+      res.status(201).json(entry);
+    } catch (error: any) {
+      console.error("[Financial Movements POST]:", error);
+      res.status(400).json({ message: error.message || "Erro ao lançar movimentação" });
+    }
+  });
+
+  app.put("/api/financial/movements/:id", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      const data = insertManualFinancialEntrySchema.partial().parse(req.body);
+      const entry = await storage.updateManualFinancialEntry(authUserId, id, data);
+      if (!entry) return res.status(404).json({ message: "Lançamento não encontrado" });
+      res.json(entry);
+    } catch (error: any) {
+      console.error("[Financial Movements PUT]:", error);
+      res.status(400).json({ message: error.message || "Erro ao atualizar movimentação" });
+    }
+  });
+
+  // Must be registered before the generic "/:id" DELETE route below, otherwise
+  // Express would match "bulk" as an :id value.
+  app.delete("/api/financial/movements/bulk", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const bulkDeleteSchema = z.object({
+        items: z.array(z.object({
+          id: z.number().int(),
+          source: z.enum(["payment", "credit", "manual"]),
+        })).min(1, "Selecione ao menos um item"),
+      });
+      const { items } = bulkDeleteSchema.parse(req.body);
+      const deletedCount = await storage.bulkDeleteFinancialMovements(authUserId, items);
+      res.json({ deletedCount });
+    } catch (error: any) {
+      console.error("[Financial Movements Bulk Delete]:", error);
+      res.status(400).json({ message: error.message || "Erro ao excluir movimentações" });
+    }
+  });
+
+  app.delete("/api/financial/movements/:id", async (req, res) => {
+    try {
+      const authUserId = req.effectiveAuthUserId;
+      if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
+      const id = parseInt(req.params.id);
+      const source = req.query.source as string;
+      if (isNaN(id) || !["payment", "credit", "manual"].includes(source)) {
+        return res.status(400).json({ message: "Parâmetros inválidos" });
+      }
+      const deleted = await storage.deleteFinancialMovement(authUserId, id, source as "payment" | "credit" | "manual");
+      if (!deleted) return res.status(404).json({ message: "Movimentação não encontrada" });
+      res.json({ message: "Movimentação excluída com sucesso" });
+    } catch (error) {
+      console.error("[Financial Movements DELETE]:", error);
+      res.status(500).json({ message: "Erro ao excluir movimentação" });
     }
   });
 
