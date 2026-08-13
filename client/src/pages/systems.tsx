@@ -10,34 +10,183 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { 
-  Plus, 
-  Search, 
+import {
+  Plus,
+  Search,
   Edit2,
   Trash2,
-  Server
+  Server,
+  Users,
+  Coins,
 } from "lucide-react";
-import type { System } from "@shared/schema";
+import type { System, ClientPlan, SystemCreditRule } from "@shared/schema";
+
+type SystemWithCount = System & { clientCount: number };
+type CreditRule = SystemCreditRule & { clientPlanName: string };
+
+function formatCurrency(val: string | number | null | undefined) {
+  if (val === null || val === undefined || val === "") return null;
+  const n = typeof val === "string" ? parseFloat(val) : val;
+  return isNaN(n) ? null : n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function CreditRulesSection({ systemId }: { systemId: number }) {
+  const { toast } = useToast();
+  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [creditsConsumed, setCreditsConsumed] = useState("");
+
+  const { data: clientPlans = [] } = useQuery<ClientPlan[]>({
+    queryKey: ["/api/client-plans"],
+  });
+
+  const { data: rules = [], isLoading } = useQuery<CreditRule[]>({
+    queryKey: ["/api/systems", systemId, "credit-rules"],
+    queryFn: async () => {
+      const res = await apiRequest(`/api/systems/${systemId}/credit-rules`, "GET");
+      return res.json();
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: { clientPlanId: number; creditsConsumed: number }) =>
+      apiRequest(`/api/systems/${systemId}/credit-rules`, "POST", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/systems", systemId, "credit-rules"] });
+      setSelectedPlanId("");
+      setCreditsConsumed("");
+      toast({ title: "Regra de crédito adicionada" });
+    },
+    onError: (e: any) => toast({ title: e?.message || "Erro ao adicionar regra", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, creditsConsumed }: { id: number; creditsConsumed: number }) =>
+      apiRequest(`/api/credit-rules/${id}`, "PUT", { creditsConsumed }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/systems", systemId, "credit-rules"] });
+      toast({ title: "Regra de crédito atualizada" });
+    },
+    onError: () => toast({ title: "Erro ao atualizar regra", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/credit-rules/${id}`, "DELETE"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/systems", systemId, "credit-rules"] });
+      toast({ title: "Regra de crédito removida" });
+    },
+    onError: () => toast({ title: "Erro ao remover regra", variant: "destructive" }),
+  });
+
+  const availablePlans = clientPlans.filter((p) => !rules.some((r) => r.clientPlanId === p.id));
+
+  const handleAdd = () => {
+    const planId = parseInt(selectedPlanId);
+    const credits = parseInt(creditsConsumed);
+    if (!planId || !credits || credits < 1) {
+      toast({ title: "Selecione um plano e informe os créditos", variant: "destructive" });
+      return;
+    }
+    createMutation.mutate({ clientPlanId: planId, creditsConsumed: credits });
+  };
+
+  return (
+    <div className="space-y-3 pt-2">
+      <Label className="flex items-center gap-2">
+        <Coins className="w-4 h-4" />
+        Regras de crédito por plano
+      </Label>
+      <p className="text-xs text-muted-foreground">
+        Define quantos créditos uma renovação completa deste sistema consome, por plano de cliente.
+      </p>
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Carregando regras...</p>
+      ) : (
+        <div className="space-y-2">
+          {rules.map((rule) => (
+            <div key={rule.id} className="flex items-center gap-2">
+              <span className="flex-1 text-sm">{rule.clientPlanName}</span>
+              <Input
+                type="number"
+                min={1}
+                className="w-28"
+                defaultValue={rule.creditsConsumed}
+                onBlur={(e) => {
+                  const value = parseInt(e.target.value);
+                  if (value && value !== rule.creditsConsumed) {
+                    updateMutation.mutate({ id: rule.id, creditsConsumed: value });
+                  }
+                }}
+              />
+              <span className="text-xs text-muted-foreground">créditos</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-red-600"
+                onClick={() => deleteMutation.mutate(rule.id)}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          ))}
+          {rules.length === 0 && (
+            <p className="text-xs text-muted-foreground italic">Nenhuma regra cadastrada para este sistema</p>
+          )}
+        </div>
+      )}
+
+      {availablePlans.length > 0 && (
+        <div className="flex items-center gap-2 pt-1">
+          <select
+            value={selectedPlanId}
+            onChange={(e) => setSelectedPlanId(e.target.value)}
+            className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="">Selecione um plano...</option>
+            {availablePlans.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <Input
+            type="number"
+            min={1}
+            placeholder="Créditos"
+            className="w-28"
+            value={creditsConsumed}
+            onChange={(e) => setCreditsConsumed(e.target.value)}
+          />
+          <Button type="button" variant="outline" size="sm" onClick={handleAdd} disabled={createMutation.isPending}>
+            <Plus className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Systems() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingSystem, setEditingSystem] = useState<System | null>(null);
+  const [editingSystem, setEditingSystem] = useState<SystemWithCount | null>(null);
   const [formData, setFormData] = useState({
     name: "",
+    value: "",
     description: "",
     isActive: true
   });
 
   const { toast } = useToast();
 
-  const { data: systems = [], isLoading } = useQuery<System[]>({
+  const { data: systems = [], isLoading } = useQuery<SystemWithCount[]>({
     queryKey: ["/api/systems"],
   });
 
   const createSystemMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const res = await apiRequest("/api/systems", "POST", data);
+      const payload = { ...data, value: data.value.trim() === "" ? null : data.value };
+      const res = await apiRequest("/api/systems", "POST", payload);
       return res.json();
     },
     onSuccess: () => {
@@ -60,7 +209,8 @@ export default function Systems() {
 
   const updateSystemMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: typeof formData }) => {
-      const res = await apiRequest(`/api/systems/${id}`, "PATCH", data);
+      const payload = { ...data, value: data.value.trim() === "" ? null : data.value };
+      const res = await apiRequest(`/api/systems/${id}`, "PATCH", payload);
       return res.json();
     },
     onSuccess: () => {
@@ -102,7 +252,7 @@ export default function Systems() {
     },
   });
 
-  const filteredSystems = systems.filter((system: System) => {
+  const filteredSystems = systems.filter((system: SystemWithCount) => {
     const matchesSearch = system.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
@@ -110,17 +260,19 @@ export default function Systems() {
   const resetForm = () => {
     setFormData({
       name: "",
+      value: "",
       description: "",
       isActive: true
     });
     setEditingSystem(null);
   };
 
-  const handleOpenDialog = (system?: System) => {
+  const handleOpenDialog = (system?: SystemWithCount) => {
     if (system) {
       setEditingSystem(system);
       setFormData({
         name: system.name,
+        value: system.value ?? "",
         description: system.description || "",
         isActive: system.isActive
       });
@@ -191,6 +343,23 @@ export default function Systems() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="value">Valor</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+                    <Input
+                      id="value"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.value}
+                      onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                      placeholder="0,00"
+                      className="pl-9"
+                      data-testid="input-system-value"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="description">Descrição</Label>
                   <Textarea
                     id="description"
@@ -201,6 +370,7 @@ export default function Systems() {
                     data-testid="input-system-description"
                   />
                 </div>
+                {editingSystem && <CreditRulesSection systemId={editingSystem.id} />}
               </div>
               <DialogFooter>
                 <Button 
@@ -249,13 +419,15 @@ export default function Systems() {
               <TableRow>
                 <TableHead>ID</TableHead>
                 <TableHead>Nome</TableHead>
+                <TableHead>Clientes</TableHead>
+                <TableHead>Valor</TableHead>
                 <TableHead>Descrição</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredSystems.map((system: System) => (
+              {filteredSystems.map((system: SystemWithCount) => (
                 <TableRow key={system.id} className="hover:bg-muted/50" data-testid={`row-system-${system.id}`}>
                   <TableCell className="font-mono text-sm">#{system.systemNumber}</TableCell>
                   <TableCell>
@@ -265,6 +437,21 @@ export default function Systems() {
                       </div>
                       <span className="font-medium">{system.name}</span>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="inline-flex items-center gap-1.5 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs font-semibold px-2.5 py-1 rounded-full">
+                      <Users className="w-3 h-3" />
+                      {system.clientCount}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {formatCurrency(system.value) ? (
+                      <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs font-semibold px-2.5 py-1 rounded-full">
+                        {formatCurrency(system.value)}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">-</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {system.description || "-"}
