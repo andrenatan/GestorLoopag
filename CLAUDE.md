@@ -274,51 +274,155 @@ gestor. Sempre usar o tenant efetivo nas queries de negócio.
 
 Módulo novo, reconstruído do zero com a **API Oficial da Meta (WhatsApp Cloud
 API)** — substitui o antigo WhatsApp/Baileys removido. Objetivo: gerenciar
-conversas com leads/clientes direto no painel.
+conversas com leads/clientes direto no painel, com contatos sincronizados
+automaticamente a partir da base de clientes e um motor de automações de
+cobrança/relacionamento interno (sem depender de n8n).
 
 ### Escopo inicial
 
 - Nova página `/crm` no sidebar (ícone de chat), layout de inbox de 2 colunas:
-  lista de conversas à esquerda, histórico + campo de resposta à direita.
+  lista de conversas à esquerda, histórico + campo de resposta à direita
+  (resposta manual do operador).
 - Mensagens recebidas aparecem por polling (~5s). Envio de mensagens de texto.
+- Tela de conexão do WhatsApp com duas abas: Embedded Signup (Meta) e conexão
+  manual via WABA.
+- Motor de automações interno: regras com gatilho por vencimento ou eventos do
+  cliente, processadas por um scheduler, com log de execução.
 - Multi-tenant por `auth_user_id`, como o resto do app.
+
+### Sincronização de contatos (clients -> crm_contacts)
+
+- `crm_contacts` não é preenchida manualmente: é sincronizada automaticamente a
+  partir de `clients` sempre que um cliente é criado, editado (nome, telefone,
+  sistema, username) ou tem o status alterado (ex.: inativado).
+- Cada cliente IPTV corresponde a um `crm_contacts` (mesmo tenant), vinculado
+  por `client_id`. Nome de exibição padronizado:
+  `"#{client_number} - {name} ({system}) - {username}"`.
+- A sincronização é feita na própria camada de storage (`server/storage.ts`),
+  no mesmo fluxo que já cria/atualiza o cliente — não é um job separado.
+- Se o telefone do cliente mudar, o `crm_contacts.phone` correspondente deve ser
+  atualizado (mantendo o histórico de mensagens ligado ao `contact_id`, não ao
+  telefone).
+
+### Conexão do WhatsApp (Embedded Signup ou WABA manual)
+
+- Cada tenant conecta seu próprio número, de duas formas possíveis:
+  - **Embedded Signup da Meta**: fluxo de login incorporado (Facebook Login for
+    Business), que retorna `phone_number_id` e um token de sistema atrelado à
+    WABA do próprio revendedor.
+  - **Conexão manual via WABA**: o usuário digita manualmente
+    `phone_number_id`, `access_token` e `verify_token` (caso já tenha um app
+    Meta configurado por fora).
+- Ambas as formas gravam na mesma tabela `whatsapp_connections` (uma conexão
+  ativa por tenant). A UI decide qual aba usar, mas o resultado final é sempre
+  uma linha nessa tabela.
+- Tokens de acesso (`access_token`) nunca podem ser expostos ao frontend depois
+  de salvos — apenas status de conexão (conectado/desconectado, número
+  mascarado) trafega para o client.
+
+### Motor de automações interno (substitui n8n para este fluxo)
+
+- Regras de automação (`crm_automation_rules`) definem: gatilho, template de
+  mensagem (com variáveis) e filtro de público-alvo.
+- Gatilhos suportados inicialmente:
+  - Dias antes do vencimento (ex.: "3 dias antes de `expiry_date`").
+  - Dias depois do vencimento (ex.: "1 dia depois", cliente vencido/inativado).
+  - Cliente criado (evento único, disparado na criação).
+  - Reativação manual (operador aciona o disparo de uma regra sob demanda para
+    um cliente específico, fora do agendamento automático).
+- Template de mensagem com variáveis (ex.: `{{name}}`, `{{expiry_date}}`,
+  `{{system}}`, `{{value}}`), substituídas a partir dos dados do `client`
+  vinculado ao contato.
+- Filtro de público-alvo por regra: por `system` (um ou mais sistemas/painéis)
+  e/ou por `subscription_status` (Ativa/Inativa/Aguardando/Teste).
+- Processamento: um scheduler interno (mesmo padrão de `server/scheduler.ts`,
+  que já roda a marcação de clientes vencidos) varre as regras ativas
+  periodicamente, encontra os clientes elegíveis do dia e dispara os envios via
+  Cloud API.
+- Cada disparo (sucesso ou falha) gera um registro em `crm_automation_runs`,
+  usado para montar um relatório de envios bem-sucedidos/falhos por regra e por
+  período.
 
 ### Tabelas novas (Drizzle, em `shared/schema.ts`)
 
 ```
-crm_contacts
-  id, auth_user_id, phone, name, last_message_at, created_at
+crm_contacts  (tenant)
+  id, auth_user_id, client_id -> clients.id, phone, display_name,
+  last_message_at, created_at, updated_at
 
-crm_messages
+crm_messages  (tenant)
   id, auth_user_id, contact_id -> crm_contacts.id,
   direction(inbound|outbound), content, status, wa_message_id, created_at
+
+whatsapp_connections  (tenant, uma conexão ativa por auth_user_id)
+  id, auth_user_id, connection_type(embedded_signup|manual),
+  phone_number_id, access_token, verify_token, waba_id, display_phone_number,
+  status(connected|disconnected), created_at, updated_at
+
+crm_automation_rules  (tenant)
+  id, auth_user_id, name, is_active,
+  trigger_type(days_before_expiry|days_after_expiry|client_created|manual),
+  trigger_offset_days, message_template,
+  target_systems(jsonb string[] | null), target_statuses(jsonb string[] | null),
+  created_at, updated_at
+
+crm_automation_runs  (tenant)
+  id, auth_user_id, rule_id -> crm_automation_rules.id,
+  client_id -> clients.id, contact_id -> crm_contacts.id,
+  status(sent|failed), error_message, wa_message_id, executed_at
 ```
 
 ### Endpoints (backend)
 
 ```
-GET  /api/whatsapp/webhook                       # verificação (hub.challenge) da Meta
-POST /api/whatsapp/webhook                        # recebe mensagens/eventos da Meta
-GET  /api/crm/conversations                       # lista conversas do tenant
-GET  /api/crm/conversations/:phone/messages       # histórico de uma conversa
-POST /api/crm/send                                # envia texto via Cloud API
+GET  /api/whatsapp/webhook                        # verificação (hub.challenge) da Meta
+POST /api/whatsapp/webhook                         # recebe mensagens/eventos da Meta
+
+GET  /api/crm/conversations                        # lista conversas do tenant
+GET  /api/crm/conversations/:phone/messages         # histórico de uma conversa
+POST /api/crm/send                                  # envia texto via Cloud API
+
+GET  /api/crm/connection                            # status da conexão do tenant
+POST /api/crm/connection/embedded-signup            # callback/token exchange do Embedded Signup
+POST /api/crm/connection/manual                      # salva conexão manual (WABA)
+DELETE /api/crm/connection                           # desconecta
+
+GET    /api/crm/automation-rules                     # lista regras do tenant
+POST   /api/crm/automation-rules                     # cria regra
+PUT    /api/crm/automation-rules/:id                  # edita regra
+DELETE /api/crm/automation-rules/:id                  # remove regra
+POST   /api/crm/automation-rules/:id/trigger          # dispara manualmente (reativação)
+
+GET  /api/crm/automation-runs                        # relatório de execuções (sucesso/falha)
 ```
 
 ### Regras específicas do CRM
 
-- Validar o `WHATSAPP_VERIFY_TOKEN` no GET do webhook (challenge da Meta).
+- Validar o `WHATSAPP_VERIFY_TOKEN` no GET do webhook (challenge da Meta); se a
+  conexão for manual, usar o `verify_token` salvo em `whatsapp_connections` do
+  tenant correspondente (não uma env var global única).
 - Responder o webhook rápido (HTTP 200) e processar o restante de forma leve;
-  fazer upsert do contato e insert da mensagem ao receber.
-- Diferenciar `messages` (mensagens novas) de `statuses` (delivered/read) no payload
-  do webhook.
+  fazer upsert do contato (via `client_id`, quando aplicável) e insert da
+  mensagem ao receber.
+- Diferenciar `messages` (mensagens novas) de `statuses` (delivered/read) no
+  payload do webhook.
 - Guardar o `id` da mensagem enviada (`messages[0].id`) em `wa_message_id` para
-  rastrear status.
-- Enviar via Cloud API usando `WHATSAPP_PHONE_NUMBER_ID` + `WHATSAPP_ACCESS_TOKEN`.
-- Escopo inicial: apenas texto (mídia, chatbot e múltiplos números ficam para depois).
+  rastrear status, tanto em `crm_messages` quanto em `crm_automation_runs`
+  quando o envio vier de uma automação.
+- Enviar via Cloud API usando `phone_number_id` + `access_token` da
+  `whatsapp_connections` do tenant (não mais variáveis de ambiente globais
+  `WHATSAPP_PHONE_NUMBER_ID`/`WHATSAPP_ACCESS_TOKEN` — essas passam a ser
+  fallback/config de app da Meta, não credencial por tenant).
+- `crm_contacts` é somente-leitura para o usuário final quanto a nome/telefone
+  (esses campos vêm de `clients`); a edição real acontece na tela de clientes.
+- Escopo inicial: apenas texto (mídia e múltiplos números por tenant ficam para
+  depois).
 
 ### Arquivos de referência para implementar
 
 - `shared/schema.ts` (tabelas + schemas + tipos)
-- `server/routes.ts`, `server/storage.ts`
+- `server/routes.ts`, `server/storage.ts` (sincronização client -> crm_contacts
+  entra no mesmo fluxo de create/update de `clients`)
+- `server/scheduler.ts` (padrão a seguir para o novo job de automações)
 - `client/src/pages/` (nova `crm.tsx`), `client/src/App.tsx`,
   `client/src/components/layout/sidebar.tsx`

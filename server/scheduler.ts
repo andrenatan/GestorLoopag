@@ -1,5 +1,6 @@
 import { storage } from "./storage";
 import { getBrasiliaTimeString, getBrasiliaStartOfDay, getBrasiliaDateString, parseDateString } from "./utils/timezone";
+import { processTenantAutomations } from "./automation-engine";
 
 async function updateExpiredClientsStatus(): Promise<void> {
   try {
@@ -44,6 +45,26 @@ async function updateExpiredClientsStatus(): Promise<void> {
   } catch (error) {
     console.error('[Scheduler] Error updating expired clients:', error);
   }
+}
+
+async function processAllCrmAutomations(): Promise<void> {
+  try {
+    const users = await storage.getAllActiveUsers();
+    for (const user of users) {
+      if (!user.authUserId) continue;
+      const result = await processTenantAutomations(user.authUserId);
+      if (result.processed > 0) {
+        console.log(`[Scheduler] CRM automations (${user.authUserId}): processed=${result.processed} sent=${result.sent} failed=${result.failed}`);
+      }
+    }
+  } catch (error) {
+    console.error('[Scheduler] Error processing CRM automations:', error);
+  }
+}
+
+async function runScheduledTasks(): Promise<void> {
+  await updateExpiredClientsStatus();
+  await processAllCrmAutomations();
 }
 
 let schedulerInterval: NodeJS.Timeout | null = null;
@@ -94,7 +115,7 @@ function scheduleNextCheck(): void {
   const delay = calculateNextCheckDelay();
 
   schedulerInterval = setTimeout(async () => {
-    await updateExpiredClientsStatus();
+    await runScheduledTasks();
     scheduleNextCheck(); // Schedule next check after this one completes
   }, delay);
 }
@@ -112,7 +133,7 @@ export function startScheduler(): void {
   // Check if current time matches any scheduled time and run immediately if so
   if (SCHEDULED_TIMES.includes(timeString)) {
     console.log(`[Scheduler] Current time ${timeString} matches scheduled time - running now`);
-    updateExpiredClientsStatus().then(() => {
+    runScheduledTasks().then(() => {
       scheduleNextCheck();
     });
     return;
