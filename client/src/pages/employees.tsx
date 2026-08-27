@@ -8,6 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useForm } from "react-hook-form";
@@ -34,6 +35,42 @@ import {
 } from "lucide-react";
 import type { Employee } from "@shared/schema";
 
+// Mirrors sidebar.tsx's sidebarItems / server/routes.ts's PermissionKey 1:1 —
+// keep all three in sync when adding/removing a protected page.
+const PERMISSION_GROUPS: { title: string; items: { key: string; label: string }[] }[] = [
+  { title: "Dashboard", items: [{ key: "dashboard", label: "Dashboard" }] },
+  {
+    title: "Clientes",
+    items: [
+      { key: "clients.list", label: "Listar/Criar" },
+      { key: "clients.plans", label: "Planos" },
+      { key: "clients.systems", label: "Sistemas" },
+      { key: "clients.apps", label: "Aplicativos" },
+      { key: "clients.manual_renewals", label: "Renovações Manuais" },
+    ],
+  },
+  { title: "Rankings", items: [{ key: "rankings", label: "Rankings" }] },
+  { title: "Funcionários", items: [{ key: "employees", label: "Funcionários" }] },
+  {
+    title: "Financeiro",
+    items: [
+      { key: "financial.overview", label: "Visão Geral" },
+      { key: "financial.reports", label: "Relatórios" },
+    ],
+  },
+  {
+    title: "CRM WhatsApp",
+    items: [
+      { key: "crm.conversations", label: "Conversas" },
+      { key: "crm.automations", label: "Automações" },
+      { key: "crm.templates", label: "Templates" },
+      { key: "crm.connection", label: "Conexão" },
+    ],
+  },
+];
+
+const ALL_PERMISSION_KEYS = PERMISSION_GROUPS.flatMap((g) => g.items.map((i) => i.key));
+
 const employeeFormSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   phone: z.string().min(1, "Telefone é obrigatório"),
@@ -48,6 +85,7 @@ const employeeFormSchema = z.object({
   enableAccess: z.boolean().default(false),
   accessEmail: z.string().optional(),
   accessPassword: z.string().optional(),
+  permissions: z.array(z.string()).default([]),
   // Hidden flag: true when the employee already has access (we are editing).
   // Skips email/password validation since those fields are not shown in that case.
   hasExistingAccess: z.boolean().default(false),
@@ -120,6 +158,7 @@ export default function Employees() {
       accessEmail: "",
       accessPassword: "",
       hasExistingAccess: false,
+      permissions: [],
     },
   });
 
@@ -144,6 +183,7 @@ export default function Employees() {
     salary: data.salary ? data.salary : null,
     hireDate: data.hireDate,
     photo: data.photo || null,
+    permissions: data.permissions,
   });
 
   const createEmployeeMutation = useMutation({
@@ -292,6 +332,7 @@ export default function Employees() {
       accessEmail: employee.accessEmail || employee.email || "",
       accessPassword: "",
       hasExistingAccess: !!employee.accessAuthUserId,
+      permissions: employee.permissions || [],
     });
     setDialogOpen(true);
   };
@@ -314,6 +355,7 @@ export default function Employees() {
       accessEmail: "",
       accessPassword: "",
       hasExistingAccess: false,
+      permissions: [],
     });
     setDialogOpen(true);
   };
@@ -511,7 +553,8 @@ export default function Employees() {
                         Acesso ao sistema
                       </h4>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Habilite para criar um login. O funcionário verá Clientes, Sistemas e Rankings — não verá Dashboard nem Funcionários.
+                        Habilite para criar um login. O que o funcionário vê no menu depende
+                        exclusivamente das permissões marcadas abaixo.
                       </p>
                     </div>
                     <FormField
@@ -628,6 +671,75 @@ export default function Employees() {
                         )}
                       />
                     </div>
+                  )}
+
+                  {enableAccess && (
+                    <FormField
+                      control={form.control}
+                      name="permissions"
+                      render={({ field }) => (
+                        <FormItem className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <FormLabel>Permissões de Acesso</FormLabel>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => field.onChange(ALL_PERMISSION_KEYS)}
+                              >
+                                Marcar todos
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => field.onChange([])}
+                              >
+                                Desmarcar todos
+                              </Button>
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground -mt-2">
+                            Espelha exatamente os itens do menu lateral. Sem nenhuma marcação, o
+                            funcionário consegue entrar mas não vê nenhuma página.
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-md border p-3">
+                            {PERMISSION_GROUPS.map((group) => (
+                              <div key={group.title} className="space-y-1.5">
+                                <p className="text-xs font-semibold text-muted-foreground">{group.title}</p>
+                                {group.items.map((item) => {
+                                  const checked = field.value?.includes(item.key) ?? false;
+                                  return (
+                                    <label
+                                      key={item.key}
+                                      className="flex items-center gap-2 text-sm cursor-pointer"
+                                    >
+                                      <Checkbox
+                                        checked={checked}
+                                        onCheckedChange={(value) => {
+                                          const current = field.value || [];
+                                          field.onChange(
+                                            value
+                                              ? [...current, item.key]
+                                              : current.filter((k) => k !== item.key)
+                                          );
+                                        }}
+                                        data-testid={`checkbox-permission-${item.key}`}
+                                      />
+                                      {item.label}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            ))}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
                 </div>
 

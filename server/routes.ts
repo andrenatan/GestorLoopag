@@ -54,6 +54,7 @@ declare global {
       user?: User;
       effectiveAuthUserId?: string;
       isOwner?: boolean;
+      employeePermissions?: string[];
     }
   }
 }
@@ -67,6 +68,62 @@ function requireOwner(req: Request, res: Response, next: NextFunction) {
     return res.status(403).json({ message: "Você não tem acesso a esta tela. Verifique com seu gestor." });
   }
   next();
+}
+
+// Permission keys mirror the sidebar structure 1:1 — see PERMISSION_KEYS in
+// client/src/components/layout/sidebar.tsx, which must be kept in sync.
+type PermissionKey =
+  | "dashboard"
+  | "clients.list"
+  | "clients.plans"
+  | "clients.systems"
+  | "clients.apps"
+  | "clients.manual_renewals"
+  | "rankings"
+  | "employees"
+  | "financial.overview"
+  | "financial.reports"
+  | "crm.conversations"
+  | "crm.automations"
+  | "crm.templates"
+  | "crm.connection";
+
+// Granular middleware: the owner (users.ownerAuthUserId === null) always has
+// full access. An employee only passes if `key` is in their linked
+// employees.permissions array (populated onto req.employeePermissions by the
+// auth middleware below).
+function requirePermission(key: PermissionKey) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Não autenticado" });
+    }
+    if (!req.user.ownerAuthUserId) {
+      return next();
+    }
+    if (req.employeePermissions?.includes(key)) {
+      return next();
+    }
+    return res.status(403).json({ message: "Você não tem permissão para acessar este recurso. Verifique com seu gestor." });
+  };
+}
+
+// Like requirePermission, but passes if the employee has ANY of the given
+// keys — used for read-only endpoints shared by two pages that each have
+// their own permission (e.g. financial.overview and financial.reports both
+// read from /api/financial/*).
+function requireAnyPermission(...keys: PermissionKey[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Não autenticado" });
+    }
+    if (!req.user.ownerAuthUserId) {
+      return next();
+    }
+    if (keys.some((key) => req.employeePermissions?.includes(key))) {
+      return next();
+    }
+    return res.status(403).json({ message: "Você não tem permissão para acessar este recurso. Verifique com seu gestor." });
+  };
 }
 
 function maskPhoneNumber(phone: string | null): string | null {
@@ -420,6 +477,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.user) {
         req.effectiveAuthUserId = req.user.ownerAuthUserId || req.user.authUserId || undefined;
         req.isOwner = !req.user.ownerAuthUserId;
+
+        // Employees only get whatever their linked employees.permissions row
+        // allows; the owner bypasses this entirely (isOwner check above).
+        if (req.user.ownerAuthUserId && req.user.authUserId) {
+          try {
+            const employeeLink = await storage.getEmployeeByAccessAuthUserId(req.user.authUserId);
+            req.employeePermissions = employeeLink?.permissions ?? [];
+          } catch (permErr) {
+            console.error("[Auth Middleware] Failed to load employee permissions:", permErr);
+            req.employeePermissions = [];
+          }
+        }
       }
     } catch (error) {
       console.error("[Auth Middleware Error]:", error);
@@ -695,12 +764,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const user = await storage.getUserByAuthId(authUserId);
-      
+
       if (!user) {
         return res.status(404).json({ message: "Usuário não encontrado" });
       }
-      
-      res.json(user);
+
+      // req.employeePermissions was already resolved by the auth middleware
+      // for this same request; undefined for owners (no ownerAuthUserId).
+      res.json({ ...user, permissions: req.employeePermissions ?? [] });
     } catch (error) {
       console.error("[Get User by Auth ID Error]:", error);
       res.status(500).json({ message: "Erro ao buscar usuário" });
@@ -871,7 +942,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Dashboard Stats
-  app.get("/api/dashboard/stats", requireOwner, async (req, res) => {
+  app.get("/api/dashboard/stats", requirePermission("dashboard"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -886,7 +957,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/new-clients-by-day", requireOwner, async (req, res) => {
+  app.get("/api/dashboard/new-clients-by-day", requirePermission("dashboard"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -900,7 +971,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/revenue-by-period", requireOwner, async (req, res) => {
+  app.get("/api/dashboard/revenue-by-period", requirePermission("dashboard"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -920,7 +991,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard Charts - New endpoints
-  app.get("/api/dashboard/revenue-by-system", requireOwner, async (req, res) => {
+  app.get("/api/dashboard/revenue-by-system", requirePermission("dashboard"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -940,7 +1011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/clients-by-system", requireOwner, async (req, res) => {
+  app.get("/api/dashboard/clients-by-system", requirePermission("dashboard"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -960,7 +1031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/clients-by-state", requireOwner, async (req, res) => {
+  app.get("/api/dashboard/clients-by-state", requirePermission("dashboard"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -980,7 +1051,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/churn-by-day", requireOwner, async (req, res) => {
+  app.get("/api/dashboard/churn-by-day", requirePermission("dashboard"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -994,7 +1065,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/payments-by-day", requireOwner, async (req, res) => {
+  app.get("/api/dashboard/payments-by-day", requirePermission("dashboard"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -1057,7 +1128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Employees Routes
-  app.get("/api/employees", requireOwner, async (req, res) => {
+  app.get("/api/employees", requirePermission("employees"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -1067,11 +1138,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const employees = await storage.getAllEmployees(authUserId);
       res.json(employees);
     } catch (error) {
+      console.error("[Employees GET]:", error);
       res.status(500).json({ message: "Failed to fetch employees" });
     }
   });
 
-  app.post("/api/employees", requireOwner, async (req, res) => {
+  app.post("/api/employees", requirePermission("employees"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -1086,7 +1158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/employees/:id", requireOwner, async (req, res) => {
+  app.put("/api/employees/:id", requirePermission("employees"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -1107,7 +1179,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/employees/:id", requireOwner, async (req, res) => {
+  app.delete("/api/employees/:id", requirePermission("employees"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -1269,6 +1341,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Systems Routes
+  // Open read: used as a shared lookup/dropdown by other permitted pages
+  // (e.g. the client form's system select). Only writes are gated below.
   app.get("/api/systems", async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
@@ -1283,7 +1357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/systems", async (req, res) => {
+  app.post("/api/systems", requirePermission("clients.systems"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -1298,7 +1372,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/systems/:id", async (req, res) => {
+  app.patch("/api/systems/:id", requirePermission("clients.systems"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -1319,7 +1393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/systems/:id", async (req, res) => {
+  app.delete("/api/systems/:id", requirePermission("clients.systems"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -1346,7 +1420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // WHATSAPP CRM - Connection management (seção 6 do CLAUDE.md)
   // ============================================
 
-  app.get("/api/whatsapp/connection", async (req, res) => {
+  app.get("/api/whatsapp/connection", requirePermission("crm.connection"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1368,7 +1442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/whatsapp/connect/manual", requireOwner, async (req, res) => {
+  app.post("/api/whatsapp/connect/manual", requirePermission("crm.connection"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1415,7 +1489,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/whatsapp/connect/embedded-signup", requireOwner, async (req, res) => {
+  app.post("/api/whatsapp/connect/embedded-signup", requirePermission("crm.connection"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1477,7 +1551,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/whatsapp/connection", requireOwner, async (req, res) => {
+  app.delete("/api/whatsapp/connection", requirePermission("crm.connection"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1490,7 +1564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/crm/conversations", async (req, res) => {
+  app.get("/api/crm/conversations", requirePermission("crm.conversations"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1503,7 +1577,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/crm/conversations/:phone/messages", async (req, res) => {
+  app.get("/api/crm/conversations/:phone/messages", requirePermission("crm.conversations"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1519,7 +1593,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/crm/send", async (req, res) => {
+  app.post("/api/crm/send", requirePermission("crm.conversations"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1565,7 +1639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     clientId: z.number().int().optional(),
   });
 
-  app.get("/api/crm/automations", async (req, res) => {
+  app.get("/api/crm/automations", requirePermission("crm.automations"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1577,7 +1651,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/crm/automations", async (req, res) => {
+  app.post("/api/crm/automations", requirePermission("crm.automations"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1606,7 +1680,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/crm/automations/:id", async (req, res) => {
+  app.put("/api/crm/automations/:id", requirePermission("crm.automations"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1644,7 +1718,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/crm/automations/:id", async (req, res) => {
+  app.delete("/api/crm/automations/:id", requirePermission("crm.automations"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1658,7 +1732,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/crm/automations/:id/run-now", async (req, res) => {
+  app.post("/api/crm/automations/:id/run-now", requirePermission("crm.automations"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1675,7 +1749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/crm/automations/:id/runs", async (req, res) => {
+  app.get("/api/crm/automations/:id/runs", requirePermission("crm.automations"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1710,7 +1784,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     buttons: z.array(templateButtonSchema).max(3).optional(),
   });
 
-  app.get("/api/crm/templates", async (req, res) => {
+  app.get("/api/crm/templates", requirePermission("crm.templates"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1722,7 +1796,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/crm/templates", async (req, res) => {
+  app.post("/api/crm/templates", requirePermission("crm.templates"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1772,7 +1846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/crm/templates/:id/sync", async (req, res) => {
+  app.post("/api/crm/templates/:id/sync", requirePermission("crm.templates"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1804,7 +1878,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/crm/templates/:id", async (req, res) => {
+  app.delete("/api/crm/templates/:id", requirePermission("crm.templates"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Not authenticated" });
@@ -1839,7 +1913,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Clients Routes
-  app.get("/api/clients", async (req, res) => {
+  app.get("/api/clients", requirePermission("clients.list"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -1853,7 +1927,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/clients/expiring/:days", async (req, res) => {
+  app.get("/api/clients/expiring/:days", requirePermission("clients.list"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -1868,7 +1942,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/clients/overdue", async (req, res) => {
+  app.get("/api/clients/overdue", requirePermission("clients.list"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -1882,7 +1956,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/clients/rankings", async (req, res) => {
+  app.get("/api/clients/rankings", requirePermission("rankings"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -1938,7 +2012,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  app.post("/api/clients", async (req, res) => {
+  app.post("/api/clients", requirePermission("clients.list"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -1972,7 +2046,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/clients/:id/addon", async (req, res) => {
+  app.post("/api/clients/:id/addon", requirePermission("clients.list"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -2017,7 +2091,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/clients/:id", async (req, res) => {
+  app.put("/api/clients/:id", requirePermission("clients.list"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -2144,7 +2218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/clients/:id", async (req, res) => {
+  app.delete("/api/clients/:id", requirePermission("clients.list"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) {
@@ -2376,6 +2450,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // CLIENT PLANS ROUTES (tenant-scoped IPTV plans)
   // ============================================
 
+  // Open read: used as a shared lookup/dropdown by other permitted pages
+  // (e.g. the client form's plan select). Only writes are gated below.
   app.get("/api/client-plans", async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
@@ -2388,7 +2464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/client-plans", async (req, res) => {
+  app.post("/api/client-plans", requirePermission("clients.plans"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2401,7 +2477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/client-plans/:id", async (req, res) => {
+  app.put("/api/client-plans/:id", requirePermission("clients.plans"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2417,7 +2493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/client-plans/:id", async (req, res) => {
+  app.delete("/api/client-plans/:id", requirePermission("clients.plans"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2439,7 +2515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // APPS ROUTES (IPTV client apps catalog)
   // ============================================
 
-  app.get("/api/apps", async (req, res) => {
+  app.get("/api/apps", requirePermission("clients.apps"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2451,7 +2527,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/apps", async (req, res) => {
+  app.post("/api/apps", requirePermission("clients.apps"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2464,7 +2540,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/apps/:id", async (req, res) => {
+  app.put("/api/apps/:id", requirePermission("clients.apps"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2480,7 +2556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/apps/:id", async (req, res) => {
+  app.delete("/api/apps/:id", requirePermission("clients.apps"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2495,7 +2571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/apps/:id/toggle-status", async (req, res) => {
+  app.patch("/api/apps/:id/toggle-status", requirePermission("clients.apps"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2510,7 +2586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/clients/:id/manual-renewal-plan", async (req, res) => {
+  app.get("/api/clients/:id/manual-renewal-plan", requirePermission("clients.list"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2525,7 +2601,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/clients/:id/apps", async (req, res) => {
+  app.get("/api/clients/:id/apps", requirePermission("clients.list"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2543,7 +2619,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // SYSTEM CREDIT RULES ROUTES
   // ============================================
 
-  app.get("/api/systems/:systemId/credit-rules", async (req, res) => {
+  app.get("/api/systems/:systemId/credit-rules", requirePermission("clients.systems"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2557,7 +2633,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/systems/:systemId/credit-rules", async (req, res) => {
+  app.post("/api/systems/:systemId/credit-rules", requirePermission("clients.systems"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2572,7 +2648,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/credit-rules/:id", async (req, res) => {
+  app.put("/api/credit-rules/:id", requirePermission("clients.systems"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2588,7 +2664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/credit-rules/:id", async (req, res) => {
+  app.delete("/api/credit-rules/:id", requirePermission("clients.systems"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2607,7 +2683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // MANUAL RENEWALS ROUTES
   // ============================================
 
-  app.get("/api/manual-renewals", async (req, res) => {
+  app.get("/api/manual-renewals", requirePermission("clients.manual_renewals"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2623,7 +2699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/manual-renewals/:planId/installments/:monthNumber/toggle", async (req, res) => {
+  app.patch("/api/manual-renewals/:planId/installments/:monthNumber/toggle", requirePermission("clients.manual_renewals"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2643,7 +2719,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // FINANCIAL ROUTES (Financeiro > Visão Geral)
   // ============================================
 
-  app.get("/api/financial/summary", async (req, res) => {
+  app.get("/api/financial/summary", requireAnyPermission("financial.overview", "financial.reports"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2660,7 +2736,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/financial/projections", async (req, res) => {
+  app.get("/api/financial/projections", requireAnyPermission("financial.overview", "financial.reports"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2672,7 +2748,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/financial/movements", async (req, res) => {
+  app.get("/api/financial/movements", requireAnyPermission("financial.overview", "financial.reports"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2695,7 +2771,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/financial/movements", async (req, res) => {
+  app.post("/api/financial/movements", requirePermission("financial.overview"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2708,7 +2784,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/financial/movements/:id", async (req, res) => {
+  app.put("/api/financial/movements/:id", requirePermission("financial.overview"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2726,7 +2802,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Must be registered before the generic "/:id" DELETE route below, otherwise
   // Express would match "bulk" as an :id value.
-  app.delete("/api/financial/movements/bulk", async (req, res) => {
+  app.delete("/api/financial/movements/bulk", requirePermission("financial.overview"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });
@@ -2745,7 +2821,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/financial/movements/:id", async (req, res) => {
+  app.delete("/api/financial/movements/:id", requirePermission("financial.overview"), async (req, res) => {
     try {
       const authUserId = req.effectiveAuthUserId;
       if (!authUserId) return res.status(401).json({ message: "Não autenticado" });

@@ -25,53 +25,61 @@ import {
   BarChart3,
 } from "lucide-react";
 
+interface NavChild {
+  title: string;
+  href: string;
+  icon: React.ElementType;
+  permission: string;
+}
+
 interface NavItem {
   title: string;
   href: string;
   icon: React.ElementType;
-  children?: { title: string; href: string; icon: React.ElementType }[];
+  children?: NavChild[];
 }
 
 interface NavItemEx extends NavItem {
-  ownerOnly?: boolean;
+  // Present on leaf items (no children); children carry their own permission.
+  permission?: string;
 }
 
+// Permission keys mirror server/routes.ts's PermissionKey 1:1 — keep both in
+// sync when adding/removing a protected sidebar item.
 const sidebarItems: NavItemEx[] = [
-  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, ownerOnly: true },
+  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard" },
   {
     title: "Clientes",
     href: "/clients",
     icon: Users,
     children: [
-      { title: "Listar/Criar", href: "/clients", icon: ListFilter },
-      { title: "Planos", href: "/clients/plans", icon: Tag },
-      { title: "Sistemas", href: "/systems", icon: Server },
-      { title: "Aplicativos", href: "/apps", icon: Smartphone },
-      { title: "Renovações Manuais", href: "/manual-renewals", icon: CalendarClock },
+      { title: "Listar/Criar", href: "/clients", icon: ListFilter, permission: "clients.list" },
+      { title: "Planos", href: "/clients/plans", icon: Tag, permission: "clients.plans" },
+      { title: "Sistemas", href: "/systems", icon: Server, permission: "clients.systems" },
+      { title: "Aplicativos", href: "/apps", icon: Smartphone, permission: "clients.apps" },
+      { title: "Renovações Manuais", href: "/manual-renewals", icon: CalendarClock, permission: "clients.manual_renewals" },
     ],
   },
-  { title: "Rankings", href: "/rankings", icon: Trophy },
-  { title: "Funcionários", href: "/employees", icon: UserCheck, ownerOnly: true },
+  { title: "Rankings", href: "/rankings", icon: Trophy, permission: "rankings" },
+  { title: "Funcionários", href: "/employees", icon: UserCheck, permission: "employees" },
   {
     title: "Financeiro",
     href: "/financeiro",
     icon: Wallet,
-    ownerOnly: true,
     children: [
-      { title: "Visão Geral", href: "/financeiro", icon: ListFilter },
-      { title: "Relatórios", href: "/financeiro/relatorios", icon: BarChart3 },
+      { title: "Visão Geral", href: "/financeiro", icon: ListFilter, permission: "financial.overview" },
+      { title: "Relatórios", href: "/financeiro/relatorios", icon: BarChart3, permission: "financial.reports" },
     ],
   },
   {
     title: "CRM WhatsApp",
     href: "/crm",
     icon: MessageCircle,
-    ownerOnly: true,
     children: [
-      { title: "Conversas", href: "/crm", icon: MessageCircle },
-      { title: "Automações", href: "/crm/automations", icon: Zap },
-      { title: "Templates", href: "/crm/templates", icon: FileText },
-      { title: "Conexão", href: "/crm/connection", icon: Link2 },
+      { title: "Conversas", href: "/crm", icon: MessageCircle, permission: "crm.conversations" },
+      { title: "Automações", href: "/crm/automations", icon: Zap, permission: "crm.automations" },
+      { title: "Templates", href: "/crm/templates", icon: FileText, permission: "crm.templates" },
+      { title: "Conexão", href: "/crm/connection", icon: Link2, permission: "crm.connection" },
     ],
   },
 ];
@@ -83,8 +91,16 @@ interface SidebarProps {
 export function Sidebar({ className }: SidebarProps) {
   const [location] = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-  const { logout, user, isOwner } = useAuth();
-  const visibleItems = sidebarItems.filter((it) => !it.ownerOnly || isOwner);
+  const { logout, user, hasPermission } = useAuth();
+  const visibleItems = sidebarItems
+    .map((it) => {
+      if (it.children) {
+        const visibleChildren = it.children.filter((c) => hasPermission(c.permission));
+        return visibleChildren.length > 0 ? { ...it, children: visibleChildren } : null;
+      }
+      return !it.permission || hasPermission(it.permission) ? it : null;
+    })
+    .filter((it): it is NavItemEx => it !== null);
 
   const isClientsActive = location === "/clients" || location.startsWith("/clients/") || location === "/systems" || location.startsWith("/systems/") || location === "/apps" || location.startsWith("/apps/") || location === "/manual-renewals" || location.startsWith("/manual-renewals/");
 

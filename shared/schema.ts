@@ -56,6 +56,10 @@ export const employees = pgTable("employees", {
   isActive: boolean("is_active").notNull().default(true),
   accessAuthUserId: uuid("access_auth_user_id"),
   accessEmail: text("access_email"),
+  // Granular sidebar/route permission keys for employees with login access
+  // (e.g. "clients.list", "financial.overview"). Ignored for the owner, who
+  // always has full access regardless of this field.
+  permissions: jsonb("permissions").$type<string[]>().notNull().default([]),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

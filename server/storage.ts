@@ -422,13 +422,15 @@ export class DbStorage implements IStorage {
 
   async createEmployee(authUserId: string, insertEmployee: InsertEmployee): Promise<Employee> {
     const employeeNumber = await this.getNextEmployeeNumber(authUserId);
-    const result = await db.insert(employees).values({ ...insertEmployee, authUserId, employeeNumber }).returning();
+    const result = await db.insert(employees)
+      .values({ ...insertEmployee, authUserId, employeeNumber } as typeof employees.$inferInsert)
+      .returning();
     return result[0];
   }
 
   async updateEmployee(authUserId: string, id: number, updateData: Partial<InsertEmployee>): Promise<Employee | undefined> {
     const result = await db.update(employees)
-      .set(updateData)
+      .set(updateData as Partial<typeof employees.$inferInsert>)
       .where(and(eq(employees.id, id), eq(employees.authUserId, authUserId)))
       .returning();
     return result[0];
