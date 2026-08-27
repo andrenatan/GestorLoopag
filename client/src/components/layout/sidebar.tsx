@@ -179,7 +179,7 @@ export function Sidebar({ className }: SidebarProps) {
                       <Icon className="h-5 w-5 shrink-0" />
                       {!collapsed && (
                         <>
-                          <span className="ml-3 flex-1 text-left text-sm">{item.title}</span>
+                          <span className="ml-3 flex-1 text-left text-sm font-semibold">{item.title}</span>
                           <ChevronDown
                             className={cn(
                               "h-4 w-4 text-white/50 transition-transform duration-200",
@@ -192,7 +192,7 @@ export function Sidebar({ className }: SidebarProps) {
 
                     {/* Submenu */}
                     {!collapsed && isOpen && (
-                      <div className="ml-4 mt-1 space-y-1 border-l border-[#1a2d42] pl-3">
+                      <div className="ml-3 mt-1 space-y-0.5 pl-6">
                         {item.children.map((child) => {
                           const ChildIcon = child.icon;
                           const isChildActive = location === child.href;
@@ -200,12 +200,12 @@ export function Sidebar({ className }: SidebarProps) {
                             <Link key={child.href} href={child.href}>
                               <button
                                 className={cn(
-                                  "w-full flex items-center h-9 px-3 py-1.5 rounded-md text-sm text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200",
+                                  "w-full flex items-center h-10 px-3 py-2 rounded-md text-[15px] font-medium leading-tight text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200",
                                   isChildActive && "bg-blue-600 text-white hover:bg-blue-700 border border-blue-500/50"
                                 )}
                               >
                                 <ChildIcon className="h-4 w-4 shrink-0" />
-                                <span className="ml-2.5">{child.title}</span>
+                                <span className="ml-2.5 text-left">{child.title}</span>
                               </button>
                             </Link>
                           );
@@ -250,7 +250,7 @@ export function Sidebar({ className }: SidebarProps) {
                     )}
                   >
                     <Icon className="h-5 w-5" />
-                    {!collapsed && <span className="ml-3">{item.title}</span>}
+                    {!collapsed && <span className="ml-3 font-semibold">{item.title}</span>}
                   </Button>
                 </Link>
               );
