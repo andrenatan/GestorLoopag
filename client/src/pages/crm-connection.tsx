@@ -149,9 +149,14 @@ export default function CrmConnection() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Conexão do WhatsApp</h1>
-        <p className="text-muted-foreground">Conecte o número da sua operação para usar o CRM de WhatsApp</p>
+      <div className="flex items-center gap-3">
+        <div className="w-11 h-11 rounded-xl gradient-bg flex items-center justify-center shrink-0">
+          <MessageCircle className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold">Conexão do WhatsApp</h1>
+          <p className="text-muted-foreground">Conecte o número da sua operação para usar o CRM de WhatsApp</p>
+        </div>
       </div>
 
       <Card className="glassmorphism neon-border">
@@ -181,7 +186,7 @@ export default function CrmConnection() {
             </div>
             <Button
               variant="outline"
-              className="text-red-600"
+              className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/40 dark:hover:bg-red-900/20"
               onClick={() => disconnectMutation.mutate()}
               disabled={disconnectMutation.isPending}
             >
@@ -209,7 +214,7 @@ export default function CrmConnection() {
                   Login Incorporado não configurado (faltam VITE_WHATSAPP_APP_ID / VITE_WHATSAPP_CONFIG_ID).
                 </p>
               ) : (
-                <Button onClick={handleEmbeddedLogin} disabled={!sdkReady || embeddedSignupMutation.isPending}>
+                <Button onClick={handleEmbeddedLogin} disabled={!sdkReady || embeddedSignupMutation.isPending} className="gradient-bg text-white hover:opacity-90 border-0">
                   {embeddedSignupMutation.isPending ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
@@ -221,16 +226,28 @@ export default function CrmConnection() {
             </TabsContent>
 
             <TabsContent value="manual" className="pt-4">
-              <form onSubmit={handleManualSubmit} className="space-y-4 max-w-md">
-                <div className="space-y-2">
-                  <Label htmlFor="phoneNumberId">Phone Number ID</Label>
-                  <Input
-                    id="phoneNumberId"
-                    value={manualForm.phoneNumberId}
-                    onChange={(e) => setManualForm({ ...manualForm, phoneNumberId: e.target.value })}
-                    placeholder="Ex: 123456789012345"
-                    required
-                  />
+              <form onSubmit={handleManualSubmit} className="space-y-5 max-w-2xl">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phoneNumberId">Phone Number ID</Label>
+                    <Input
+                      id="phoneNumberId"
+                      value={manualForm.phoneNumberId}
+                      onChange={(e) => setManualForm({ ...manualForm, phoneNumberId: e.target.value })}
+                      placeholder="Ex: 123456789012345"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="verifyToken">Verify Token</Label>
+                    <Input
+                      id="verifyToken"
+                      value={manualForm.verifyToken}
+                      onChange={(e) => setManualForm({ ...manualForm, verifyToken: e.target.value })}
+                      placeholder="Token de verificação do webhook"
+                      required
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="accessToken">Access Token</Label>
@@ -243,17 +260,7 @@ export default function CrmConnection() {
                     required
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="verifyToken">Verify Token</Label>
-                  <Input
-                    id="verifyToken"
-                    value={manualForm.verifyToken}
-                    onChange={(e) => setManualForm({ ...manualForm, verifyToken: e.target.value })}
-                    placeholder="Token de verificação do webhook"
-                    required
-                  />
-                </div>
-                <Button type="submit" disabled={manualConnectMutation.isPending}>
+                <Button type="submit" disabled={manualConnectMutation.isPending} className="gradient-bg text-white hover:opacity-90 border-0">
                   {manualConnectMutation.isPending ? "Conectando..." : "Salvar conexão"}
                 </Button>
               </form>

@@ -55,9 +55,9 @@ export default function Rankings() {
     isLoading: boolean; 
     title: string;
   }) => (
-    <Card className="glassmorphism neon-border">
+    <Card className="glassmorphism neon-border rounded-xl">
       <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
+        <CardTitle className="flex items-center space-x-2 text-lg">
           <Trophy className="w-5 h-5 text-yellow-500" />
           <span>{title}</span>
         </CardTitle>
@@ -88,10 +88,10 @@ export default function Rankings() {
               return (
                 <div
                   key={ranking.client.id}
-                  className={`flex items-center space-x-4 p-4 rounded-lg border transition-all duration-200 hover:scale-[1.02] ${
+                  className={`flex items-center space-x-4 p-4 rounded-xl border transition-all duration-200 hover:scale-[1.02] ${
                     position <= 3
-                      ? "border-yellow-200 bg-gradient-to-r from-yellow-50 to-amber-50 dark:border-yellow-800 dark:from-yellow-900/20 dark:to-amber-900/20"
-                      : "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50"
+                      ? "border-yellow-500/30 bg-gradient-to-r from-yellow-500/10 to-amber-500/10"
+                      : "border-border bg-muted/30"
                   }`}
                 >
                   <div className="flex items-center space-x-3">
@@ -133,16 +133,21 @@ export default function Rankings() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Rankings de Indicações</h1>
-        <p className="text-muted-foreground">
-          Acompanhe os melhores indicadores e seus prêmios
-        </p>
+      <div className="rounded-2xl p-6 flex items-center gap-3 bg-primary/5 border border-primary/10">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center gradient-bg shrink-0">
+          <Trophy className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold">Rankings de Indicações</h1>
+          <p className="text-muted-foreground text-sm">
+            Acompanhe os melhores indicadores e seus prêmios
+          </p>
+        </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="glassmorphism neon-border border-yellow-500/30">
+        <Card className="glassmorphism neon-border rounded-xl border-yellow-500/30">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -151,14 +156,14 @@ export default function Rankings() {
                   {rankings30Days.reduce((sum: number, r: any) => sum + r.referralCount, 0)}
                 </p>
               </div>
-              <div className="p-3 bg-yellow-500/10 rounded-lg">
+              <div className="p-3 bg-yellow-500/10 rounded-xl">
                 <Trophy className="w-6 h-6 text-yellow-500" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="glassmorphism neon-border border-green-500/30">
+        <Card className="glassmorphism neon-border rounded-xl border-green-500/30">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -168,21 +173,21 @@ export default function Rankings() {
                     .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
               </div>
-              <div className="p-3 bg-green-500/10 rounded-lg">
+              <div className="p-3 bg-green-500/10 rounded-xl">
                 <Award className="w-6 h-6 text-green-500" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="glassmorphism neon-border border-purple-500/30">
+        <Card className="glassmorphism neon-border rounded-xl border-purple-500/30">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Indicadores Ativos</p>
                 <p className="text-2xl font-bold text-purple-500">{rankings30Days.length}</p>
               </div>
-              <div className="p-3 bg-purple-500/10 rounded-lg">
+              <div className="p-3 bg-purple-500/10 rounded-xl">
                 <Crown className="w-6 h-6 text-purple-500" />
               </div>
             </div>

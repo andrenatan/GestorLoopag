@@ -305,17 +305,22 @@ export default function Systems() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Gestão de Sistemas</h1>
-          <p className="text-muted-foreground">
-            Gerencie os sistemas disponíveis para os clientes
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl gradient-bg flex items-center justify-center shrink-0">
+            <Server className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold">Gestão de Sistemas</h1>
+            <p className="text-muted-foreground">
+              Gerencie os sistemas disponíveis para os clientes
+            </p>
+          </div>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button 
+            <Button
               onClick={() => handleOpenDialog()}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 flex items-center space-x-2"
+              className="gradient-bg text-white hover:opacity-90 flex items-center space-x-2 border-0"
               data-testid="button-new-system"
             >
               <Plus className="w-4 h-4" />
@@ -417,22 +422,22 @@ export default function Systems() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Nome</TableHead>
-                <TableHead>Clientes</TableHead>
-                <TableHead>Valor</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Ações</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider">ID</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider">Nome</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider">Clientes</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider">Valor</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider">Descrição</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider">Status</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredSystems.map((system: SystemWithCount) => (
-                <TableRow key={system.id} className="hover:bg-muted/50" data-testid={`row-system-${system.id}`}>
-                  <TableCell className="font-mono text-sm">#{system.systemNumber}</TableCell>
+                <TableRow key={system.id} className="hover:bg-muted/50 transition-colors" data-testid={`row-system-${system.id}`}>
+                  <TableCell className="font-mono text-sm text-muted-foreground">#{system.systemNumber}</TableCell>
                   <TableCell>
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-white">
+                      <div className="w-8 h-8 gradient-bg rounded-lg flex items-center justify-center text-white shrink-0">
                         <Server className="w-4 h-4" />
                       </div>
                       <span className="font-medium">{system.name}</span>
@@ -462,25 +467,26 @@ export default function Systems() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center space-x-2">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         title="Editar"
                         onClick={() => handleOpenDialog(system)}
                         data-testid={`button-edit-${system.id}`}
+                        className="h-8 w-8 rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
                       >
-                        <Edit2 className="w-4 h-4" />
+                        <Edit2 className="w-3.5 h-3.5" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-red-600" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         title="Excluir"
                         onClick={() => deleteSystemMutation.mutate(system.id)}
                         data-testid={`button-delete-${system.id}`}
+                        className="h-8 w-8 rounded-full bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
                   </TableCell>

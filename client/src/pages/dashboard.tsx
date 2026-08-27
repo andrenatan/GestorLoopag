@@ -25,6 +25,9 @@ import {
   Medal,
   Map as MapIcon,
   Download,
+  LayoutDashboard,
+  DollarSign,
+  CalendarClock,
 } from "lucide-react";
 import {
   AreaChart,
@@ -110,14 +113,14 @@ class DashboardErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-6 bg-[#0d1b2a] min-h-screen flex items-center justify-center">
+        <div className="p-6 bg-background min-h-screen flex items-center justify-center">
           <div className="text-center space-y-4">
             <div className="text-red-400 text-5xl mb-4">⚠️</div>
-            <h2 className="text-white text-xl font-semibold">Algo deu errado</h2>
-            <p className="text-gray-400 text-sm">Ocorreu um erro inesperado. Recarregue a página para tentar novamente.</p>
+            <h2 className="text-foreground text-xl font-semibold">Algo deu errado</h2>
+            <p className="text-muted-foreground text-sm">Ocorreu um erro inesperado. Recarregue a página para tentar novamente.</p>
             <Button
               onClick={() => window.location.reload()}
-              className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Recarregar página
@@ -204,16 +207,16 @@ function DashboardContent() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6 bg-[#0d1b2a] min-h-screen">
+      <div className="p-6 space-y-6 bg-background min-h-screen">
         <div className="animate-pulse space-y-4">
           <div className="grid grid-cols-3 gap-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-28 rounded-xl bg-[#1a2a3a]" />
+              <div key={i} className="h-28 rounded-xl bg-card" />
             ))}
           </div>
           <div className="grid grid-cols-3 gap-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-40 rounded-xl bg-[#1a2a3a]" />
+              <div key={i} className="h-40 rounded-xl bg-card" />
             ))}
           </div>
         </div>
@@ -223,14 +226,14 @@ function DashboardContent() {
 
   if (isError) {
     return (
-      <div className="p-6 bg-[#0d1b2a] min-h-screen flex items-center justify-center">
+      <div className="p-6 bg-background min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="text-red-400 text-5xl mb-4">⚠️</div>
-          <h2 className="text-white text-xl font-semibold">Erro ao carregar dados</h2>
-          <p className="text-gray-400 text-sm">Não foi possível conectar ao servidor. Tente novamente.</p>
+          <h2 className="text-foreground text-xl font-semibold">Erro ao carregar dados</h2>
+          <p className="text-muted-foreground text-sm">Não foi possível conectar ao servidor. Tente novamente.</p>
           <Button
             onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] })}
-            className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white"
+            className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             Tentar novamente
@@ -248,12 +251,26 @@ function DashboardContent() {
   };
 
   return (
-    <div className="p-5 space-y-4 bg-[#0d1b2a] min-h-screen">
+    <div className="p-6 space-y-6 bg-background min-h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-          <p className="text-slate-400 text-sm">Visão geral do sistema de gestão IPTV</p>
+      <div
+        className="rounded-2xl p-6 flex items-center justify-between flex-wrap gap-4"
+        style={{
+          background: "linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.1) 100%)",
+          border: "1px solid rgba(99,102,241,0.2)",
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+          >
+            <LayoutDashboard className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-muted-foreground text-sm">Visão geral do sistema de gestão IPTV</p>
+          </div>
         </div>
         <div className="flex items-center space-x-2">
           <Button
@@ -265,7 +282,7 @@ function DashboardContent() {
               setTimeout(() => setIsRefreshing(false), 1000);
             }}
             title="Atualizar dados"
-            className="border-slate-600 bg-[#1a2a3a] text-slate-300 hover:bg-[#243447] hover:scale-110 transition-all duration-300"
+            className="border-border bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:scale-110 transition-all duration-300"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           </Button>
@@ -274,7 +291,7 @@ function DashboardContent() {
             size="icon"
             onClick={() => setBlurBilling(!blurBilling)}
             title={blurBilling ? "Mostrar faturamento" : "Ocultar faturamento"}
-            className="border-slate-600 bg-[#1a2a3a] text-slate-300 hover:bg-[#243447] hover:scale-110 transition-all duration-300"
+            className="border-border bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:scale-110 transition-all duration-300"
           >
             {blurBilling ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
@@ -283,7 +300,7 @@ function DashboardContent() {
             size="icon"
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}
             title={theme === "light" ? "Modo escuro" : "Modo claro"}
-            className="border-slate-600 bg-[#1a2a3a] text-slate-300 hover:bg-[#243447] hover:scale-110 transition-all duration-300"
+            className="border-border bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:scale-110 transition-all duration-300"
           >
             <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
             <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
@@ -291,74 +308,68 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Row 1 — 3 big colored cards */}
+      {/* Row 1 — 3 headline metric cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-xl p-5 bg-[#1a2a3a] border border-[#2a3a4a] flex items-center justify-between">
-          <div>
-            <p className="text-4xl font-bold text-white">{stats?.totalClients ?? 0}</p>
-            <p className="text-slate-400 text-sm mt-1">Total de clientes</p>
-          </div>
-          <div className="bg-[#243447] p-3 rounded-full">
-            <Users className="w-8 h-8 text-slate-300" />
-          </div>
+        <div className="bg-card border border-border rounded-xl p-4 space-y-2">
+          <span className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+            <Users className="w-4 h-4 text-primary" />
+            Total de Clientes
+          </span>
+          <p className="text-3xl font-bold text-foreground">{stats?.totalClients ?? 0}</p>
         </div>
-        <div className="rounded-xl p-5 bg-[#0891b2] flex items-center justify-between">
-          <div>
-            <p className="text-4xl font-bold text-white">{stats?.activeClients ?? 0}</p>
-            <p className="text-cyan-100 text-sm mt-1">Clientes ativos</p>
-          </div>
-          <div className="bg-[#0e7490] p-3 rounded-full">
-            <UserCheck className="w-8 h-8 text-white" />
-          </div>
+        <div className="bg-card border border-border rounded-xl p-4 space-y-2">
+          <span className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+            <UserCheck className="w-4 h-4 text-green-500" />
+            Clientes Ativos
+          </span>
+          <p className="text-3xl font-bold text-green-500">{stats?.activeClients ?? 0}</p>
         </div>
-        <div className="rounded-xl p-5 bg-[#dc2626] flex items-center justify-between">
-          <div>
-            <p className="text-4xl font-bold text-white">{stats?.inactiveClients ?? 0}</p>
-            <p className="text-red-100 text-sm mt-1">Clientes inativos</p>
-          </div>
-          <div className="bg-[#b91c1c] p-3 rounded-full">
-            <UserX className="w-8 h-8 text-white" />
-          </div>
+        <div className="bg-card border border-border rounded-xl p-4 space-y-2">
+          <span className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+            <UserX className="w-4 h-4 text-red-500" />
+            Clientes Inativos
+          </span>
+          <p className="text-3xl font-bold text-red-500">{stats?.inactiveClients ?? 0}</p>
         </div>
       </div>
 
       {/* Row 2 — 3 grouped cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-xl p-5 bg-[#1a2a3a] border border-[#2a3a4a] flex items-start justify-between">
+        <div className="rounded-xl p-5 bg-card border border-border flex items-start justify-between">
           <div className="space-y-3 flex-1">
-            <InfoRow icon={<UserPlus className="w-4 h-4 text-cyan-400" />} label="Novos Clientes Hoje" value={stats?.newClientsToday ?? 0} />
-            <InfoRow icon={<UserPlus className="w-4 h-4 text-cyan-400" />} label="Novos Clientes Esta Semana" value={stats?.newClientsThisWeek ?? 0} />
-            <InfoRow icon={<UserPlus className="w-4 h-4 text-cyan-400" />} label="Novos Clientes Este Mês" value={stats?.newClientsThisMonth ?? 0} />
+            <InfoRow icon={<UserPlus className="w-4 h-4 text-primary" />} label="Novos Clientes Hoje" value={stats?.newClientsToday ?? 0} />
+            <InfoRow icon={<UserPlus className="w-4 h-4 text-primary" />} label="Novos Clientes Esta Semana" value={stats?.newClientsThisWeek ?? 0} />
+            <InfoRow icon={<UserPlus className="w-4 h-4 text-primary" />} label="Novos Clientes Este Mês" value={stats?.newClientsThisMonth ?? 0} />
           </div>
-          <div className="bg-[#243447] p-3 rounded-full ml-4">
-            <UserCheck className="w-6 h-6 text-cyan-400" />
+          <div className="bg-muted p-3 rounded-full ml-4">
+            <UserCheck className="w-6 h-6 text-primary" />
           </div>
         </div>
 
-        <div className="rounded-xl p-5 bg-[#1a2a3a] border border-[#2a3a4a] flex items-start justify-between">
+        <div className="rounded-xl p-5 bg-card border border-border flex items-start justify-between">
           <div className="space-y-3 flex-1">
-            <InfoRow icon={<Calendar className="w-4 h-4 text-cyan-400" />} label="Clientes Vencendo Hoje" value={stats?.expiringToday ?? 0} />
-            <InfoRow icon={<Calendar className="w-4 h-4 text-cyan-400" />} label="Clientes Vencendo em 3 Dias" value={stats?.expiring3Days ?? 0} />
-            <InfoRow icon={<Calendar className="w-4 h-4 text-cyan-400" />} label="Sem Renovar este Mês" value={stats?.clientsNotRenewedThisMonth ?? 0} />
-            <InfoRow icon={<Calendar className="w-4 h-4 text-cyan-400" />} label="Recuperados este Mês" value={stats?.clientsRecoveredThisMonth ?? 0} />
-            <InfoRow icon={<Calendar className="w-4 h-4 text-cyan-400" />} label="Total Renovados este Mês" value={stats?.totalRecoveredThisMonth ?? 0} />
+            <InfoRow icon={<Calendar className="w-4 h-4 text-primary" />} label="Clientes Vencendo Hoje" value={stats?.expiringToday ?? 0} />
+            <InfoRow icon={<Calendar className="w-4 h-4 text-primary" />} label="Clientes Vencendo em 3 Dias" value={stats?.expiring3Days ?? 0} />
+            <InfoRow icon={<Calendar className="w-4 h-4 text-primary" />} label="Sem Renovar este Mês" value={stats?.clientsNotRenewedThisMonth ?? 0} />
+            <InfoRow icon={<Calendar className="w-4 h-4 text-primary" />} label="Recuperados este Mês" value={stats?.clientsRecoveredThisMonth ?? 0} />
+            <InfoRow icon={<Calendar className="w-4 h-4 text-primary" />} label="Total Renovados este Mês" value={stats?.totalRecoveredThisMonth ?? 0} />
           </div>
-          <div className="bg-[#243447] p-3 rounded-full ml-4">
-            <UserCheck className="w-6 h-6 text-cyan-400" />
+          <div className="bg-muted p-3 rounded-full ml-4">
+            <CalendarClock className="w-6 h-6 text-primary" />
           </div>
         </div>
 
-        <div className="rounded-xl p-5 bg-[#1a2a3a] border border-[#2a3a4a] flex items-start justify-between">
+        <div className="rounded-xl p-5 bg-card border border-border flex items-start justify-between">
           <div
             className="space-y-3 flex-1"
             style={blurBilling ? { filter: "blur(8px)", transition: "filter 0.3s ease", pointerEvents: "none" } : { transition: "filter 0.3s ease" }}
           >
-            <InfoRowMoney icon={<span className="text-cyan-400 text-xs font-bold">📈</span>} label="A Receber no Mês" value={stats?.projectedMonthlyRevenue ?? 0} />
-            <InfoRowMoney icon={<span className="text-cyan-400 text-xs font-bold">📅</span>} label="Hoje" value={stats?.revenueToday ?? 0} />
-            <InfoRowMoney icon={<span className="text-cyan-400 text-xs font-bold">📅</span>} label="Amanhã" value={stats?.revenueTomorrow ?? 0} />
+            <InfoRowMoney icon={<DollarSign className="w-4 h-4 text-primary" />} label="A Receber no Mês" value={stats?.projectedMonthlyRevenue ?? 0} />
+            <InfoRowMoney icon={<Calendar className="w-4 h-4 text-primary" />} label="Hoje" value={stats?.revenueToday ?? 0} />
+            <InfoRowMoney icon={<Calendar className="w-4 h-4 text-primary" />} label="Amanhã" value={stats?.revenueTomorrow ?? 0} />
           </div>
-          <div className="bg-[#243447] p-3 rounded-full ml-4">
-            <Send className="w-6 h-6 text-cyan-400" />
+          <div className="bg-muted p-3 rounded-full ml-4">
+            <Send className="w-6 h-6 text-primary" />
           </div>
         </div>
       </div>
@@ -366,14 +377,14 @@ function DashboardContent() {
       {/* Row 3 — 2 charts with mini stats and period selectors */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Clientes Novos Por Dia */}
-        <div className="rounded-xl bg-[#1a2a3a] border border-[#2a3a4a] p-5">
+        <div className="rounded-xl bg-card border border-border p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-white font-semibold flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-foreground font-semibold flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-primary" />
                 Clientes Novos Por Dia
               </h3>
-              <p className="text-slate-400 text-xs mt-0.5">Cadastros diários no período selecionado</p>
+              <p className="text-muted-foreground text-xs mt-0.5">Cadastros diários no período selecionado</p>
             </div>
             <PeriodSelector value={clientsPeriod} onChange={setClientsPeriod} />
           </div>
@@ -384,7 +395,7 @@ function DashboardContent() {
             <MiniCard label="Melhor Dia" value={String(bestClientsDay)} color="#8b5cf6" />
           </div>
 
-          <p className="text-center text-xs text-slate-400 mb-2">
+          <p className="text-center text-xs text-muted-foreground mb-2">
             Clientes Novos — {clientsPeriod.label}
           </p>
           <div className="h-52">
@@ -422,16 +433,16 @@ function DashboardContent() {
 
         {/* Pagamentos Por Dia */}
         <div
-          className="rounded-xl bg-[#1a2a3a] border border-[#2a3a4a] p-5"
+          className="rounded-xl bg-card border border-border p-5"
           style={blurBilling ? { filter: "blur(8px)", transition: "filter 0.3s ease", pointerEvents: "none" } : { transition: "filter 0.3s ease" }}
         >
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-white font-semibold flex items-center gap-2">
-                <span className="text-cyan-400">$</span>
+              <h3 className="text-foreground font-semibold flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-primary" />
                 Pagamentos Por Dia
               </h3>
-              <p className="text-slate-400 text-xs mt-0.5">Faturamento diário no período selecionado</p>
+              <p className="text-muted-foreground text-xs mt-0.5">Faturamento diário no período selecionado</p>
             </div>
             <PeriodSelector value={paymentsPeriod} onChange={setPaymentsPeriod} />
           </div>
@@ -443,7 +454,7 @@ function DashboardContent() {
             <MiniCard label="Melhor Dia" value={`R$ ${fmt(paymentsData.bestDayAmount || 0)}`} color="#8b5cf6" small />
           </div>
 
-          <p className="text-center text-xs text-slate-400 mb-2">
+          <p className="text-center text-xs text-muted-foreground mb-2">
             Pagamentos — {paymentsPeriod.label}
           </p>
           <div className="h-52">
@@ -481,17 +492,17 @@ function DashboardContent() {
 
       {/* Row 4 — existing charts (Financeiro, Servidores, Estado) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="rounded-xl bg-[#1a2a3a] border border-[#2a3a4a] p-5">
+        <div className="rounded-xl bg-card border border-border p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-white font-semibold">Financeiro</h3>
-              <p className="text-slate-400 text-xs">{getMonthLabel(selectedMonth)}</p>
+              <h3 className="text-foreground font-semibold">Financeiro</h3>
+              <p className="text-muted-foreground text-xs">{getMonthLabel(selectedMonth)}</p>
             </div>
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-28 h-8 text-xs bg-[#243447] border-[#2a3a4a] text-slate-300">
+              <SelectTrigger className="w-28 h-8 text-xs bg-muted border-border text-muted-foreground">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-[#1a2a3a] border-[#2a3a4a] text-slate-300">
+              <SelectContent className="bg-card border-border text-muted-foreground">
                 {monthOptions.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                 ))}
@@ -520,18 +531,18 @@ function DashboardContent() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                 Sem dados para este período
               </div>
             )}
           </div>
         </div>
 
-        <div className="rounded-xl bg-[#1a2a3a] border border-[#2a3a4a] p-5">
+        <div className="rounded-xl bg-card border border-border p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-white font-semibold">Servidores</h3>
-              <p className="text-slate-400 text-xs">{getMonthLabel(selectedMonth)}</p>
+              <h3 className="text-foreground font-semibold">Servidores</h3>
+              <p className="text-muted-foreground text-xs">{getMonthLabel(selectedMonth)}</p>
             </div>
           </div>
           <div className="h-64">
@@ -571,21 +582,21 @@ function DashboardContent() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                 Sem dados para este período
               </div>
             )}
           </div>
         </div>
 
-        <div className="rounded-xl bg-[#1a2a3a] border border-[#2a3a4a] p-5">
+        <div className="rounded-xl bg-card border border-border p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-white font-semibold flex items-center gap-2">
-                <UserX className="w-4 h-4 text-red-400" />
+              <h3 className="text-foreground font-semibold flex items-center gap-2">
+                <UserX className="w-4 h-4 text-red-500" />
                 Churn por Dia
               </h3>
-              <p className="text-slate-400 text-xs mt-0.5">Clientes que não renovaram no período</p>
+              <p className="text-muted-foreground text-xs mt-0.5">Clientes que não renovaram no período</p>
             </div>
             <PeriodSelector value={churnPeriod} onChange={setChurnPeriod} />
           </div>
@@ -596,7 +607,7 @@ function DashboardContent() {
             <MiniCard label="Pior Dia" value={String(worstChurnDay)} color="#8b5cf6" />
           </div>
 
-          <p className="text-center text-xs text-slate-400 mb-2">
+          <p className="text-center text-xs text-muted-foreground mb-2">
             Churn — {churnPeriod.label}
           </p>
           <div className="h-52">
@@ -631,7 +642,7 @@ function DashboardContent() {
               </AreaChart>
             </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                 Sem dados para este período
               </div>
             )}
@@ -640,20 +651,20 @@ function DashboardContent() {
       </div>
 
       {/* Row 5 — Mapa Do Brasil (Top 5 + interactive map) */}
-      <div className="rounded-xl bg-[#1a2a3a] border border-[#2a3a4a] p-5">
+      <div className="rounded-xl bg-card border border-border p-5">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-start gap-3">
-            <div className="bg-[#243447] p-2 rounded-lg">
-              <MapIcon className="w-5 h-5 text-cyan-400" />
+            <div className="bg-muted p-2 rounded-lg">
+              <MapIcon className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h3 className="text-white font-semibold text-lg leading-tight">Mapa Do Brasil</h3>
-              <p className="text-slate-400 text-xs mt-0.5">Distribuição geográfica de clientes</p>
+              <h3 className="text-foreground font-semibold text-lg leading-tight">Mapa Do Brasil</h3>
+              <p className="text-muted-foreground text-xs mt-0.5">Distribuição geográfica de clientes</p>
             </div>
           </div>
           <button
             type="button"
-            className="bg-[#243447] hover:bg-[#2a3a4a] border border-[#2a3a4a] rounded-md p-2 text-slate-300"
+            className="bg-muted hover:bg-accent border border-border rounded-md p-2 text-muted-foreground hover:text-accent-foreground transition-colors"
             data-testid="button-map-export"
           >
             <Download className="w-4 h-4" />
@@ -661,32 +672,32 @@ function DashboardContent() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-1 rounded-lg bg-[#162232] border border-[#2a3a4a] p-4">
+          <div className="lg:col-span-1 rounded-lg bg-background border border-border p-4">
             <div className="flex items-center gap-2 mb-1">
               <Trophy className="w-4 h-4 text-amber-400" />
-              <h4 className="text-white font-semibold text-sm">Top 5 Estados</h4>
+              <h4 className="text-foreground font-semibold text-sm">Top 5 Estados</h4>
             </div>
-            <p className="text-slate-400 text-[11px] mb-3">Estados com mais clientes</p>
+            <p className="text-muted-foreground text-[11px] mb-3">Estados com mais clientes</p>
 
             {clientsByState && clientsByState.length > 0 ? (
               <TopStatesList data={clientsByState} />
             ) : (
-              <div className="text-slate-500 text-xs py-6 text-center">Sem dados</div>
+              <div className="text-muted-foreground text-xs py-6 text-center">Sem dados</div>
             )}
           </div>
 
-          <div className="lg:col-span-2 rounded-lg bg-[#162232] border border-[#2a3a4a] p-4">
+          <div className="lg:col-span-2 rounded-lg bg-background border border-border p-4">
             <div className="flex items-center gap-2 mb-1">
-              <MapIcon className="w-4 h-4 text-cyan-400" />
-              <h4 className="text-white font-semibold text-sm">Clientes por Estado</h4>
+              <MapIcon className="w-4 h-4 text-primary" />
+              <h4 className="text-foreground font-semibold text-sm">Clientes por Estado</h4>
             </div>
-            <p className="text-slate-400 text-[11px] mb-3">Zoom e arraste com o mouse</p>
+            <p className="text-muted-foreground text-[11px] mb-3">Zoom e arraste com o mouse</p>
 
             <div className="h-[480px] relative overflow-hidden rounded-md">
               {clientsByState && clientsByState.length > 0 ? (
                 <BrazilMap data={clientsByState} />
               ) : (
-                <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                   Sem dados para este período
                 </div>
               )}
@@ -722,7 +733,7 @@ function TopStatesList({ data }: { data: { state: string; count: number }[] }) {
     if (idx === 0) return <Crown className="w-3.5 h-3.5 text-amber-400" />;
     if (idx === 1) return <Medal className="w-3.5 h-3.5 text-slate-300" />;
     if (idx === 2) return <Medal className="w-3.5 h-3.5 text-amber-700" />;
-    return <span className="text-slate-400 text-[11px] font-semibold">{idx + 1}</span>;
+    return <span className="text-muted-foreground text-[11px] font-semibold">{idx + 1}</span>;
   };
 
   return (
@@ -733,7 +744,7 @@ function TopStatesList({ data }: { data: { state: string; count: number }[] }) {
         return (
           <div
             key={item.state}
-            className="flex items-center gap-2 rounded-md bg-[#1a2a3a] border border-[#2a3a4a] px-2 py-1.5"
+            className="flex items-center gap-2 rounded-md bg-card border border-border px-2 py-1.5"
             data-testid={`top-state-${item.state}`}
           >
             <div className="w-5 flex items-center justify-center">{rankIcon(idx)}</div>
@@ -744,17 +755,17 @@ function TopStatesList({ data }: { data: { state: string; count: number }[] }) {
             >
               {item.state}
             </span>
-            <span className="text-white font-bold text-sm w-6 text-center">{item.count}</span>
-            <div className="flex-1 h-1.5 bg-[#0f1a26] rounded overflow-hidden">
+            <span className="text-foreground font-bold text-sm w-6 text-center">{item.count}</span>
+            <div className="flex-1 h-1.5 bg-muted rounded overflow-hidden">
               <div className="h-full rounded" style={{ width: `${pct}%`, background: color }} />
             </div>
           </div>
         );
       })}
 
-      <div className="mt-2 rounded-md bg-[#1a2a3a] border border-[#2a3a4a] py-3 text-center">
-        <div className="text-cyan-300 font-bold text-lg leading-tight">{total}</div>
-        <div className="text-slate-400 text-[11px]">Total de Clientes</div>
+      <div className="mt-2 rounded-md bg-card border border-border py-3 text-center">
+        <div className="text-primary font-bold text-lg leading-tight">{total}</div>
+        <div className="text-muted-foreground text-[11px]">Total de Clientes</div>
       </div>
     </div>
   );
@@ -765,9 +776,9 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
         {icon}
-        <span className="text-slate-300 text-sm">{label}</span>
+        <span className="text-muted-foreground text-sm">{label}</span>
       </div>
-      <span className="text-white font-bold text-sm">{value}</span>
+      <span className="text-foreground font-bold text-sm">{value}</span>
     </div>
   );
 }
@@ -777,9 +788,9 @@ function InfoRowMoney({ icon, label, value }: { icon: React.ReactNode; label: st
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
         {icon}
-        <span className="text-slate-300 text-sm">{label}</span>
+        <span className="text-muted-foreground text-sm">{label}</span>
       </div>
-      <span className="text-white font-bold text-sm">
+      <span className="text-foreground font-bold text-sm">
         R${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
       </span>
     </div>
@@ -789,13 +800,13 @@ function InfoRowMoney({ icon, label, value }: { icon: React.ReactNode; label: st
 function MiniCard({ label, value, color, small }: { label: string; value: string; color: string; small?: boolean }) {
   return (
     <div
-      className="rounded-lg bg-[#243447] p-3 text-center border"
+      className="rounded-lg bg-muted p-3 text-center border"
       style={{ borderColor: color }}
     >
       <p className={`font-bold ${small ? "text-sm" : "text-lg"}`} style={{ color }}>
         {value}
       </p>
-      <p className="text-slate-400 text-xs mt-0.5 leading-tight">{label}</p>
+      <p className="text-muted-foreground text-xs mt-0.5 leading-tight">{label}</p>
     </div>
   );
 }

@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileSpreadsheet, AlertTriangle, ChevronsUpDown, Check, Smartphone, ChevronDown, Plus, X } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertTriangle, ChevronsUpDown, Check, Smartphone, ChevronDown, Plus, X, User, KeyRound, CreditCard, CalendarDays, FileText } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import type { Client, System, ClientPlan, App } from "@shared/schema";
@@ -482,7 +482,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Opção de Importação de Planilha */}
-      <Card className="glassmorphism neon-border">
+      <Card className="glassmorphism neon-border rounded-xl">
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -502,12 +502,12 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
         </CardContent>
       </Card>
 
-      <Card className="glassmorphism neon-border">
+      <Card className="glassmorphism neon-border rounded-xl">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>{initialData ? "Editar Cliente" : "Novo Cliente"}</span>
             {!initialData && (
-              <Badge variant="secondary" className="text-lg px-3 py-1">
+              <Badge variant="secondary" className="text-sm font-semibold px-3 py-1 rounded-full">
                 ID: {userId.toString().padStart(3, '0')}
               </Badge>
             )}
@@ -518,7 +518,10 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
               {/* Informações Pessoais */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Informações Pessoais</h3>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-primary" />
+                  Informações Pessoais
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -620,7 +623,10 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
 
               {/* Credenciais de Acesso */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Credenciais de Acesso</h3>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <KeyRound className="w-5 h-5 text-primary" />
+                  Credenciais de Acesso
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -692,7 +698,10 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
 
               {/* Status e Pagamento */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Status e Pagamento</h3>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-primary" />
+                  Status e Pagamento
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -781,7 +790,10 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
 
               {/* Datas e Valores */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Datas e Valores</h3>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <CalendarDays className="w-5 h-5 text-primary" />
+                  Datas e Valores
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
@@ -811,7 +823,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                   />
                   <div className="flex flex-col space-y-2">
                     <FormLabel>Dias para Vencimento</FormLabel>
-                    <div className={`p-3 text-center font-bold text-lg border rounded-md ${getDaysToExpiryColor()}`}>
+                    <div className={`p-3 text-center font-bold text-lg border border-border rounded-lg ${getDaysToExpiryColor()}`}>
                       {daysToExpiry > 0 ? `${daysToExpiry} dias` : daysToExpiry === 0 ? "Vence hoje" : `${Math.abs(daysToExpiry)} dias vencido`}
                       {daysToExpiry <= 3 && daysToExpiry > 0 && (
                         <AlertTriangle className="w-4 h-4 inline ml-2" />
@@ -913,7 +925,10 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
 
               {/* Indicação e Observações */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Indicação e Observações</h3>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-primary" />
+                  Indicação e Observações
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}

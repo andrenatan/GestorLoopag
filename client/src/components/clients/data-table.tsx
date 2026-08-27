@@ -6,16 +6,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  Search, 
-  Filter, 
+import {
+  Search,
+  Filter,
   Edit2,
   MessageCircle,
   Trash2,
   ChevronLeft,
   ChevronRight,
   Upload,
-  Download
+  Download,
+  Users
 } from "lucide-react";
 import type { Client } from "@shared/schema";
 import { getBrasiliaStartOfDay, parseDateString, formatDateString } from "@/lib/timezone";
@@ -109,11 +110,11 @@ export function DataTable({
 
   if (isLoading) {
     return (
-      <Card className="glassmorphism neon-border">
+      <Card className="glassmorphism neon-border rounded-xl">
         <CardContent className="p-6">
           <div className="animate-pulse space-y-4">
-            <div className="h-10 bg-muted rounded" />
-            <div className="h-64 bg-muted rounded" />
+            <div className="h-10 bg-muted rounded-lg" />
+            <div className="h-64 bg-muted rounded-lg" />
           </div>
         </CardContent>
       </Card>
@@ -121,10 +122,15 @@ export function DataTable({
   }
 
   return (
-    <Card className="glassmorphism neon-border">
+    <Card className="glassmorphism neon-border rounded-xl">
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Clientes ({filteredData.length})</CardTitle>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+              <Users className="w-4 h-4 text-primary" />
+            </div>
+            <CardTitle>Clientes ({filteredData.length})</CardTitle>
+          </div>
           <div className="flex items-center space-x-3">
             {selectedItems.length > 0 && onBulkAction && (
               <div className="flex items-center space-x-2">
@@ -156,7 +162,7 @@ export function DataTable({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Filters */}
-        <div className="flex items-center space-x-4 p-4 bg-muted/50 rounded-lg">
+        <div className="flex items-center space-x-4 p-4 bg-muted/50 rounded-xl">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -205,14 +211,14 @@ export function DataTable({
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>
-                <TableHead>ID</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead>Sistema</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Vencimento</TableHead>
-                <TableHead>Valor</TableHead>
-                <TableHead>Ações</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">ID</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Cliente</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Telefone</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Sistema</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Vencimento</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Valor</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -221,17 +227,17 @@ export function DataTable({
                 const isSelected = selectedItems.includes(item.id);
 
                 return (
-                  <TableRow key={item.id} className="hover:bg-muted/50">
+                  <TableRow key={item.id} className="hover:bg-muted/50 transition-colors">
                     <TableCell>
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={(checked) => handleSelectItem(item.id, !!checked)}
                       />
                     </TableCell>
-                    <TableCell className="font-mono text-sm">#{item.id}</TableCell>
+                    <TableCell className="font-mono text-sm text-muted-foreground">#{item.id}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                        <div className="w-8 h-8 bg-gradient-to-br from-primary to-[hsl(262,52%,47%)] rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
                           {item.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                         </div>
                         <div>
@@ -254,8 +260,8 @@ export function DataTable({
                     <TableCell>
                       <div>
                         <p className="text-sm">{formatDateString(item.expiryDate)}</p>
-                        <p className={`text-xs ${getExpiryColor(daysToExpiry)}`}>
-                          {daysToExpiry < 0 ? `${Math.abs(daysToExpiry)} dias atraso` : 
+                        <p className={`text-xs font-medium ${getExpiryColor(daysToExpiry)}`}>
+                          {daysToExpiry < 0 ? `${Math.abs(daysToExpiry)} dias atraso` :
                            daysToExpiry === 0 ? "Vence hoje" :
                            `${daysToExpiry} dias`}
                         </p>
@@ -265,26 +271,38 @@ export function DataTable({
                       R$ {parseFloat(item.value || "0").toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center justify-end gap-1.5">
                         {onEdit && (
-                          <Button variant="ghost" size="icon" onClick={() => onEdit(item)} title="Editar">
-                            <Edit2 className="w-4 h-4" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full text-primary hover:bg-primary/10 hover:text-primary"
+                            onClick={() => onEdit(item)}
+                            title="Editar"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
                           </Button>
                         )}
                         {onWhatsApp && (
-                          <Button variant="ghost" size="icon" className="text-green-600" onClick={() => onWhatsApp(item)} title="WhatsApp">
-                            <MessageCircle className="w-4 h-4" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full text-green-600 hover:bg-green-500/10 hover:text-green-600 dark:text-green-400 dark:hover:text-green-400"
+                            onClick={() => onWhatsApp(item)}
+                            title="WhatsApp"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
                           </Button>
                         )}
                         {onDelete && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-red-600" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
                             onClick={() => onDelete(item.id)}
                             title="Excluir"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         )}
                       </div>
@@ -297,7 +315,7 @@ export function DataTable({
         </div>
 
         {/* Pagination */}
-        <div className="flex items-center justify-between pt-4 border-t">
+        <div className="flex items-center justify-between pt-4 border-t border-border">
           <div className="flex items-center space-x-2">
             <span className="text-sm text-muted-foreground">Mostrando</span>
             <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(parseInt(value))}>

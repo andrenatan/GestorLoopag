@@ -75,72 +75,72 @@ export function AddonDialog({ client, onClose }: AddonDialogProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1e2e] border border-[#2a3a4a] rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+      <div className="bg-popover border border-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-full bg-emerald-600/20 border border-emerald-500/40 flex items-center justify-center">
-            <PlusCircle className="w-5 h-5 text-emerald-400" />
+          <div className="w-10 h-10 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center">
+            <PlusCircle className="w-5 h-5 text-green-500 dark:text-green-400" />
           </div>
           <div>
-            <h2 className="text-white font-semibold text-lg">Adesão Extra</h2>
-            <p className="text-slate-400 text-sm">{client.name}</p>
+            <h2 className="text-foreground font-semibold text-lg">Adesão Extra</h2>
+            <p className="text-muted-foreground text-sm">{client.name}</p>
           </div>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-slate-400 block mb-1.5">Valor (R$) *</label>
+            <label className="text-xs text-muted-foreground block mb-1.5">Valor (R$) *</label>
             <input
               type="text"
               inputMode="decimal"
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(/[^\d,\.]/g, ""))}
               placeholder="Ex: 30,00"
-              className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-100 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500"
+              className="w-full bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:border-green-500"
               data-testid="input-addon-amount"
             />
           </div>
 
           <div>
-            <label className="text-xs text-slate-400 block mb-1.5">Descrição (opcional)</label>
+            <label className="text-xs text-muted-foreground block mb-1.5">Descrição (opcional)</label>
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder='Ex: "2ª tela", "TV do quarto"'
               maxLength={255}
-              className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-100 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500"
+              className="w-full bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:border-green-500"
               data-testid="input-addon-description"
             />
           </div>
 
           <div>
-            <label className="text-xs text-slate-400 block mb-1.5">Data do pagamento</label>
+            <label className="text-xs text-muted-foreground block mb-1.5">Data do pagamento</label>
             <input
               type="date"
               value={paymentDate}
               onChange={(e) => setPaymentDate(e.target.value)}
-              className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-100 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500"
+              className="w-full bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:border-green-500"
               data-testid="input-addon-date"
             />
           </div>
 
-          <label className="flex items-start gap-3 cursor-pointer select-none bg-[#0d1b2a] border border-[#2a3a4a] rounded-lg px-3 py-2.5 hover:border-emerald-500/50 transition-colors">
+          <label className="flex items-start gap-3 cursor-pointer select-none bg-background border border-border rounded-lg px-3 py-2.5 hover:border-green-500/50 transition-colors">
             <input
               type="checkbox"
               checked={bumpClientValue}
               onChange={(e) => setBumpClientValue(e.target.checked)}
-              className="mt-0.5 w-4 h-4 accent-emerald-500"
+              className="mt-0.5 w-4 h-4 accent-green-500"
               data-testid="checkbox-addon-bump"
             />
             <div>
-              <p className="text-slate-200 text-sm font-medium">Somar ao valor da renovação do cliente</p>
-              <p className="text-slate-500 text-xs mt-0.5">
+              <p className="text-foreground text-sm font-medium">Somar ao valor da renovação do cliente</p>
+              <p className="text-muted-foreground text-xs mt-0.5">
                 Se marcado, o valor da renovação do cliente passa de R$ {parseFloat(String(client.value || 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} para R$ {(Number(client.value || 0) + Number(amount.replace(",", ".") || 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}.
               </p>
             </div>
           </label>
 
-          <p className="text-slate-500 text-xs bg-[#1a2d42]/50 border border-[#1a2d42] rounded-lg px-3 py-2">
+          <p className="text-muted-foreground text-xs bg-muted/50 border border-border rounded-lg px-3 py-2">
             A adesão entra imediatamente no faturamento do dia. Não altera o vencimento atual do cliente.
           </p>
         </div>
@@ -149,7 +149,7 @@ export function AddonDialog({ client, onClose }: AddonDialogProps) {
           <button
             onClick={onClose}
             disabled={mutation.isPending}
-            className="flex-1 bg-[#1a2a3a] hover:bg-[#243548] text-slate-300 font-medium py-2.5 rounded-lg transition-colors text-sm border border-[#2a3a4a]"
+            className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium py-2.5 rounded-lg transition-colors text-sm border border-border"
             data-testid="button-addon-cancel"
           >
             Cancelar
@@ -157,7 +157,7 @@ export function AddonDialog({ client, onClose }: AddonDialogProps) {
           <button
             onClick={handleConfirm}
             disabled={mutation.isPending}
-            className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors text-sm"
+            className="flex-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors text-sm"
             data-testid="button-addon-confirm"
           >
             {mutation.isPending ? "Registrando..." : "Confirmar adesão"}

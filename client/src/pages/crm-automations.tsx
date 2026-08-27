@@ -313,11 +313,16 @@ export default function CrmAutomations() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Automações do CRM</h1>
-          <p className="text-muted-foreground">
-            Disparos automáticos de WhatsApp por vencimento, criação de cliente ou sob demanda
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center shrink-0">
+            <Zap className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold">Automações do CRM</h1>
+            <p className="text-muted-foreground">
+              Disparos automáticos de WhatsApp por vencimento, criação de cliente ou sob demanda
+            </p>
+          </div>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
@@ -344,6 +349,10 @@ export default function CrmAutomations() {
                   required
                 />
               </div>
+
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-1">
+                Gatilho e público-alvo
+              </p>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -379,7 +388,7 @@ export default function CrmAutomations() {
 
               <div className="space-y-2">
                 <Label>Filtro por sistema (opcional, nenhum = todos)</Label>
-                <div className="flex flex-wrap gap-3 border rounded-md p-3">
+                <div className="flex flex-wrap gap-3 border rounded-xl p-3">
                   {systems.length === 0 && (
                     <span className="text-sm text-muted-foreground">Nenhum sistema cadastrado</span>
                   )}
@@ -399,7 +408,7 @@ export default function CrmAutomations() {
 
               <div className="space-y-2">
                 <Label>Filtro por status (opcional, nenhum = todos)</Label>
-                <div className="flex flex-wrap gap-3 border rounded-md p-3">
+                <div className="flex flex-wrap gap-3 border rounded-xl p-3">
                   {STATUS_OPTIONS.map((status) => (
                     <label key={status} className="flex items-center gap-2 text-sm">
                       <Checkbox
@@ -413,6 +422,10 @@ export default function CrmAutomations() {
                   ))}
                 </div>
               </div>
+
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-1">
+                Mensagem
+              </p>
 
               <div className="space-y-2">
                 <Label>Template aprovado *</Label>
@@ -446,7 +459,7 @@ export default function CrmAutomations() {
               </div>
 
               {selectedTemplate && (
-                <div className="space-y-3 border rounded-md p-3">
+                <div className="space-y-3 border rounded-xl p-3">
                   <p className="text-sm font-medium">Variáveis do template</p>
                   {Array.from({ length: selectedTemplate.variablesCount }).map((_, i) => (
                     <div key={i} className="flex items-center gap-2">
@@ -472,7 +485,7 @@ export default function CrmAutomations() {
                       </Select>
                     </div>
                   ))}
-                  <div className="text-xs text-muted-foreground border rounded-md p-2 bg-muted/30">
+                  <div className="text-xs text-muted-foreground border rounded-lg p-2 bg-muted/30">
                     <span className="font-medium">Preview:</span>{" "}
                     {renderTemplatePreview(selectedTemplate.bodyText, formData.templateVariableMapping)}
                   </div>
@@ -551,6 +564,7 @@ export default function CrmAutomations() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          className="rounded-full"
                           title="Testar agora"
                           onClick={() => runNowMutation.mutate(automation.id)}
                           disabled={runNowMutation.isPending}
@@ -560,18 +574,19 @@ export default function CrmAutomations() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          className="rounded-full"
                           title="Ver execuções"
                           onClick={() => setRunsDialogAutomation(automation)}
                         >
                           <ListChecks className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" title="Editar" onClick={() => handleOpenDialog(automation)}>
+                        <Button variant="ghost" size="icon" className="rounded-full" title="Editar" onClick={() => handleOpenDialog(automation)}>
                           <Edit2 className="w-4 h-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-red-600"
+                          className="rounded-full text-destructive hover:text-destructive"
                           title="Excluir"
                           onClick={() => deleteMutation.mutate(automation.id)}
                         >

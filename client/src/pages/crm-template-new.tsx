@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Plus, X } from "lucide-react";
+import { ArrowLeft, MessageSquare, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Category = "utility" | "marketing" | "authentication";
@@ -126,7 +126,18 @@ export default function CrmTemplateNew() {
           <ArrowLeft className="w-4 h-4" />
           Voltar
         </Link>
-        <h1 className="text-2xl font-bold">Novo Template</h1>
+      </div>
+
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center shrink-0">
+          <MessageSquare className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold">Novo Template</h1>
+          <p className="text-muted-foreground text-sm">
+            Crie um template de mensagem para envio via WhatsApp, sujeito a aprovação da Meta
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 items-start">
@@ -144,11 +155,15 @@ export default function CrmTemplateNew() {
               </SelectContent>
             </Select>
             {!hasConnection && (
-              <p className="text-xs text-red-500">
+              <p className="text-xs text-destructive">
                 Conecte um número em "Conexão" antes de criar templates.
               </p>
             )}
           </div>
+
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-1">
+            Identificação
+          </p>
 
           <div className="space-y-2">
             <Label htmlFor="name">Nome do template *</Label>
@@ -159,7 +174,7 @@ export default function CrmTemplateNew() {
               placeholder="ex: confirmacao_pedido"
               required
             />
-            <p className={cn("text-xs", nameError ? "text-red-500" : "text-muted-foreground")}>
+            <p className={cn("text-xs", nameError ? "text-destructive" : "text-muted-foreground")}>
               {nameError || "Apenas letras minúsculas, números e underscores. Sem espaços."}
             </p>
           </div>
@@ -192,20 +207,27 @@ export default function CrmTemplateNew() {
             {categoryInfo?.help} — categorizar incorretamente pode causar reprovação do template pela Meta.
           </p>
 
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-1">
+            Conteúdo da mensagem
+          </p>
+
           <div className="flex gap-2">
             <Button type="button" variant={showHeader ? "secondary" : "outline"} size="sm" onClick={() => setShowHeader(!showHeader)}>
-              + Cabeçalho
+              <Plus className="w-3 h-3 mr-1" />
+              Cabeçalho
             </Button>
             <Button type="button" variant={showFooter ? "secondary" : "outline"} size="sm" onClick={() => setShowFooter(!showFooter)}>
-              + Rodapé
+              <Plus className="w-3 h-3 mr-1" />
+              Rodapé
             </Button>
             <Button type="button" variant={showButtons ? "secondary" : "outline"} size="sm" onClick={() => setShowButtons(!showButtons)}>
-              + Botões
+              <Plus className="w-3 h-3 mr-1" />
+              Botões
             </Button>
           </div>
 
           {showHeader && (
-            <div className="space-y-2 border rounded-md p-3">
+            <div className="space-y-2 border rounded-xl p-3">
               <Label htmlFor="headerText">Cabeçalho (texto)</Label>
               <Input
                 id="headerText"
@@ -221,7 +243,7 @@ export default function CrmTemplateNew() {
           )}
 
           {showFooter && (
-            <div className="space-y-2 border rounded-md p-3">
+            <div className="space-y-2 border rounded-xl p-3">
               <Label htmlFor="footerText">Rodapé (texto curto)</Label>
               <Input
                 id="footerText"
@@ -234,7 +256,7 @@ export default function CrmTemplateNew() {
           )}
 
           {showButtons && (
-            <div className="space-y-2 border rounded-md p-3">
+            <div className="space-y-2 border rounded-xl p-3">
               <div className="flex items-center justify-between">
                 <Label>Botões (até 3)</Label>
                 <Button type="button" variant="outline" size="sm" onClick={addButton} disabled={buttons.length >= 3}>
@@ -274,7 +296,7 @@ export default function CrmTemplateNew() {
                       className="flex-1"
                     />
                   )}
-                  <Button type="button" variant="ghost" size="icon" onClick={() => removeButton(index)}>
+                  <Button type="button" variant="ghost" size="icon" className="rounded-full" onClick={() => removeButton(index)}>
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
@@ -283,7 +305,7 @@ export default function CrmTemplateNew() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="bodyText">CORPO *</Label>
+            <Label htmlFor="bodyText">Corpo *</Label>
             <Textarea
               id="bodyText"
               value={bodyText}

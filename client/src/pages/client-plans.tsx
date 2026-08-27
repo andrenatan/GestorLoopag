@@ -392,7 +392,7 @@ export default function ClientPlans() {
               <div className="space-y-1.5">
                 <label className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                   <Tag className="w-3.5 h-3.5" />
-                  NOME DO PLANO
+                  NOME DO PLANO *
                 </label>
                 <input
                   type="text"
@@ -407,7 +407,7 @@ export default function ClientPlans() {
               <div className="space-y-1.5">
                 <label className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                   <DollarSign className="w-3.5 h-3.5" />
-                  VALOR
+                  VALOR *
                 </label>
                 <input
                   type="number"
@@ -478,7 +478,8 @@ export default function ClientPlans() {
                     style={{ background: "rgba(99,102,241,0.3)", color: "#a5b4fc" }}
                   >
                     {form.durationType === "months" ? "MESES" : "DIAS"}
-                  </span>
+                  </span>{" "}
+                  *
                 </label>
                 <input
                   type="number"
