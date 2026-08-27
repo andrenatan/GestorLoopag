@@ -103,13 +103,12 @@ interface ClientAppLink {
 }
 
 function ClientAppCell({ clientId }: { clientId: number }) {
+  // No custom queryFn: relies on queryClient's default getQueryFn (see
+  // client/src/lib/queryClient.ts), which builds the URL from the key and
+  // attaches the Supabase Bearer token — a hand-rolled fetch() here was
+  // missing that header and silently 401ing on every request.
   const { data: links = [], isLoading } = useQuery<ClientAppLink[]>({
     queryKey: ["/api/clients", clientId, "apps"],
-    queryFn: async () => {
-      const res = await fetch(`/api/clients/${clientId}/apps`, { credentials: "include" });
-      if (!res.ok) throw new Error("Falha ao carregar aplicativos do cliente");
-      return res.json();
-    },
   });
 
   if (isLoading) {

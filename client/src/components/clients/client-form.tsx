@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import type { Client, System, ClientPlan, App } from "@shared/schema";
 import { getBrasiliaStartOfDay, parseDateString } from "@/lib/timezone";
+import { getSupabase } from "@/lib/supabase";
 
 const FALLBACK_PLANS = [
   { name: "Mensal", value: "" },
@@ -283,13 +284,13 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   });
   const activeApps = apps.filter((a) => a.isActive);
 
+  // No custom queryFn: relies on queryClient's default getQueryFn (see
+  // client/src/lib/queryClient.ts), which builds the URL from the key and
+  // attaches the Supabase Bearer token. A hand-rolled fetch() here was
+  // missing that header and silently 401ing on every request — the actual
+  // root cause of "app selection doesn't stick" investigated in this session.
   const { data: existingClientApps = [] } = useQuery<ClientAppLink[]>({
     queryKey: ["/api/clients", initialData?.id, "apps"],
-    queryFn: async () => {
-      const res = await fetch(`/api/clients/${initialData!.id}/apps`, { credentials: "include" });
-      if (!res.ok) throw new Error("Falha ao carregar aplicativos do cliente");
-      return res.json();
-    },
     enabled: !!initialData?.id,
   });
 
@@ -339,7 +340,15 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   const { data: existingManualPlan } = useQuery<{ renewDay: number } | null>({
     queryKey: ["/api/clients", initialData?.id, "manual-renewal-plan"],
     queryFn: async () => {
-      const res = await fetch(`/api/clients/${initialData!.id}/manual-renewal-plan`, { credentials: "include" });
+      // Custom queryFn needed here (404 → null isn't handled by the default
+      // getQueryFn), so the auth header has to be attached by hand — same
+      // Supabase session lookup queryClient's default uses internally.
+      const supabase = await getSupabase();
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: HeadersInit = session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : {};
+      const res = await fetch(`/api/clients/${initialData!.id}/manual-renewal-plan`, { credentials: "include", headers });
       if (res.status === 404) return null;
       if (!res.ok) throw new Error("Falha ao carregar plano de renovação manual");
       return res.json();
