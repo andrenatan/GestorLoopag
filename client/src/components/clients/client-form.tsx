@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -297,6 +297,22 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   const [appExpiryDate, setAppExpiryDate] = useState<string>("");
   const [additionalApps, setAdditionalApps] = useState<AdditionalAppRow[]>([]);
   const [showAdditionalApps, setShowAdditionalApps] = useState(false);
+
+  // The <Select> must still show a currently-linked app even if it was
+  // deactivated afterward — otherwise the field silently falls back to the
+  // placeholder and looks like the saved selection was lost, when it's
+  // actually intact in client_apps (see investigation in this session).
+  const primarySelectableApps = useMemo(() => {
+    if (!appId || activeApps.some((a) => String(a.id) === appId)) return activeApps;
+    const inactiveApp = apps.find((a) => String(a.id) === appId);
+    return inactiveApp ? [...activeApps, inactiveApp] : activeApps;
+  }, [activeApps, apps, appId]);
+
+  const selectableAppsForRow = (rowAppId: string) => {
+    if (!rowAppId || activeApps.some((a) => String(a.id) === rowAppId)) return activeApps;
+    const inactiveApp = apps.find((a) => String(a.id) === rowAppId);
+    return inactiveApp ? [...activeApps, inactiveApp] : activeApps;
+  };
 
   useEffect(() => {
     if (existingClientApps.length === 0) return;
@@ -997,12 +1013,13 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                         <SelectValue placeholder={appsLoading ? "Carregando aplicativos..." : "Selecione o aplicativo"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {activeApps.map((app) => (
+                        {primarySelectableApps.map((app) => (
                           <SelectItem key={app.id} value={String(app.id)}>
                             {app.name}
+                            {!app.isActive && " (Inativo)"}
                           </SelectItem>
                         ))}
-                        {activeApps.length === 0 && (
+                        {primarySelectableApps.length === 0 && (
                           <div className="p-2 text-sm text-muted-foreground text-center">
                             Nenhum aplicativo ativo encontrado
                           </div>
@@ -1045,9 +1062,10 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                                 <SelectValue placeholder="Selecione o aplicativo" />
                               </SelectTrigger>
                               <SelectContent>
-                                {activeApps.map((app) => (
+                                {selectableAppsForRow(row.appId).map((app) => (
                                   <SelectItem key={app.id} value={String(app.id)}>
                                     {app.name}
+                                    {!app.isActive && " (Inativo)"}
                                   </SelectItem>
                                 ))}
                               </SelectContent>

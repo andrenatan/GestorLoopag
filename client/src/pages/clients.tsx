@@ -87,6 +87,51 @@ function emptyFilters(): FilterState {
   return { activationDate: "", expiryDate: "", status: "all", paymentStatus: "all", plan: "all", system: "all" };
 }
 
+// ─── Client App Cell ────────────────────────────────────────────────────────
+// Shows the app(s) linked to a client directly in the list, so a successful
+// save is visible without reopening the edit form. Reuses the same
+// GET /api/clients/:id/apps endpoint the edit form already fetches (no new
+// backend endpoint) — one small request per visible row, cached/deduped by
+// TanStack Query per client id.
+
+interface ClientAppLink {
+  id: number;
+  appId: number;
+  isPrimary: boolean;
+  expiryDate: string | null;
+  appName: string;
+}
+
+function ClientAppCell({ clientId }: { clientId: number }) {
+  const { data: links = [], isLoading } = useQuery<ClientAppLink[]>({
+    queryKey: ["/api/clients", clientId, "apps"],
+    queryFn: async () => {
+      const res = await fetch(`/api/clients/${clientId}/apps`, { credentials: "include" });
+      if (!res.ok) throw new Error("Falha ao carregar aplicativos do cliente");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return <span className="text-muted-foreground text-xs">…</span>;
+  }
+
+  const primary = links.find((l) => l.isPrimary);
+  if (!primary) {
+    return <span className="text-muted-foreground text-xs italic">—</span>;
+  }
+
+  const extraCount = links.length - 1;
+  return (
+    <span className="text-foreground/80 text-sm">
+      {primary.appName}
+      {extraCount > 0 && (
+        <span className="text-muted-foreground text-xs"> +{extraCount}</span>
+      )}
+    </span>
+  );
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function Clients() {
@@ -650,6 +695,7 @@ export default function Clients() {
               <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Usuário</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Plano</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sistema</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Aplicativo</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vencimento</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ações</th>
@@ -658,7 +704,7 @@ export default function Clients() {
           <tbody>
             {paginatedClients.length === 0 ? (
               <tr>
-                <td colSpan={10} className="text-center py-16 text-muted-foreground text-sm">
+                <td colSpan={11} className="text-center py-16 text-muted-foreground text-sm">
                   Nenhum cliente encontrado
                 </td>
               </tr>
@@ -708,6 +754,11 @@ export default function Clients() {
 
                     {/* Sistema */}
                     <td className="px-4 py-3 text-foreground/80 text-sm">{client.system}</td>
+
+                    {/* Aplicativo */}
+                    <td className="px-4 py-3">
+                      <ClientAppCell clientId={client.id} />
+                    </td>
 
                     {/* Vencimento */}
                     <td className="px-4 py-3">
