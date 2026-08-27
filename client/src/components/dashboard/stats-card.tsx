@@ -61,7 +61,10 @@ export function StatsCard({
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-muted-foreground mb-1">{title}</p>
+            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+              <Icon className={cn("w-3.5 h-3.5", valueColorVariants[color])} />
+              {title}
+            </p>
             <p className={cn("text-2xl font-bold", valueColorVariants[color], blurValue && "blur-sm select-none")} style={blurValue ? { transition: 'filter 0.3s ease' } : { transition: 'filter 0.3s ease' }}>
               {value}
             </p>

@@ -13,6 +13,9 @@ interface UserMetadata {
   planId: number | null;
   role: string;
   ownerAuthUserId: string | null;
+  // Only meaningful for employees (ownerAuthUserId set) — always [] for the
+  // owner, who bypasses permission checks entirely (see isOwner/hasPermission).
+  permissions: string[];
 }
 
 interface AuthContextType {
@@ -21,6 +24,7 @@ interface AuthContextType {
   isLoading: boolean;
   isReady: boolean;
   isOwner: boolean;
+  hasPermission: (key: string) => boolean;
   login: (username: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
@@ -204,6 +208,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const isOwner = !!user && !user.ownerAuthUserId;
+
   return (
     <AuthContext.Provider
       value={{
@@ -211,7 +217,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         supabaseUser,
         isLoading,
         isReady,
-        isOwner: !!user && !user.ownerAuthUserId,
+        isOwner,
+        hasPermission: (key: string) => isOwner || !!user?.permissions?.includes(key),
         login,
         register,
         logout,

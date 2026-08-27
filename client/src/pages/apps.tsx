@@ -8,113 +8,99 @@ import {
   X,
   Edit2,
   Trash2,
+  Eye,
+  EyeOff,
   ChevronLeft,
   ChevronRight,
-  Tag,
-  Calendar,
-  Clock,
-  AlignLeft,
+  Smartphone,
   DollarSign,
+  AlignLeft,
   Users,
-  ClipboardList,
 } from "lucide-react";
 
-type DurationType = "months" | "days";
-
-interface ClientPlan {
+interface App {
   id: number;
   name: string;
-  value: string;
-  durationType: DurationType;
-  durationQuantity: number;
+  activationValue: string;
   description: string | null;
+  isActive: boolean;
   createdAt: string;
   clientCount: number;
 }
 
-interface PlanFormData {
+interface AppFormData {
   name: string;
-  value: string;
-  durationType: DurationType;
-  durationQuantity: number;
+  activationValue: string;
   description: string;
 }
 
-const emptyForm = (): PlanFormData => ({
+const emptyForm = (): AppFormData => ({
   name: "",
-  value: "",
-  durationType: "months",
-  durationQuantity: 1,
+  activationValue: "",
   description: "",
 });
-
-function formatDuration(qty: number, type: DurationType) {
-  const label = type === "months" ? (qty === 1 ? "mês" : "meses") : (qty === 1 ? "dia" : "dias");
-  return `${qty} ${label}`;
-}
 
 function formatCurrency(val: string | number) {
   const n = typeof val === "string" ? parseFloat(val) : val;
   return isNaN(n) ? "R$ 0,00" : n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-export default function ClientPlans() {
+export default function Apps() {
   const [search, setSearch] = useState("");
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState<ClientPlan | null>(null);
-  const [form, setForm] = useState<PlanFormData>(emptyForm());
-  const [deleteConfirm, setDeleteConfirm] = useState<ClientPlan | null>(null);
+  const [editing, setEditing] = useState<App | null>(null);
+  const [form, setForm] = useState<AppFormData>(emptyForm());
+  const [deleteConfirm, setDeleteConfirm] = useState<App | null>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: plans = [], isLoading } = useQuery<ClientPlan[]>({
-    queryKey: ["/api/client-plans"],
+  const { data: apps = [], isLoading } = useQuery<App[]>({
+    queryKey: ["/api/apps"],
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: PlanFormData) =>
-      apiRequest("/api/client-plans", "POST", {
-        ...data,
-        value: data.value,
-        durationQuantity: Number(data.durationQuantity),
-      }),
+    mutationFn: (data: AppFormData) => apiRequest("/api/apps", "POST", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-plans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/apps"] });
       closeModal();
-      toast({ title: "Plano criado com sucesso." });
+      toast({ title: "Aplicativo cadastrado com sucesso." });
     },
     onError: (e: any) =>
-      toast({ title: e?.message || "Erro ao criar plano.", variant: "destructive" }),
+      toast({ title: e?.message || "Erro ao cadastrar aplicativo.", variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: PlanFormData }) =>
-      apiRequest(`/api/client-plans/${id}`, "PUT", {
-        ...data,
-        value: data.value,
-        durationQuantity: Number(data.durationQuantity),
-      }),
+    mutationFn: ({ id, data }: { id: number; data: AppFormData }) =>
+      apiRequest(`/api/apps/${id}`, "PUT", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-plans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/apps"] });
       closeModal();
-      toast({ title: "Plano atualizado com sucesso." });
+      toast({ title: "Aplicativo atualizado com sucesso." });
     },
     onError: (e: any) =>
-      toast({ title: e?.message || "Erro ao atualizar plano.", variant: "destructive" }),
+      toast({ title: e?.message || "Erro ao atualizar aplicativo.", variant: "destructive" }),
+  });
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/apps/${id}/toggle-status`, "PATCH"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/apps"] });
+      toast({ title: "Status do aplicativo atualizado." });
+    },
+    onError: () => toast({ title: "Erro ao alterar status.", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/client-plans/${id}`, "DELETE"),
+    mutationFn: (id: number) => apiRequest(`/api/apps/${id}`, "DELETE"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-plans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/apps"] });
       setDeleteConfirm(null);
-      toast({ title: "Plano excluído com sucesso." });
+      toast({ title: "Aplicativo excluído com sucesso." });
     },
-    onError: () =>
-      toast({ title: "Erro ao excluir plano.", variant: "destructive" }),
+    onError: () => toast({ title: "Erro ao excluir aplicativo.", variant: "destructive" }),
   });
 
   const openCreate = () => {
@@ -123,14 +109,12 @@ export default function ClientPlans() {
     setShowModal(true);
   };
 
-  const openEdit = (plan: ClientPlan) => {
-    setEditing(plan);
+  const openEdit = (app: App) => {
+    setEditing(app);
     setForm({
-      name: plan.name,
-      value: plan.value,
-      durationType: plan.durationType,
-      durationQuantity: plan.durationQuantity,
-      description: plan.description ?? "",
+      name: app.name,
+      activationValue: app.activationValue,
+      description: app.description ?? "",
     });
     setShowModal(true);
   };
@@ -144,15 +128,11 @@ export default function ClientPlans() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) {
-      toast({ title: "Nome do plano é obrigatório.", variant: "destructive" });
+      toast({ title: "Nome do aplicativo é obrigatório.", variant: "destructive" });
       return;
     }
-    if (!form.value || isNaN(parseFloat(form.value)) || parseFloat(form.value) < 0) {
-      toast({ title: "Informe um valor válido.", variant: "destructive" });
-      return;
-    }
-    if (!form.durationQuantity || Number(form.durationQuantity) < 1) {
-      toast({ title: "Quantidade deve ser pelo menos 1.", variant: "destructive" });
+    if (!form.activationValue || isNaN(parseFloat(form.activationValue)) || parseFloat(form.activationValue) < 0) {
+      toast({ title: "Informe um valor de ativação válido.", variant: "destructive" });
       return;
     }
     if (editing) {
@@ -162,9 +142,7 @@ export default function ClientPlans() {
     }
   };
 
-  const filtered = plans.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = apps.filter((a) => a.name.toLowerCase().includes(search.toLowerCase()));
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const safePage = Math.min(page, totalPages);
@@ -187,11 +165,14 @@ export default function ClientPlans() {
             className="w-10 h-10 rounded-xl flex items-center justify-center"
             style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
           >
-            <ClipboardList className="w-5 h-5 text-white" />
+            <Smartphone className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white">Planos dos Clientes</h1>
-            <p className="text-slate-400 text-sm">Gerencie os planos de assinatura oferecidos aos seus clientes.</p>
+            <span className="inline-block mb-1 text-[10px] font-semibold uppercase tracking-wider text-indigo-300 bg-indigo-600/20 border border-indigo-500/30 px-2 py-0.5 rounded-full">
+              Aplicativos
+            </span>
+            <h1 className="text-2xl font-bold text-white">Aplicativos dos Clientes</h1>
+            <p className="text-slate-400 text-sm">Gerencie os aplicativos utilizados pelos seus clientes para assistir IPTV.</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -201,7 +182,7 @@ export default function ClientPlans() {
             style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
           >
             <Plus className="w-4 h-4" />
-            Novo Plano
+            Novo Aplicativo
           </button>
         </div>
       </div>
@@ -217,7 +198,7 @@ export default function ClientPlans() {
             type="text"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            placeholder="Buscar plano por nome..."
+            placeholder="Buscar aplicativo por nome..."
             className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg pl-3 pr-9 py-2 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
           />
           {search && (
@@ -243,7 +224,17 @@ export default function ClientPlans() {
       {/* Table */}
       <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl overflow-hidden">
         {isLoading ? (
-          <div className="p-8 text-center text-slate-400">Carregando planos...</div>
+          <div className="p-8 text-center text-slate-400">Carregando aplicativos...</div>
+        ) : paginated.length === 0 ? (
+          <div className="text-center py-16">
+            <Smartphone className="w-12 h-12 mx-auto text-slate-600 mb-3" />
+            <p className="text-slate-400 text-sm">
+              {search ? "Nenhum aplicativo encontrado para essa busca." : "Nenhum aplicativo cadastrado"}
+            </p>
+            {!search && (
+              <p className="text-slate-600 text-xs mt-1">Clique em "+ Novo Aplicativo" para cadastrar</p>
+            )}
+          </div>
         ) : (
           <>
             <table className="w-full">
@@ -251,63 +242,74 @@ export default function ClientPlans() {
                 <tr className="border-b border-[#1e2e3e]">
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">ID</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">NOME</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">VALOR ATIVAÇÃO</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">CLIENTES</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">VALOR</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">DURAÇÃO</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">DESCRIÇÃO</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">AÇÕES</th>
                 </tr>
               </thead>
               <tbody>
-                {paginated.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-16 text-slate-500 text-sm">
-                      {search ? "Nenhum plano encontrado para essa busca." : "Nenhum plano cadastrado. Clique em \"+ Novo Plano\" para criar."}
+                {paginated.map((app) => (
+                  <tr key={app.id} className="border-b border-[#1a2a3a] hover:bg-[#142030] transition-colors">
+                    <td className="px-4 py-3 text-slate-400 text-sm font-mono">#{app.id}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-white shrink-0">
+                          <Smartphone className="w-4 h-4" />
+                        </div>
+                        <span className="text-white font-semibold text-sm">{app.name}</span>
+                        <span
+                          className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                            app.isActive
+                              ? "bg-green-600/20 border-green-500/30 text-green-400"
+                              : "bg-red-600/20 border-red-500/30 text-red-400"
+                          }`}
+                        >
+                          {app.isActive ? "Ativo" : "Inativo"}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-green-400 font-semibold text-sm">{formatCurrency(app.activationValue)}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1.5 bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold px-2.5 py-1 rounded-full">
+                        <Users className="w-3 h-3" />
+                        {app.clientCount}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-400 text-sm max-w-xs truncate">
+                      {app.description || <span className="text-slate-600 italic">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => openEdit(app)}
+                          title="Editar"
+                          className="flex items-center gap-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-500/30 text-indigo-300 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => toggleStatusMutation.mutate(app.id)}
+                          title={app.isActive ? "Ocultar (marcar como inativo)" : "Mostrar (marcar como ativo)"}
+                          disabled={toggleStatusMutation.isPending}
+                          className="flex items-center gap-1.5 bg-slate-600/20 hover:bg-slate-600/40 border border-slate-500/30 text-slate-300 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          {app.isActive ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(app)}
+                          title="Excluir"
+                          className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 text-red-400 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ) : (
-                  paginated.map((plan) => (
-                    <tr key={plan.id} className="border-b border-[#1a2a3a] hover:bg-[#142030] transition-colors">
-                      <td className="px-4 py-3 text-slate-400 text-sm font-mono">#{plan.id}</td>
-                      <td className="px-4 py-3 text-white font-semibold text-sm">{plan.name}</td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-1.5 bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold px-2.5 py-1 rounded-full">
-                          <Users className="w-3 h-3" />
-                          {plan.clientCount}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-green-400 font-semibold text-sm">{formatCurrency(plan.value)}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-1.5 bg-blue-600/20 border border-blue-500/30 text-blue-300 text-xs font-semibold px-2.5 py-1 rounded-full">
-                          {plan.durationType === "months" ? <Calendar className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                          {formatDuration(plan.durationQuantity, plan.durationType)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-400 text-sm max-w-xs truncate">
-                        {plan.description || <span className="text-slate-600 italic">—</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => openEdit(plan)}
-                            className="flex items-center gap-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-500/30 text-indigo-300 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-                          >
-                            <Edit2 className="w-3 h-3" />
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirm(plan)}
-                            className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 text-red-400 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
 
@@ -379,7 +381,7 @@ export default function ClientPlans() {
                   <Plus className="w-4 h-4 text-white" />
                 </div>
                 <h2 className="text-white font-semibold text-lg">
-                  {editing ? "Editar Plano" : "Novo Plano"}
+                  {editing ? "Editar Aplicativo" : "Novo Aplicativo"}
                 </h2>
               </div>
               <button onClick={closeModal} className="text-slate-400 hover:text-white transition-colors">
@@ -391,102 +393,31 @@ export default function ClientPlans() {
               {/* Nome */}
               <div className="space-y-1.5">
                 <label className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  <Tag className="w-3.5 h-3.5" />
-                  NOME DO PLANO *
+                  <Smartphone className="w-3.5 h-3.5" />
+                  NOME DO APLICATIVO
                 </label>
                 <input
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="Ex: Plano Mensal"
+                  placeholder="Ex: Clouddy"
                   className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-200 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
                 />
               </div>
 
-              {/* Valor */}
+              {/* Valor de Ativação */}
               <div className="space-y-1.5">
                 <label className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                   <DollarSign className="w-3.5 h-3.5" />
-                  VALOR *
+                  VALOR DE ATIVAÇÃO
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
-                  value={form.value}
-                  onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))}
+                  value={form.activationValue}
+                  onChange={(e) => setForm((f) => ({ ...f, activationValue: e.target.value }))}
                   placeholder="0,00"
-                  className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-200 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
-                />
-              </div>
-
-              {/* Tipo de Duração */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  <Calendar className="w-3.5 h-3.5" />
-                  TIPO DE DURAÇÃO
-                </label>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, durationType: "months" }))}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                      form.durationType === "months"
-                        ? "bg-indigo-600 border-indigo-500 text-white"
-                        : "bg-[#0d1b2a] border-[#2a3a4a] text-slate-400 hover:border-indigo-500/50"
-                    }`}
-                  >
-                    <span
-                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        form.durationType === "months" ? "border-white" : "border-slate-500"
-                      }`}
-                    >
-                      {form.durationType === "months" && <span className="w-2 h-2 rounded-full bg-white" />}
-                    </span>
-                    <Calendar className="w-4 h-4" />
-                    Meses
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, durationType: "days" }))}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                      form.durationType === "days"
-                        ? "bg-indigo-600 border-indigo-500 text-white"
-                        : "bg-[#0d1b2a] border-[#2a3a4a] text-slate-400 hover:border-indigo-500/50"
-                    }`}
-                  >
-                    <span
-                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        form.durationType === "days" ? "border-white" : "border-slate-500"
-                      }`}
-                    >
-                      {form.durationType === "days" && <span className="w-2 h-2 rounded-full bg-white" />}
-                    </span>
-                    <Clock className="w-4 h-4" />
-                    Dias
-                  </button>
-                </div>
-              </div>
-
-              {/* Quantidade */}
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  <span className="text-indigo-400 font-bold">#</span>
-                  ESCOLHA A QUANTIDADE DE{" "}
-                  <span
-                    className="ml-1 px-2 py-0.5 rounded text-xs font-bold"
-                    style={{ background: "rgba(99,102,241,0.3)", color: "#a5b4fc" }}
-                  >
-                    {form.durationType === "months" ? "MESES" : "DIAS"}
-                  </span>{" "}
-                  *
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={form.durationQuantity}
-                  onChange={(e) => setForm((f) => ({ ...f, durationQuantity: parseInt(e.target.value) || 1 }))}
-                  placeholder="Quantidade"
                   className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-200 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
                 />
               </div>
@@ -495,12 +426,12 @@ export default function ClientPlans() {
               <div className="space-y-1.5">
                 <label className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                   <AlignLeft className="w-3.5 h-3.5" />
-                  DESCRIÇÃO
+                  DESCRIÇÃO (OPCIONAL)
                 </label>
                 <textarea
                   value={form.description}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="Descrição do plano (opcional)"
+                  placeholder="Descrição do aplicativo (opcional)"
                   rows={4}
                   className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-200 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 placeholder-slate-600 resize-y"
                 />
@@ -548,16 +479,16 @@ export default function ClientPlans() {
                 <Trash2 className="w-5 h-5 text-red-400" />
               </div>
               <div>
-                <h3 className="text-white font-semibold">Excluir plano</h3>
+                <h3 className="text-white font-semibold">Excluir aplicativo</h3>
                 <p className="text-slate-400 text-sm">Essa ação não pode ser desfeita.</p>
               </div>
             </div>
             <p className="text-slate-300 text-sm">
-              Tem certeza que deseja excluir o plano{" "}
+              Tem certeza que deseja excluir o aplicativo{" "}
               <strong className="text-white">{deleteConfirm.name}</strong>?
               {deleteConfirm.clientCount > 0 && (
                 <span className="text-yellow-400 block mt-1">
-                  ⚠ {deleteConfirm.clientCount} cliente(s) usam esse plano.
+                  ⚠ {deleteConfirm.clientCount} cliente(s) têm esse aplicativo vinculado. Os vínculos serão removidos.
                 </span>
               )}
             </p>

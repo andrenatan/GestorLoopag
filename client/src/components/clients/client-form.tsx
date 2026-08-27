@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,11 +12,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileSpreadsheet, AlertTriangle, ChevronsUpDown, Check } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertTriangle, ChevronsUpDown, Check, Smartphone, ChevronDown, Plus, X, User, KeyRound, CreditCard, CalendarDays, FileText } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import type { Client, System, ClientPlan } from "@shared/schema";
+import type { Client, System, ClientPlan, App } from "@shared/schema";
 import { getBrasiliaStartOfDay, parseDateString } from "@/lib/timezone";
+import { getSupabase } from "@/lib/supabase";
 
 const FALLBACK_PLANS = [
   { name: "Mensal", value: "" },
@@ -230,6 +231,7 @@ const clientFormSchema = z.object({
   paymentStatus: z.enum(["Pago", "Vencido", "A Pagar"]).default("Pago"),
   plan: z.string().min(1, "Plano é obrigatório"),
   value: z.string().min(1, "Valor é obrigatório"),
+  renewalMode: z.enum(["automatic", "manual"]).default("automatic"),
   referralSource: z.string().optional(),
   referredById: z.number().optional(),
   notes: z.string().optional(),
@@ -242,6 +244,19 @@ interface ClientFormProps {
   onSubmit: (data: ClientFormData) => void;
   onCancel: () => void;
   isLoading?: boolean;
+}
+
+interface ClientAppLink {
+  id: number;
+  appId: number;
+  isPrimary: boolean;
+  expiryDate: string | null;
+  appName: string;
+}
+
+interface AdditionalAppRow {
+  appId: string;
+  expiryDate: string;
 }
 
 const paymentMethodOptions = [
@@ -263,6 +278,95 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   const { data: clientPlans = [] } = useQuery<ClientPlan[]>({
     queryKey: ["/api/client-plans"],
   });
+
+  const { data: apps = [], isLoading: appsLoading } = useQuery<App[]>({
+    queryKey: ["/api/apps"],
+  });
+  const activeApps = apps.filter((a) => a.isActive);
+
+  // No custom queryFn: relies on queryClient's default getQueryFn (see
+  // client/src/lib/queryClient.ts), which builds the URL from the key and
+  // attaches the Supabase Bearer token. A hand-rolled fetch() here was
+  // missing that header and silently 401ing on every request — the actual
+  // root cause of "app selection doesn't stick" investigated in this session.
+  const { data: existingClientApps = [] } = useQuery<ClientAppLink[]>({
+    queryKey: ["/api/clients", initialData?.id, "apps"],
+    enabled: !!initialData?.id,
+  });
+
+  const [appId, setAppId] = useState<string>("");
+  const [appExpiryDate, setAppExpiryDate] = useState<string>("");
+  const [additionalApps, setAdditionalApps] = useState<AdditionalAppRow[]>([]);
+  const [showAdditionalApps, setShowAdditionalApps] = useState(false);
+
+  // The <Select> must still show a currently-linked app even if it was
+  // deactivated afterward — otherwise the field silently falls back to the
+  // placeholder and looks like the saved selection was lost, when it's
+  // actually intact in client_apps (see investigation in this session).
+  const primarySelectableApps = useMemo(() => {
+    if (!appId || activeApps.some((a) => String(a.id) === appId)) return activeApps;
+    const inactiveApp = apps.find((a) => String(a.id) === appId);
+    return inactiveApp ? [...activeApps, inactiveApp] : activeApps;
+  }, [activeApps, apps, appId]);
+
+  const selectableAppsForRow = (rowAppId: string) => {
+    if (!rowAppId || activeApps.some((a) => String(a.id) === rowAppId)) return activeApps;
+    const inactiveApp = apps.find((a) => String(a.id) === rowAppId);
+    return inactiveApp ? [...activeApps, inactiveApp] : activeApps;
+  };
+
+  useEffect(() => {
+    if (existingClientApps.length === 0) return;
+    const primary = existingClientApps.find((c) => c.isPrimary);
+    const extras = existingClientApps.filter((c) => !c.isPrimary);
+    if (primary) {
+      setAppId(String(primary.appId));
+      setAppExpiryDate(primary.expiryDate || "");
+    }
+    if (extras.length > 0) {
+      setAdditionalApps(extras.map((e) => ({ appId: String(e.appId), expiryDate: e.expiryDate || "" })));
+      setShowAdditionalApps(true);
+    }
+  }, [existingClientApps]);
+
+  const addAdditionalAppRow = () => {
+    setAdditionalApps((prev) => [...prev, { appId: "", expiryDate: "" }]);
+  };
+
+  const updateAdditionalAppRow = (index: number, field: keyof AdditionalAppRow, value: string) => {
+    setAdditionalApps((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+  };
+
+  const { data: existingManualPlan } = useQuery<{ renewDay: number } | null>({
+    queryKey: ["/api/clients", initialData?.id, "manual-renewal-plan"],
+    queryFn: async () => {
+      // Custom queryFn needed here (404 → null isn't handled by the default
+      // getQueryFn), so the auth header has to be attached by hand — same
+      // Supabase session lookup queryClient's default uses internally.
+      const supabase = await getSupabase();
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: HeadersInit = session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : {};
+      const res = await fetch(`/api/clients/${initialData!.id}/manual-renewal-plan`, { credentials: "include", headers });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error("Falha ao carregar plano de renovação manual");
+      return res.json();
+    },
+    enabled: !!initialData?.id,
+  });
+
+  const [renewDay, setRenewDay] = useState<string>("");
+
+  useEffect(() => {
+    if (existingManualPlan?.renewDay) {
+      setRenewDay(String(existingManualPlan.renewDay));
+    }
+  }, [existingManualPlan]);
+
+  const removeAdditionalAppRow = (index: number) => {
+    setAdditionalApps((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const planOptions = clientPlans.length > 0
     ? clientPlans.map((p) => ({ name: p.name, value: String(p.value) }))
@@ -304,11 +408,24 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
       paymentStatus: initialData?.paymentStatus || "Pago",
       plan: initialData?.plan || "",
       value: initialData?.value || "",
+      renewalMode: initialData?.renewalMode || "automatic",
       referralSource: initialData?.referralSource || "",
       referredById: initialData?.referredById || undefined,
       notes: initialData?.notes || "",
     },
   });
+
+  const selectedPlanName = form.watch("plan");
+  const renewalModeValue = form.watch("renewalMode");
+  const selectedClientPlan = clientPlans.find((p) => p.name === selectedPlanName);
+  const selectedPlanPeriod =
+    selectedClientPlan?.durationType === "months" && [3, 6, 12].includes(selectedClientPlan.durationQuantity)
+      ? selectedClientPlan.durationQuantity === 3
+        ? "Trimestral"
+        : selectedClientPlan.durationQuantity === 6
+          ? "Semestral"
+          : "Anual"
+      : null;
 
   // Auto-generate username from name and phone
   const handleNameChange = (name: string) => {
@@ -366,21 +483,31 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   };
 
   const handleSubmit = (data: ClientFormData) => {
+    const appsPayload = {
+      appId: appId ? parseInt(appId) : null,
+      appExpiryDate: appId ? (appExpiryDate || null) : null,
+      additionalApps: additionalApps
+        .filter((row) => row.appId)
+        .map((row) => ({ appId: parseInt(row.appId), expiryDate: row.expiryDate || null })),
+      ...(data.renewalMode === "manual" && renewDay ? { renewDay: parseInt(renewDay) } : {}),
+      manualRenewalPlanPeriod: data.renewalMode === "manual" ? selectedPlanPeriod : null,
+    };
+
     // When editing, remove activationDate from the payload
     // activationDate is immutable after creation to preserve historical revenue data
     if (initialData) {
       const { activationDate, ...dataWithoutActivationDate } = data;
       console.log('[ClientForm] Editing client - activationDate removed from payload to preserve revenue history');
-      onSubmit(dataWithoutActivationDate as ClientFormData);
+      onSubmit({ ...dataWithoutActivationDate, ...appsPayload } as unknown as ClientFormData);
     } else {
-      onSubmit(data);
+      onSubmit({ ...data, ...appsPayload } as unknown as ClientFormData);
     }
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Opção de Importação de Planilha */}
-      <Card className="glassmorphism neon-border">
+      <Card className="glassmorphism neon-border rounded-xl">
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -400,12 +527,12 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
         </CardContent>
       </Card>
 
-      <Card className="glassmorphism neon-border">
+      <Card className="glassmorphism neon-border rounded-xl">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>{initialData ? "Editar Cliente" : "Novo Cliente"}</span>
             {!initialData && (
-              <Badge variant="secondary" className="text-lg px-3 py-1">
+              <Badge variant="secondary" className="text-sm font-semibold px-3 py-1 rounded-full">
                 ID: {userId.toString().padStart(3, '0')}
               </Badge>
             )}
@@ -416,7 +543,10 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
               {/* Informações Pessoais */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Informações Pessoais</h3>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-primary" />
+                  Informações Pessoais
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -518,7 +648,10 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
 
               {/* Credenciais de Acesso */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Credenciais de Acesso</h3>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <KeyRound className="w-5 h-5 text-primary" />
+                  Credenciais de Acesso
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -590,7 +723,10 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
 
               {/* Status e Pagamento */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Status e Pagamento</h3>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-primary" />
+                  Status e Pagamento
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -679,7 +815,10 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
 
               {/* Datas e Valores */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Datas e Valores</h3>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <CalendarDays className="w-5 h-5 text-primary" />
+                  Datas e Valores
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
@@ -709,7 +848,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                   />
                   <div className="flex flex-col space-y-2">
                     <FormLabel>Dias para Vencimento</FormLabel>
-                    <div className={`p-3 text-center font-bold text-lg border rounded-md ${getDaysToExpiryColor()}`}>
+                    <div className={`p-3 text-center font-bold text-lg border border-border rounded-lg ${getDaysToExpiryColor()}`}>
                       {daysToExpiry > 0 ? `${daysToExpiry} dias` : daysToExpiry === 0 ? "Vence hoje" : `${Math.abs(daysToExpiry)} dias vencido`}
                       {daysToExpiry <= 3 && daysToExpiry > 0 && (
                         <AlertTriangle className="w-4 h-4 inline ml-2" />
@@ -760,13 +899,61 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                     )}
                   />
                 </div>
+
+                {selectedPlanPeriod && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <FormField
+                      control={form.control}
+                      name="renewalMode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Modo de renovação no servidor
+                            <span className="text-xs text-muted-foreground ml-2">
+                              (plano {selectedPlanPeriod})
+                            </span>
+                          </FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-renewal-mode">
+                                <SelectValue placeholder="Selecione o modo" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="automatic">Automática</SelectItem>
+                              <SelectItem value="manual">Manual</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {renewalModeValue === "manual" && (
+                      <div className="space-y-2">
+                        <FormLabel>Dia de renovação</FormLabel>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={31}
+                          value={renewDay}
+                          onChange={(e) => setRenewDay(e.target.value)}
+                          placeholder="Ex: 15"
+                          data-testid="input-renew-day"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <Separator />
 
               {/* Indicação e Observações */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Indicação e Observações</h3>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-primary" />
+                  Indicação e Observações
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -817,6 +1004,108 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                     </FormItem>
                   )}
                 />
+              </div>
+
+              <Separator />
+
+              {/* Aplicativo */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Smartphone className="w-5 h-5 text-primary" />
+                  Aplicativo
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <FormLabel>Aplicativo</FormLabel>
+                    <Select value={appId} onValueChange={setAppId} disabled={appsLoading}>
+                      <SelectTrigger data-testid="select-app">
+                        <SelectValue placeholder={appsLoading ? "Carregando aplicativos..." : "Selecione o aplicativo"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {primarySelectableApps.map((app) => (
+                          <SelectItem key={app.id} value={String(app.id)}>
+                            {app.name}
+                            {!app.isActive && " (Inativo)"}
+                          </SelectItem>
+                        ))}
+                        {primarySelectableApps.length === 0 && (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            Nenhum aplicativo ativo encontrado
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <FormLabel>Vencimento do App</FormLabel>
+                    <Input
+                      type="date"
+                      value={appExpiryDate}
+                      onChange={(e) => setAppExpiryDate(e.target.value)}
+                      disabled={!appId}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdditionalApps((v) => !v)}
+                    className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                  >
+                    <ChevronDown className={`w-4 h-4 transition-transform ${showAdditionalApps ? "rotate-180" : ""}`} />
+                    Aplicativos Adicionais (Opcional)
+                  </button>
+
+                  {showAdditionalApps && (
+                    <div className="mt-3 space-y-3">
+                      {additionalApps.map((row, index) => (
+                        <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+                          <div className="space-y-2">
+                            <FormLabel className="text-xs text-muted-foreground">Aplicativo</FormLabel>
+                            <Select
+                              value={row.appId}
+                              onValueChange={(val) => updateAdditionalAppRow(index, "appId", val)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione o aplicativo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {selectableAppsForRow(row.appId).map((app) => (
+                                  <SelectItem key={app.id} value={String(app.id)}>
+                                    {app.name}
+                                    {!app.isActive && " (Inativo)"}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <FormLabel className="text-xs text-muted-foreground">Vencimento</FormLabel>
+                            <Input
+                              type="date"
+                              value={row.expiryDate}
+                              onChange={(e) => updateAdditionalAppRow(index, "expiryDate", e.target.value)}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-600"
+                            onClick={() => removeAdditionalAppRow(index)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button type="button" variant="outline" size="sm" onClick={addAdditionalAppRow} className="space-x-2">
+                        <Plus className="w-4 h-4" />
+                        <span>Adicionar Aplicativo</span>
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Form Actions */}

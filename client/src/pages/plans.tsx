@@ -56,31 +56,33 @@ export default function Plans() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 dark:from-indigo-900 dark:via-purple-900 dark:to-pink-900 py-12">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-white mb-4">
+          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">
             Escolha seu Plano
           </h1>
-          <p className="text-xl text-white/90">
-            Selecione o plano ideal para seu negócio
+          <p className="text-lg sm:text-xl text-white/80">
+            Selecione o plano ideal para o seu negócio
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 max-w-7xl mx-auto">
           {plans?.map((plan) => (
             <Card
               key={plan.id}
-              className={`glass-card relative ${
-                plan.isPopular ? "border-2 border-yellow-400" : ""
+              className={`glass-card relative rounded-2xl p-2 transition-all duration-300 ${
+                plan.isPopular
+                  ? "border-blue-400/40 shadow-xl shadow-blue-500/10 scale-[1.03]"
+                  : "hover:border-white/30"
               }`}
             >
               {plan.isPopular && (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <span className="bg-yellow-400 text-black px-4 py-1 rounded-full text-sm font-semibold">
+                  <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-1.5 rounded-full text-sm font-medium shadow-lg">
                     Mais Popular
                   </span>
                 </div>
               )}
               <CardHeader>
-                <CardTitle className="text-2xl text-white">{plan.name}</CardTitle>
+                <CardTitle className="text-2xl font-semibold text-white">{plan.name}</CardTitle>
                 <CardDescription className="text-white/70">
                   <span className="text-4xl font-bold text-white">
                     R$ {Number(plan.price).toFixed(2)}
@@ -106,7 +108,11 @@ export default function Plans() {
                   data-testid={`button-select-plan-${plan.id}`}
                   onClick={() => checkoutMutation.mutate(plan.id)}
                   disabled={checkoutMutation.isPending}
-                  className="w-full"
+                  className={`w-full rounded-xl ${
+                    plan.isPopular
+                      ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg shadow-blue-500/25"
+                      : ""
+                  }`}
                   variant={plan.isPopular ? "default" : "outline"}
                 >
                   {checkoutMutation.isPending && (

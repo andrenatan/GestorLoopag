@@ -8,6 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useForm } from "react-hook-form";
@@ -15,24 +16,64 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Plus, 
-  Search, 
+import {
+  Plus,
+  Search,
   Edit2,
   Trash2,
   UserCheck,
+  Users,
   Calendar,
   DollarSign,
   Phone,
   Mail,
   KeyRound,
   ShieldOff,
+  ShieldCheck,
   Copy,
   RefreshCw,
   Eye,
   EyeOff,
+  Briefcase,
+  IdCard,
 } from "lucide-react";
 import type { Employee } from "@shared/schema";
+
+// Mirrors sidebar.tsx's sidebarItems / server/routes.ts's PermissionKey 1:1 —
+// keep all three in sync when adding/removing a protected page.
+const PERMISSION_GROUPS: { title: string; items: { key: string; label: string }[] }[] = [
+  { title: "Dashboard", items: [{ key: "dashboard", label: "Dashboard" }] },
+  {
+    title: "Clientes",
+    items: [
+      { key: "clients.list", label: "Listar/Criar" },
+      { key: "clients.plans", label: "Planos" },
+      { key: "clients.systems", label: "Sistemas" },
+      { key: "clients.apps", label: "Aplicativos" },
+      { key: "clients.manual_renewals", label: "Renovações Manuais" },
+    ],
+  },
+  { title: "Rankings", items: [{ key: "rankings", label: "Rankings" }] },
+  { title: "Funcionários", items: [{ key: "employees", label: "Funcionários" }] },
+  {
+    title: "Financeiro",
+    items: [
+      { key: "financial.overview", label: "Visão Geral" },
+      { key: "financial.reports", label: "Relatórios" },
+    ],
+  },
+  {
+    title: "CRM WhatsApp",
+    items: [
+      { key: "crm.conversations", label: "Conversas" },
+      { key: "crm.automations", label: "Automações" },
+      { key: "crm.templates", label: "Templates" },
+      { key: "crm.connection", label: "Conexão" },
+    ],
+  },
+];
+
+const ALL_PERMISSION_KEYS = PERMISSION_GROUPS.flatMap((g) => g.items.map((i) => i.key));
 
 const employeeFormSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
@@ -48,6 +89,7 @@ const employeeFormSchema = z.object({
   enableAccess: z.boolean().default(false),
   accessEmail: z.string().optional(),
   accessPassword: z.string().optional(),
+  permissions: z.array(z.string()).default([]),
   // Hidden flag: true when the employee already has access (we are editing).
   // Skips email/password validation since those fields are not shown in that case.
   hasExistingAccess: z.boolean().default(false),
@@ -120,6 +162,7 @@ export default function Employees() {
       accessEmail: "",
       accessPassword: "",
       hasExistingAccess: false,
+      permissions: [],
     },
   });
 
@@ -144,6 +187,7 @@ export default function Employees() {
     salary: data.salary ? data.salary : null,
     hireDate: data.hireDate,
     photo: data.photo || null,
+    permissions: data.permissions,
   });
 
   const createEmployeeMutation = useMutation({
@@ -292,6 +336,7 @@ export default function Employees() {
       accessEmail: employee.accessEmail || employee.email || "",
       accessPassword: "",
       hasExistingAccess: !!employee.accessAuthUserId,
+      permissions: employee.permissions || [],
     });
     setDialogOpen(true);
   };
@@ -314,6 +359,7 @@ export default function Employees() {
       accessEmail: "",
       accessPassword: "",
       hasExistingAccess: false,
+      permissions: [],
     });
     setDialogOpen(true);
   };
@@ -348,50 +394,108 @@ export default function Employees() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Gestão de Funcionários</h1>
-          <p className="text-muted-foreground">
-            Gerencie a equipe e informações dos funcionários
-          </p>
+      <div className="rounded-2xl p-6 flex items-center justify-between flex-wrap gap-4 bg-primary/5 border border-primary/10">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center gradient-bg shrink-0">
+            <Users className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Gestão de Funcionários</h1>
+            <p className="text-muted-foreground text-sm">
+              Gerencie a equipe e informações dos funcionários
+            </p>
+          </div>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={handleAddNew} className="flex items-center space-x-2">
+            <Button onClick={handleAddNew} className="flex items-center gap-2">
               <Plus className="w-4 h-4" />
               <span>Novo Funcionário</span>
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center gradient-bg shrink-0">
+                  <UserCheck className="w-3.5 h-3.5 text-white" />
+                </div>
                 {editingEmployee ? "Editar Funcionário" : "Novo Funcionário"}
               </DialogTitle>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+                {/* Dados Pessoais */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                    <IdCard className="w-3.5 h-3.5" />
+                    Dados Pessoais
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nome Completo *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Nome completo" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email *</FormLabel>
+                          <FormControl>
+                            <Input type="email" placeholder="email@exemplo.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Telefone *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="(11) 99999-9999" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="birthDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Data de Nascimento</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
                   <FormField
                     control={form.control}
-                    name="name"
+                    name="address"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Nome Completo</FormLabel>
+                        <FormLabel>Endereço</FormLabel>
                         <FormControl>
-                          <Input placeholder="Nome completo" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="email@exemplo.com" {...field} />
+                          <Textarea placeholder="Endereço completo" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -399,119 +503,84 @@ export default function Employees() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Telefone</FormLabel>
-                        <FormControl>
-                          <Input placeholder="(11) 99999-9999" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="birthDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Data de Nascimento</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                {/* Dados Profissionais */}
+                <div className="space-y-3 border-t pt-4">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                    <Briefcase className="w-3.5 h-3.5" />
+                    Dados Profissionais
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="position"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Cargo *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Cargo/Função" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="salary"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Salário</FormLabel>
+                          <FormControl>
+                            <Input placeholder="0,00" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-                <FormField
-                  control={form.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Endereço</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Endereço completo" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="position"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Cargo</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Cargo/Função" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="salary"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Salário</FormLabel>
-                        <FormControl>
-                          <Input placeholder="0,00" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="hireDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Data de Admissão</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="isActive"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center space-x-2 pt-6">
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <FormLabel>Funcionário Ativo</FormLabel>
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="hireDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Data de Admissão *</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="isActive"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center space-x-2 pt-6">
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <FormLabel>Funcionário Ativo</FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
 
                 {/* Access section */}
                 <div className="border-t pt-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-semibold flex items-center gap-2">
-                        <KeyRound className="w-4 h-4" />
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                        <KeyRound className="w-3.5 h-3.5" />
                         Acesso ao sistema
                       </h4>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Habilite para criar um login. O funcionário verá Clientes, Sistemas e Rankings — não verá Dashboard nem Funcionários.
+                        Habilite para criar um login. O que o funcionário vê no menu depende
+                        exclusivamente das permissões marcadas abaixo.
                       </p>
                     </div>
                     <FormField
@@ -546,8 +615,11 @@ export default function Employees() {
                   </div>
 
                   {enableAccess && editingEmployee?.accessAuthUserId && (
-                    <div className="rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">
-                      Acesso ativo para <strong>{editingEmployee.accessEmail}</strong>. Para alterar a senha, desligue o acesso, salve e habilite novamente.
+                    <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm text-muted-foreground">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+                      <span>
+                        Acesso ativo para <strong className="text-foreground">{editingEmployee.accessEmail}</strong>. Para alterar a senha, desligue o acesso, salve e habilite novamente.
+                      </span>
                     </div>
                   )}
 
@@ -629,6 +701,75 @@ export default function Employees() {
                       />
                     </div>
                   )}
+
+                  {enableAccess && (
+                    <FormField
+                      control={form.control}
+                      name="permissions"
+                      render={({ field }) => (
+                        <FormItem className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <FormLabel>Permissões de Acesso</FormLabel>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => field.onChange(ALL_PERMISSION_KEYS)}
+                              >
+                                Marcar todos
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => field.onChange([])}
+                              >
+                                Desmarcar todos
+                              </Button>
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground -mt-2">
+                            Espelha exatamente os itens do menu lateral. Sem nenhuma marcação, o
+                            funcionário consegue entrar mas não vê nenhuma página.
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 rounded-xl border bg-muted/20 p-4">
+                            {PERMISSION_GROUPS.map((group) => (
+                              <div key={group.title} className="space-y-2">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{group.title}</p>
+                                {group.items.map((item) => {
+                                  const checked = field.value?.includes(item.key) ?? false;
+                                  return (
+                                    <label
+                                      key={item.key}
+                                      className="flex items-center gap-2 text-sm cursor-pointer rounded-md px-1.5 py-1 -mx-1.5 hover:bg-muted/60 transition-colors"
+                                    >
+                                      <Checkbox
+                                        checked={checked}
+                                        onCheckedChange={(value) => {
+                                          const current = field.value || [];
+                                          field.onChange(
+                                            value
+                                              ? [...current, item.key]
+                                              : current.filter((k) => k !== item.key)
+                                          );
+                                        }}
+                                        data-testid={`checkbox-permission-${item.key}`}
+                                      />
+                                      {item.label}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            ))}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
 
                 <div className="flex justify-end space-x-2 pt-4">
@@ -654,7 +795,7 @@ export default function Employees() {
       </div>
 
       {/* Search */}
-      <Card className="glassmorphism neon-border">
+      <Card className="glassmorphism neon-border rounded-xl">
         <CardContent className="p-4">
           <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -671,7 +812,7 @@ export default function Employees() {
       {/* Employee Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredEmployees.map((employee: Employee) => (
-          <Card key={employee.id} className="glassmorphism neon-border hover:scale-[1.02] transition-all duration-200">
+          <Card key={employee.id} className="glassmorphism neon-border rounded-xl hover:scale-[1.02] transition-all duration-200">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between mb-3">
                 <span className="font-mono text-sm text-muted-foreground">#{employee.employeeNumber}</span>
@@ -686,7 +827,14 @@ export default function Employees() {
                 <div className="flex-1">
                   <h3 className="font-semibold text-lg">{employee.name}</h3>
                   <p className="text-sm text-muted-foreground">{employee.position}</p>
-                  <Badge variant={employee.isActive ? "default" : "secondary"} className="mt-1">
+                  <Badge
+                    variant="outline"
+                    className={`mt-1 ${
+                      employee.isActive
+                        ? "border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400"
+                        : "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400"
+                    }`}
+                  >
                     {employee.isActive ? "Ativo" : "Inativo"}
                   </Badge>
                 </div>
@@ -705,7 +853,7 @@ export default function Employees() {
                 <div className="flex items-center space-x-2 text-sm">
                   <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span>
-                    {new Date(employee.birthDate).toLocaleDateString('pt-BR')} 
+                    {new Date(employee.birthDate).toLocaleDateString('pt-BR')}
                     ({calculateAge(employee.birthDate)} anos)
                   </span>
                 </div>
@@ -720,11 +868,14 @@ export default function Employees() {
                 <UserCheck className="w-4 h-4 text-muted-foreground" />
                 <span>Admitido em {new Date(employee.hireDate).toLocaleDateString('pt-BR')}</span>
               </div>
-              
+
               <div className="flex items-center justify-between pt-4">
                 <div>
                   {employee.accessAuthUserId ? (
-                    <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">
+                    <Badge
+                      variant="outline"
+                      className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    >
                       <KeyRound className="w-3 h-3 mr-1" />
                       Tem acesso
                     </Badge>
@@ -771,7 +922,7 @@ export default function Employees() {
       </div>
 
       {filteredEmployees.length === 0 && (
-        <Card className="glassmorphism neon-border">
+        <Card className="glassmorphism neon-border rounded-xl">
           <CardContent className="text-center py-12">
             <UserCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Nenhum funcionário encontrado</h3>

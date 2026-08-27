@@ -16,33 +16,72 @@ import {
   ChevronDown,
   ListFilter,
   Tag,
+  MessageCircle,
+  Link2,
+  FileText,
+  Smartphone,
+  CalendarClock,
+  Wallet,
+  BarChart3,
 } from "lucide-react";
+
+interface NavChild {
+  title: string;
+  href: string;
+  icon: React.ElementType;
+  permission: string;
+}
 
 interface NavItem {
   title: string;
   href: string;
   icon: React.ElementType;
-  children?: { title: string; href: string; icon: React.ElementType }[];
+  children?: NavChild[];
 }
 
 interface NavItemEx extends NavItem {
-  ownerOnly?: boolean;
+  // Present on leaf items (no children); children carry their own permission.
+  permission?: string;
 }
 
+// Permission keys mirror server/routes.ts's PermissionKey 1:1 — keep both in
+// sync when adding/removing a protected sidebar item.
 const sidebarItems: NavItemEx[] = [
-  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, ownerOnly: true },
+  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard" },
   {
     title: "Clientes",
     href: "/clients",
     icon: Users,
     children: [
-      { title: "Listar/Criar", href: "/clients", icon: ListFilter },
-      { title: "Planos", href: "/clients/plans", icon: Tag },
-      { title: "Sistemas", href: "/systems", icon: Server },
+      { title: "Listar/Criar", href: "/clients", icon: ListFilter, permission: "clients.list" },
+      { title: "Planos", href: "/clients/plans", icon: Tag, permission: "clients.plans" },
+      { title: "Sistemas", href: "/systems", icon: Server, permission: "clients.systems" },
+      { title: "Aplicativos", href: "/apps", icon: Smartphone, permission: "clients.apps" },
+      { title: "Renovações Manuais", href: "/manual-renewals", icon: CalendarClock, permission: "clients.manual_renewals" },
     ],
   },
-  { title: "Rankings", href: "/rankings", icon: Trophy },
-  { title: "Funcionários", href: "/employees", icon: UserCheck, ownerOnly: true },
+  { title: "Rankings", href: "/rankings", icon: Trophy, permission: "rankings" },
+  { title: "Funcionários", href: "/employees", icon: UserCheck, permission: "employees" },
+  {
+    title: "Financeiro",
+    href: "/financeiro",
+    icon: Wallet,
+    children: [
+      { title: "Visão Geral", href: "/financeiro", icon: ListFilter, permission: "financial.overview" },
+      { title: "Relatórios", href: "/financeiro/relatorios", icon: BarChart3, permission: "financial.reports" },
+    ],
+  },
+  {
+    title: "CRM WhatsApp",
+    href: "/crm",
+    icon: MessageCircle,
+    children: [
+      { title: "Conversas", href: "/crm", icon: MessageCircle, permission: "crm.conversations" },
+      { title: "Automações", href: "/crm/automations", icon: Zap, permission: "crm.automations" },
+      { title: "Templates", href: "/crm/templates", icon: FileText, permission: "crm.templates" },
+      { title: "Conexão", href: "/crm/connection", icon: Link2, permission: "crm.connection" },
+    ],
+  },
 ];
 
 interface SidebarProps {
@@ -52,10 +91,18 @@ interface SidebarProps {
 export function Sidebar({ className }: SidebarProps) {
   const [location] = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-  const { logout, user, isOwner } = useAuth();
-  const visibleItems = sidebarItems.filter((it) => !it.ownerOnly || isOwner);
+  const { logout, user, hasPermission } = useAuth();
+  const visibleItems = sidebarItems
+    .map((it) => {
+      if (it.children) {
+        const visibleChildren = it.children.filter((c) => hasPermission(c.permission));
+        return visibleChildren.length > 0 ? { ...it, children: visibleChildren } : null;
+      }
+      return !it.permission || hasPermission(it.permission) ? it : null;
+    })
+    .filter((it): it is NavItemEx => it !== null);
 
-  const isClientsActive = location === "/clients" || location.startsWith("/clients/") || location === "/systems" || location.startsWith("/systems/");
+  const isClientsActive = location === "/clients" || location.startsWith("/clients/") || location === "/systems" || location.startsWith("/systems/") || location === "/apps" || location.startsWith("/apps/") || location === "/manual-renewals" || location.startsWith("/manual-renewals/");
 
   const [openItems, setOpenItems] = useState<Set<string>>(() => {
     const initial = new Set<string>();
@@ -132,7 +179,7 @@ export function Sidebar({ className }: SidebarProps) {
                       <Icon className="h-5 w-5 shrink-0" />
                       {!collapsed && (
                         <>
-                          <span className="ml-3 flex-1 text-left text-sm">{item.title}</span>
+                          <span className="ml-3 flex-1 text-left text-sm font-semibold">{item.title}</span>
                           <ChevronDown
                             className={cn(
                               "h-4 w-4 text-white/50 transition-transform duration-200",
@@ -145,7 +192,7 @@ export function Sidebar({ className }: SidebarProps) {
 
                     {/* Submenu */}
                     {!collapsed && isOpen && (
-                      <div className="ml-4 mt-1 space-y-1 border-l border-[#1a2d42] pl-3">
+                      <div className="ml-3 mt-1 space-y-0.5 pl-6">
                         {item.children.map((child) => {
                           const ChildIcon = child.icon;
                           const isChildActive = location === child.href;
@@ -153,12 +200,12 @@ export function Sidebar({ className }: SidebarProps) {
                             <Link key={child.href} href={child.href}>
                               <button
                                 className={cn(
-                                  "w-full flex items-center h-9 px-3 py-1.5 rounded-md text-sm text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200",
+                                  "w-full flex items-center h-10 px-3 py-2 rounded-md text-[15px] font-medium leading-tight text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200",
                                   isChildActive && "bg-blue-600 text-white hover:bg-blue-700 border border-blue-500/50"
                                 )}
                               >
                                 <ChildIcon className="h-4 w-4 shrink-0" />
-                                <span className="ml-2.5">{child.title}</span>
+                                <span className="ml-2.5 text-left">{child.title}</span>
                               </button>
                             </Link>
                           );
@@ -203,7 +250,7 @@ export function Sidebar({ className }: SidebarProps) {
                     )}
                   >
                     <Icon className="h-5 w-5" />
-                    {!collapsed && <span className="ml-3">{item.title}</span>}
+                    {!collapsed && <span className="ml-3 font-semibold">{item.title}</span>}
                   </Button>
                 </Link>
               );

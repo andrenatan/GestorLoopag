@@ -121,7 +121,7 @@ export function BrazilMap({ data }: BrazilMapProps) {
       <button
         type="button"
         onClick={handleReset}
-        className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-md bg-[#243447] hover:bg-[#2a3a4a] border border-[#2a3a4a] px-2.5 py-1 text-xs text-cyan-300"
+        className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-md bg-muted hover:bg-accent border border-border px-2.5 py-1 text-xs text-primary transition-colors"
         data-testid="button-map-reset"
       >
         <RotateCcw className="w-3 h-3" />
@@ -219,31 +219,31 @@ export function BrazilMap({ data }: BrazilMapProps) {
 
       {hoveredState && (
         <div
-          className="absolute bg-[#1a2a3a] border border-[#2a3a4a] rounded-lg p-3 shadow-lg pointer-events-none z-30"
+          className="absolute bg-card border border-border rounded-lg p-3 shadow-lg pointer-events-none z-30"
           style={{
             left: Math.min(mousePos.x + 10, 240),
             top: Math.max(10, mousePos.y - 60),
           }}
         >
-          <div className="text-xs font-semibold mb-1 text-slate-300">Clientes por Estado</div>
-          <div className="text-sm text-white">
+          <div className="text-xs font-semibold mb-1 text-muted-foreground">Clientes por Estado</div>
+          <div className="text-sm text-foreground">
             {hoveredState.name}: <span className="font-medium">{hoveredState.count}</span> ({hoveredState.percentage}%)
           </div>
         </div>
       )}
 
-      <div className="absolute left-3 bottom-3 z-20 flex items-center gap-2 rounded-md bg-[#243447]/90 border border-[#2a3a4a] px-2.5 py-1.5 text-xs text-slate-300">
-        <Move className="w-3 h-3 text-cyan-300" />
+      <div className="absolute left-3 bottom-3 z-20 flex items-center gap-2 rounded-md bg-muted/90 border border-border px-2.5 py-1.5 text-xs text-muted-foreground">
+        <Move className="w-3 h-3 text-primary" />
         {hintLabel}
       </div>
 
       <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex flex-col items-center gap-1 z-20">
-        <span className="text-[10px] text-slate-400">Mais</span>
+        <span className="text-[10px] text-muted-foreground">Mais</span>
         <div
           className="w-2.5 h-20 rounded"
           style={{ background: "linear-gradient(to bottom, #dc2626, #3b82f6)" }}
         />
-        <span className="text-[10px] text-slate-400">Menos</span>
+        <span className="text-[10px] text-muted-foreground">Menos</span>
       </div>
     </div>
   );

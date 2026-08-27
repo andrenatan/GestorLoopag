@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { AuthProvider } from "@/hooks/use-auth";
-import { ProtectedRoute, PublicRoute, RequireOwner } from "@/components/auth/protected-route";
+import { ProtectedRoute, PublicRoute, RequireOwner, RequirePermission } from "@/components/auth/protected-route";
 import { Sidebar } from "@/components/layout/sidebar";
 
 import NotFound from "@/pages/not-found";
@@ -20,6 +20,15 @@ import Sales from "@/pages/sales";
 import Plans from "@/pages/plans";
 import Success from "@/pages/success";
 import ClientPlans from "@/pages/client-plans";
+import Apps from "@/pages/apps";
+import ManualRenewals from "@/pages/manual-renewals";
+import FinancialOverview from "@/pages/financial-overview";
+import FinancialReports from "@/pages/financial-reports";
+import CrmConnection from "@/pages/crm-connection";
+import Crm from "@/pages/crm";
+import CrmAutomations from "@/pages/crm-automations";
+import CrmTemplates from "@/pages/crm-templates";
+import CrmTemplateNew from "@/pages/crm-template-new";
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -59,53 +68,101 @@ function Router() {
       {/* Protected dashboard routes */}
       <Route path="/dashboard">
         <ProtectedRoute>
-          <RequireOwner>
+          <RequirePermission permission="dashboard">
             <DashboardLayout>
               <Dashboard />
             </DashboardLayout>
-          </RequireOwner>
+          </RequirePermission>
         </ProtectedRoute>
       </Route>
 
       <Route path="/clients/plans">
         <ProtectedRoute>
-          <DashboardLayout>
-            <ClientPlans />
-          </DashboardLayout>
+          <RequirePermission permission="clients.plans">
+            <DashboardLayout>
+              <ClientPlans />
+            </DashboardLayout>
+          </RequirePermission>
         </ProtectedRoute>
       </Route>
 
       <Route path="/clients">
         <ProtectedRoute>
-          <DashboardLayout>
-            <Clients />
-          </DashboardLayout>
+          <RequirePermission permission="clients.list">
+            <DashboardLayout>
+              <Clients />
+            </DashboardLayout>
+          </RequirePermission>
         </ProtectedRoute>
       </Route>
 
       <Route path="/systems">
         <ProtectedRoute>
-          <DashboardLayout>
-            <Systems />
-          </DashboardLayout>
+          <RequirePermission permission="clients.systems">
+            <DashboardLayout>
+              <Systems />
+            </DashboardLayout>
+          </RequirePermission>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/apps">
+        <ProtectedRoute>
+          <RequirePermission permission="clients.apps">
+            <DashboardLayout>
+              <Apps />
+            </DashboardLayout>
+          </RequirePermission>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/manual-renewals">
+        <ProtectedRoute>
+          <RequirePermission permission="clients.manual_renewals">
+            <DashboardLayout>
+              <ManualRenewals />
+            </DashboardLayout>
+          </RequirePermission>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/financeiro">
+        <ProtectedRoute>
+          <RequirePermission permission="financial.overview">
+            <DashboardLayout>
+              <FinancialOverview />
+            </DashboardLayout>
+          </RequirePermission>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/financeiro/relatorios">
+        <ProtectedRoute>
+          <RequirePermission permission="financial.reports">
+            <DashboardLayout>
+              <FinancialReports />
+            </DashboardLayout>
+          </RequirePermission>
         </ProtectedRoute>
       </Route>
 
       <Route path="/rankings">
         <ProtectedRoute>
-          <DashboardLayout>
-            <Rankings />
-          </DashboardLayout>
+          <RequirePermission permission="rankings">
+            <DashboardLayout>
+              <Rankings />
+            </DashboardLayout>
+          </RequirePermission>
         </ProtectedRoute>
       </Route>
 
       <Route path="/employees">
         <ProtectedRoute>
-          <RequireOwner>
+          <RequirePermission permission="employees">
             <DashboardLayout>
               <Employees />
             </DashboardLayout>
-          </RequireOwner>
+          </RequirePermission>
         </ProtectedRoute>
       </Route>
 
@@ -116,6 +173,56 @@ function Router() {
               <Users />
             </DashboardLayout>
           </RequireOwner>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/crm">
+        <ProtectedRoute>
+          <RequirePermission permission="crm.conversations">
+            <DashboardLayout>
+              <Crm />
+            </DashboardLayout>
+          </RequirePermission>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/crm/automations">
+        <ProtectedRoute>
+          <RequirePermission permission="crm.automations">
+            <DashboardLayout>
+              <CrmAutomations />
+            </DashboardLayout>
+          </RequirePermission>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/crm/templates/new">
+        <ProtectedRoute>
+          <RequirePermission permission="crm.templates">
+            <DashboardLayout>
+              <CrmTemplateNew />
+            </DashboardLayout>
+          </RequirePermission>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/crm/templates">
+        <ProtectedRoute>
+          <RequirePermission permission="crm.templates">
+            <DashboardLayout>
+              <CrmTemplates />
+            </DashboardLayout>
+          </RequirePermission>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/crm/connection">
+        <ProtectedRoute>
+          <RequirePermission permission="crm.connection">
+            <DashboardLayout>
+              <CrmConnection />
+            </DashboardLayout>
+          </RequirePermission>
         </ProtectedRoute>
       </Route>
 
