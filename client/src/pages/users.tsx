@@ -42,9 +42,9 @@ const roleLabels = {
 };
 
 const roleColors = {
-  admin: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-  operator: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  viewer: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  admin: "bg-destructive/10 text-destructive  ",
+  operator: "bg-info/10 text-info  ",
+  viewer: "bg-success/10 text-success  ",
 };
 
 const roleIcons = {
@@ -156,7 +156,7 @@ export default function Users() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-muted rounded w-64" />
           <div className="h-96 bg-muted rounded" />
@@ -166,14 +166,16 @@ export default function Users() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Usuários do Sistema</h1>
-          <p className="text-muted-foreground">
-            Gerencie contas de acesso e permissões do sistema
-          </p>
+      <div data-reveal className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-balance font-display text-3xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-[2.6rem]">Usuários do Sistema</h1>
+            <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground sm:text-base">
+              Gerencie contas de acesso e permissões do sistema
+            </p>
+          </div>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
@@ -295,7 +297,7 @@ export default function Users() {
       </div>
 
       {/* Search */}
-      <Card className="glassmorphism neon-border">
+      <Card>
         <CardContent className="p-4">
           <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -311,49 +313,49 @@ export default function Users() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="glassmorphism neon-border border-red-500/30">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Administradores</p>
-                <p className="text-2xl font-bold text-red-500">
+                <p className="font-display text-3xl font-semibold tracking-tight text-destructive">
                   {users.filter((u: User) => u.role === "admin").length}
                 </p>
               </div>
-              <div className="p-3 bg-red-500/10 rounded-lg">
-                <Shield className="w-6 h-6 text-red-500" />
+              <div className="p-3 bg-destructive/10 rounded-full">
+                <Shield className="w-6 h-6 text-destructive" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="glassmorphism neon-border border-blue-500/30">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Operadores</p>
-                <p className="text-2xl font-bold text-blue-500">
+                <p className="font-display text-3xl font-semibold tracking-tight text-info">
                   {users.filter((u: User) => u.role === "operator").length}
                 </p>
               </div>
-              <div className="p-3 bg-blue-500/10 rounded-lg">
-                <Settings className="w-6 h-6 text-blue-500" />
+              <div className="p-3 bg-info/10 rounded-full">
+                <Settings className="w-6 h-6 text-info" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="glassmorphism neon-border border-green-500/30">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Visualizadores</p>
-                <p className="text-2xl font-bold text-green-500">
+                <p className="font-display text-3xl font-semibold tracking-tight text-success">
                   {users.filter((u: User) => u.role === "viewer").length}
                 </p>
               </div>
-              <div className="p-3 bg-green-500/10 rounded-lg">
-                <Eye className="w-6 h-6 text-green-500" />
+              <div className="p-3 bg-success/10 rounded-full">
+                <Eye className="w-6 h-6 text-success" />
               </div>
             </div>
           </CardContent>
@@ -361,7 +363,7 @@ export default function Users() {
       </div>
 
       {/* Users Table */}
-      <Card className="glassmorphism neon-border">
+      <Card>
         <CardHeader>
           <CardTitle>Usuários ({filteredUsers.length})</CardTitle>
         </CardHeader>
@@ -369,52 +371,53 @@ export default function Users() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Usuário</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Nível de Acesso</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Criado em</TableHead>
-                <TableHead>Ações</TableHead>
+                <TableHead className="text-xs">Usuário</TableHead>
+                <TableHead className="text-xs">Email</TableHead>
+                <TableHead className="text-xs">Nível de Acesso</TableHead>
+                <TableHead className="text-xs">Status</TableHead>
+                <TableHead className="text-xs">Criado em</TableHead>
+                <TableHead className="text-xs">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredUsers.map((user: User) => {
                 const RoleIcon = roleIcons[user.role];
                 return (
-                  <TableRow key={user.id} className="hover:bg-muted/50">
+                  <TableRow key={user.id} className="hover:bg-muted/50 transition-colors">
                     <TableCell>
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                        <div className="w-8 h-8 brand-tile rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
                           {user.username.slice(0, 2).toUpperCase()}
                         </div>
                         <span className="font-medium">{user.username}</span>
                       </div>
                     </TableCell>
-                    <TableCell>{user.email}</TableCell>
+                    <TableCell className="text-muted-foreground">{user.email}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <RoleIcon className="w-4 h-4" />
+                        <RoleIcon className="w-4 h-4 text-muted-foreground" />
                         <Badge className={roleColors[user.role]}>
                           {roleLabels[user.role]}
                         </Badge>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={user.isActive ? "default" : "secondary"}>
+                      <Badge className={user.isActive ? "bg-success/10 text-success  " : "bg-muted text-foreground  "}>
                         {user.isActive ? "Ativo" : "Inativo"}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
                       {new Date(user.createdAt).toLocaleDateString('pt-BR')}
                     </TableCell>
                     <TableCell>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleEdit(user)}
                         title="Editar"
+                        className="h-8 w-8 rounded-full bg-info/10 text-info hover:bg-info/20"
                       >
-                        <Edit2 className="w-4 h-4" />
+                        <Edit2 className="w-3.5 h-3.5" />
                       </Button>
                     </TableCell>
                   </TableRow>

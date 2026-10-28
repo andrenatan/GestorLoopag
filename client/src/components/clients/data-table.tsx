@@ -6,16 +6,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  Search, 
-  Filter, 
+import {
+  Search,
+  Filter,
   Edit2,
   MessageCircle,
   Trash2,
   ChevronLeft,
   ChevronRight,
   Upload,
-  Download
+  Download,
+  Users
 } from "lucide-react";
 import type { Client } from "@shared/schema";
 import { getBrasiliaStartOfDay, parseDateString, formatDateString } from "@/lib/timezone";
@@ -30,16 +31,16 @@ interface DataTableProps {
 }
 
 const statusColors = {
-  "Ativa": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  "Inativa": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-  "Aguardando": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  "Teste": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  "Ativa": "bg-success/10 text-success  ",
+  "Inativa": "bg-destructive/10 text-destructive  ",
+  "Aguardando": "bg-warning/10 text-warning  ",
+  "Teste": "bg-info/10 text-info  ",
 };
 
 const systemColors = {
-  "P2P - Android": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  "IPTV - Geral": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  "Dois Pontos Distintos": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  "P2P - Android": "bg-primary/10 text-primary  ",
+  "IPTV - Geral": "bg-info/10 text-info  ",
+  "Dois Pontos Distintos": "bg-warning/10 text-warning  ",
 };
 
 export function DataTable({ 
@@ -84,11 +85,11 @@ export function DataTable({
   };
 
   const getExpiryColor = (days: number) => {
-    if (days < 0) return "text-red-600";
-    if (days === 0) return "text-red-500";
-    if (days <= 3) return "text-orange-600";
-    if (days <= 7) return "text-yellow-600";
-    return "text-green-600";
+    if (days < 0) return "text-destructive";
+    if (days === 0) return "text-destructive";
+    if (days <= 3) return "text-warning";
+    if (days <= 7) return "text-warning";
+    return "text-success";
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -109,11 +110,11 @@ export function DataTable({
 
   if (isLoading) {
     return (
-      <Card className="glassmorphism neon-border">
+      <Card>
         <CardContent className="p-6">
           <div className="animate-pulse space-y-4">
-            <div className="h-10 bg-muted rounded" />
-            <div className="h-64 bg-muted rounded" />
+            <div className="h-10 bg-muted rounded-lg" />
+            <div className="h-64 bg-muted rounded-lg" />
           </div>
         </CardContent>
       </Card>
@@ -121,10 +122,15 @@ export function DataTable({
   }
 
   return (
-    <Card className="glassmorphism neon-border">
+    <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Clientes ({filteredData.length})</CardTitle>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+              <Users className="w-4 h-4 text-primary" />
+            </div>
+            <CardTitle>Clientes ({filteredData.length})</CardTitle>
+          </div>
           <div className="flex items-center space-x-3">
             {selectedItems.length > 0 && onBulkAction && (
               <div className="flex items-center space-x-2">
@@ -156,7 +162,7 @@ export function DataTable({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Filters */}
-        <div className="flex items-center space-x-4 p-4 bg-muted/50 rounded-lg">
+        <div className="flex items-center space-x-4 p-4 bg-muted/50 rounded-xl">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -205,14 +211,14 @@ export function DataTable({
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>
-                <TableHead>ID</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead>Sistema</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Vencimento</TableHead>
-                <TableHead>Valor</TableHead>
-                <TableHead>Ações</TableHead>
+                <TableHead className="text-xs text-muted-foreground">ID</TableHead>
+                <TableHead className="text-xs text-muted-foreground">Cliente</TableHead>
+                <TableHead className="text-xs text-muted-foreground">Telefone</TableHead>
+                <TableHead className="text-xs text-muted-foreground">Sistema</TableHead>
+                <TableHead className="text-xs text-muted-foreground">Status</TableHead>
+                <TableHead className="text-xs text-muted-foreground">Vencimento</TableHead>
+                <TableHead className="text-xs text-muted-foreground">Valor</TableHead>
+                <TableHead className="text-xs text-muted-foreground text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -221,17 +227,17 @@ export function DataTable({
                 const isSelected = selectedItems.includes(item.id);
 
                 return (
-                  <TableRow key={item.id} className="hover:bg-muted/50">
+                  <TableRow key={item.id} className="hover:bg-muted/50 transition-colors">
                     <TableCell>
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={(checked) => handleSelectItem(item.id, !!checked)}
                       />
                     </TableCell>
-                    <TableCell className="font-mono text-sm">#{item.id}</TableCell>
+                    <TableCell className="font-mono text-sm text-muted-foreground">#{item.id}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                        <div className="w-8 h-8 brand-tile rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
                           {item.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                         </div>
                         <div>
@@ -242,20 +248,20 @@ export function DataTable({
                     </TableCell>
                     <TableCell className="text-sm">{item.phone}</TableCell>
                     <TableCell>
-                      <Badge className={systemColors[item.system] || "bg-gray-100 text-gray-800"}>
+                      <Badge className={systemColors[item.system] || "bg-muted text-foreground"}>
                         {item.system}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className={statusColors[item.subscriptionStatus] || "bg-gray-100 text-gray-800"}>
+                      <Badge className={statusColors[item.subscriptionStatus] || "bg-muted text-foreground"}>
                         {item.subscriptionStatus}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div>
                         <p className="text-sm">{formatDateString(item.expiryDate)}</p>
-                        <p className={`text-xs ${getExpiryColor(daysToExpiry)}`}>
-                          {daysToExpiry < 0 ? `${Math.abs(daysToExpiry)} dias atraso` : 
+                        <p className={`text-xs font-medium ${getExpiryColor(daysToExpiry)}`}>
+                          {daysToExpiry < 0 ? `${Math.abs(daysToExpiry)} dias atraso` :
                            daysToExpiry === 0 ? "Vence hoje" :
                            `${daysToExpiry} dias`}
                         </p>
@@ -265,26 +271,38 @@ export function DataTable({
                       R$ {parseFloat(item.value || "0").toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center justify-end gap-1.5">
                         {onEdit && (
-                          <Button variant="ghost" size="icon" onClick={() => onEdit(item)} title="Editar">
-                            <Edit2 className="w-4 h-4" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full text-primary hover:bg-primary/10 hover:text-primary"
+                            onClick={() => onEdit(item)}
+                            title="Editar"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
                           </Button>
                         )}
                         {onWhatsApp && (
-                          <Button variant="ghost" size="icon" className="text-green-600" onClick={() => onWhatsApp(item)} title="WhatsApp">
-                            <MessageCircle className="w-4 h-4" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full text-success hover:bg-success/10 hover:text-success"
+                            onClick={() => onWhatsApp(item)}
+                            title="WhatsApp"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
                           </Button>
                         )}
                         {onDelete && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-red-600" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
                             onClick={() => onDelete(item.id)}
                             title="Excluir"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         )}
                       </div>
@@ -297,7 +315,7 @@ export function DataTable({
         </div>
 
         {/* Pagination */}
-        <div className="flex items-center justify-between pt-4 border-t">
+        <div className="flex items-center justify-between pt-4 border-t border-border">
           <div className="flex items-center space-x-2">
             <span className="text-sm text-muted-foreground">Mostrando</span>
             <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(parseInt(value))}>

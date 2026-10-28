@@ -16,30 +16,30 @@ interface StatsCardProps {
 }
 
 const colorVariants = {
-  red: "border-red-500/30 hover:border-red-500/50",
-  yellow: "border-yellow-500/30 hover:border-yellow-500/50", 
-  orange: "border-orange-500/30 hover:border-orange-500/50",
-  blue: "border-blue-500/30 hover:border-blue-500/50",
-  green: "border-green-500/30 hover:border-green-500/50",
-  purple: "border-purple-500/30 hover:border-purple-500/50",
+  red: "border-destructive/30 hover:border-destructive/40",
+  yellow: "border-warning/30 hover:border-warning/40", 
+  orange: "border-warning/30 hover:border-warning/40",
+  blue: "border-info/30 hover:border-info/40",
+  green: "border-success/30 hover:border-success/40",
+  purple: "border-primary/30 hover:border-primary/40",
 };
 
 const iconColorVariants = {
-  red: "text-red-500 bg-red-500/10",
-  yellow: "text-yellow-500 bg-yellow-500/10",
-  orange: "text-orange-500 bg-orange-500/10", 
-  blue: "text-blue-500 bg-blue-500/10",
-  green: "text-green-500 bg-green-500/10",
-  purple: "text-purple-500 bg-purple-500/10",
+  red: "text-destructive bg-destructive/10",
+  yellow: "text-warning bg-warning/10",
+  orange: "text-warning bg-warning/10", 
+  blue: "text-info bg-info/10",
+  green: "text-success bg-success/10",
+  purple: "text-primary bg-primary/10",
 };
 
 const valueColorVariants = {
-  red: "text-red-500",
-  yellow: "text-yellow-500",
-  orange: "text-orange-500",
-  blue: "text-blue-500", 
-  green: "text-green-500",
-  purple: "text-purple-500",
+  red: "text-destructive",
+  yellow: "text-warning",
+  orange: "text-warning",
+  blue: "text-info", 
+  green: "text-success",
+  purple: "text-primary",
 };
 
 export function StatsCard({ 
@@ -53,22 +53,25 @@ export function StatsCard({
 }: StatsCardProps) {
   return (
     <Card className={cn(
-      "stats-card",
+      "glass p-6",
       colorVariants[color],
-      color === "red" && "animate-pulse-slow",
+      
       className
     )}>
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-muted-foreground mb-1">{title}</p>
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mb-2">
+              <Icon className={cn("w-3.5 h-3.5", valueColorVariants[color])} />
+              {title}
+            </p>
             <p className={cn("text-2xl font-bold", valueColorVariants[color], blurValue && "blur-sm select-none")} style={blurValue ? { transition: 'filter 0.3s ease' } : { transition: 'filter 0.3s ease' }}>
               {value}
             </p>
             {trend && (
               <p className={cn(
                 "text-xs mt-1",
-                trend.isPositive ? "text-green-500" : "text-red-500"
+                trend.isPositive ? "text-success" : "text-destructive"
               )}>
                 {trend.isPositive ? "+" : ""}{trend.value}%
               </p>

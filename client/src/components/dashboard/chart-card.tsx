@@ -11,7 +11,7 @@ interface ChartCardProps {
 
 export function ChartCard({ title, subtitle, children, action, className }: ChartCardProps) {
   return (
-    <Card className={cn("glassmorphism neon-border", className)}>
+    <Card className={cn("", className)}>
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div>

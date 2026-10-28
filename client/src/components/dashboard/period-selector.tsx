@@ -182,7 +182,7 @@ export function PeriodSelector({ value, onChange }: Props) {
   return (
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setShowMonthPicker(false); }}>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-1 text-xs bg-[#243447] text-slate-300 px-3 py-1.5 rounded-md hover:bg-[#2d4057] transition-colors border border-[#3a4a5a]">
+        <button type="button" className="flex h-8 shrink-0 items-center gap-1 rounded-full border border-edge bg-secondary px-3.5 text-xs font-semibold text-foreground shadow-glass transition-colors hover:bg-accent">
           {value.label}
           <ChevronDown className="w-3 h-3 ml-0.5 opacity-70" />
         </button>
@@ -190,15 +190,14 @@ export function PeriodSelector({ value, onChange }: Props) {
       <PopoverContent
         align="end"
         sideOffset={6}
-        className="w-52 p-0 bg-[#0d1b2a] border border-[#2a3a4a] rounded-xl shadow-2xl overflow-hidden"
+        className="w-56 overflow-hidden p-1.5"
       >
         {!showMonthPicker ? (
           <div className="max-h-80 overflow-y-auto">
             {GROUPS.map((group) => (
               <div key={group.label}>
                 <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
-                  <div className="w-3 h-3 rounded-sm bg-[#6366f1] flex-shrink-0" />
-                  <span className="text-xs font-semibold text-[#6366f1] uppercase tracking-wide">{group.label}</span>
+                  <span className="text-xs font-semibold text-muted-foreground">{group.label}</span>
                 </div>
                 {group.items.map((item) => {
                   const isSelected = value.label === item || (item === "Mês Específico" && !GROUPS.flatMap(g => g.items).includes(value.label));
@@ -206,10 +205,10 @@ export function PeriodSelector({ value, onChange }: Props) {
                     <button
                       key={item}
                       onClick={() => handleSelect(item)}
-                      className={`w-full text-left px-3 py-1.5 text-sm transition-colors flex items-center justify-between ${
+                      className={`w-full text-left px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center justify-between ${
                         isSelected
-                          ? "bg-[#1e3a5f] text-[#60a5fa]"
-                          : "text-slate-300 hover:bg-[#1a2a3a]"
+                          ? "bg-ink text-ink-foreground font-semibold"
+                          : "text-foreground/80 hover:bg-accent"
                       }`}
                     >
                       {item}
@@ -225,14 +224,14 @@ export function PeriodSelector({ value, onChange }: Props) {
             <div className="flex items-center justify-between mb-3">
               <button
                 onClick={() => setPickerYear((y) => y - 1)}
-                className="text-slate-400 hover:text-white text-sm px-1"
+                className="text-muted-foreground hover:text-foreground text-sm px-1"
               >
                 ‹
               </button>
-              <span className="text-white font-semibold text-sm">{pickerYear}</span>
+              <span className="text-foreground font-semibold text-sm">{pickerYear}</span>
               <button
                 onClick={() => setPickerYear((y) => y + 1)}
-                className="text-slate-400 hover:text-white text-sm px-1"
+                className="text-muted-foreground hover:text-foreground text-sm px-1"
               >
                 ›
               </button>
@@ -242,10 +241,10 @@ export function PeriodSelector({ value, onChange }: Props) {
                 <button
                   key={name}
                   onClick={() => handleMonthPick(idx)}
-                  className={`py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={`py-1.5 rounded-full text-xs font-medium transition-colors ${
                     selectedPickerMonth === idx && selectedPickerYear === pickerYear
-                      ? "bg-[#6366f1] text-white"
-                      : "bg-[#1a2a3a] text-slate-300 hover:bg-[#243447]"
+                      ? "bg-ink text-ink-foreground"
+                      : "bg-muted text-foreground/80 hover:bg-accent hover:text-accent-foreground"
                   }`}
                 >
                   {name}
@@ -254,7 +253,7 @@ export function PeriodSelector({ value, onChange }: Props) {
             </div>
             <button
               onClick={() => setShowMonthPicker(false)}
-              className="w-full mt-2 text-xs text-slate-500 hover:text-slate-300 transition-colors text-center"
+              className="w-full mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors text-center"
             >
               ← Voltar
             </button>

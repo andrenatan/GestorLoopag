@@ -137,29 +137,22 @@ export default function SalesPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   return (
-    <div className="min-h-screen bg-[#0a0a1a] text-white overflow-x-hidden">
-      {/* Animated Background */}
-      <div className="fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a1a] via-[#1a1a3a] to-[#0a0a1a]" />
-        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-blue-600/20 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-600/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: "1s" }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-600/10 rounded-full blur-[150px]" />
-      </div>
+    <div className="min-h-screen overflow-x-hidden text-foreground">
 
       {/* Navigation */}
-      <nav className="relative z-10 border-b border-white/5">
+      <nav className="sticky top-0 z-30 pt-3 sm:pt-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="glass flex h-16 items-center justify-between rounded-full pl-3 pr-2 sm:pl-4">
             <motion.div 
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               className="flex items-center gap-2"
             >
               <a href="#" data-testid="link-nav-home" className="flex items-center gap-2 cursor-pointer">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
-                  <Zap className="w-6 h-6 text-white" />
+                <div className="brand-tile flex h-10 w-10 items-center justify-center rounded-full">
+                  <Zap className="h-5 w-5" />
                 </div>
-                <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                <span className="font-display text-xl font-bold tracking-tight text-foreground">
                   Loopag
                 </span>
               </a>
@@ -171,13 +164,13 @@ export default function SalesPage() {
               animate={{ opacity: 1, x: 0 }}
               className="hidden sm:flex items-center gap-4"
             >
-              <a href="#planos" data-testid="link-nav-planos" className="text-gray-400 hover:text-white transition-colors text-sm">
+              <a href="#planos" data-testid="link-nav-planos" className="rounded-full px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground">
                 Planos
               </a>
               <Link href="/login" data-testid="link-nav-login">
                 <Button 
                   data-testid="button-nav-login"
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white border-0 shadow-lg shadow-blue-500/25"
+                  variant="ink"
                 >
                   Acessar Sistema
                   <ChevronRight className="w-4 h-4 ml-1" />
@@ -188,7 +181,7 @@ export default function SalesPage() {
             {/* Mobile Menu Button */}
             <button
               data-testid="button-mobile-menu"
-              className="sm:hidden p-2 text-gray-400 hover:text-white transition-colors"
+              className="sm:hidden flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-accent"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -200,13 +193,13 @@ export default function SalesPage() {
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="sm:hidden py-4 border-t border-white/5"
+              className="glass-strong mt-2 p-4 sm:hidden"
             >
               <div className="flex flex-col gap-3">
                 <a 
                   href="#planos" 
                   data-testid="link-mobile-planos"
-                  className="text-gray-400 hover:text-white transition-colors py-2"
+                  className="rounded-full px-3 py-2 text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Planos
@@ -214,7 +207,8 @@ export default function SalesPage() {
                 <Link href="/login" data-testid="link-mobile-login">
                   <Button 
                     data-testid="button-mobile-login"
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white border-0"
+                    variant="ink"
+                    className="w-full"
                   >
                     Acessar Sistema
                     <ChevronRight className="w-4 h-4 ml-1" />
@@ -235,7 +229,7 @@ export default function SalesPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 text-sm text-blue-300 mb-6">
+              <span className="mb-6 inline-flex items-center gap-2 rounded-full bg-highlight px-4 py-2 text-sm font-semibold text-highlight-foreground">
                 <Sparkles className="w-4 h-4" />
                 Sistema completo de gestão IPTV
               </span>
@@ -245,20 +239,16 @@ export default function SalesPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6"
+              className="text-balance font-display text-5xl font-semibold leading-[1.02] tracking-tight sm:text-6xl lg:text-7xl mb-6"
             >
-              Gerencie suas{" "}
-              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">
-                assinaturas IPTV
-              </span>{" "}
-              de forma inteligente
+              Gerencie suas assinaturas IPTV de forma inteligente
             </motion.h1>
             
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-lg sm:text-xl text-gray-400 mb-10 max-w-2xl mx-auto"
+              className="text-lg sm:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto"
             >
               Automatize cobranças, gerencie clientes e acompanhe seu faturamento em tempo real. 
               Tudo em uma única plataforma moderna e fácil de usar.
@@ -274,7 +264,7 @@ export default function SalesPage() {
                 <Button 
                   data-testid="button-hero-start"
                   size="lg" 
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white border-0 shadow-xl shadow-blue-500/25 px-8 py-6 text-lg"
+                  className="h-14 px-8 text-lg shadow-glow"
                 >
                   Começar Agora
                   <ArrowRight className="w-5 h-5 ml-2" />
@@ -284,8 +274,8 @@ export default function SalesPage() {
                 <Button 
                   data-testid="button-hero-plans"
                   size="lg" 
-                  variant="outline"
-                  className="border-white/20 bg-white/5 hover:bg-white/10 text-white px-8 py-6 text-lg"
+                  variant="secondary"
+                  className="h-14 px-8 text-lg"
                 >
                   Ver Planos
                 </Button>
@@ -297,18 +287,18 @@ export default function SalesPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
-              className="flex flex-wrap items-center justify-center gap-6 mt-12 text-gray-500 text-sm"
+              className="flex flex-wrap items-center justify-center gap-6 mt-12 text-muted-foreground text-sm"
             >
               <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-green-400" />
+                <Shield className="w-5 h-5 text-success" />
                 <span>Dados Seguros</span>
               </div>
               <div className="flex items-center gap-2">
-                <Star className="w-5 h-5 text-yellow-400" />
+                <Star className="w-5 h-5 text-warning" />
                 <span>+500 Revendedores</span>
               </div>
               <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-blue-400" />
+                <Zap className="w-5 h-5 text-primary" />
                 <span>7 dias grátis</span>
               </div>
             </motion.div>
@@ -317,7 +307,7 @@ export default function SalesPage() {
       </section>
 
       {/* Features Section */}
-      <section className="relative z-10 py-20 border-t border-white/5">
+      <section className="relative z-10 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -326,11 +316,10 @@ export default function SalesPage() {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <span className="text-blue-400 text-sm font-medium uppercase tracking-wider">Funcionalidades</span>
-            <h2 className="text-3xl sm:text-4xl font-bold mt-4">
+            <h2 className="text-balance font-display text-4xl font-semibold tracking-tight sm:text-5xl">
               Tudo que você precisa em um só lugar
             </h2>
-            <p className="text-gray-400 mt-4 max-w-2xl mx-auto">
+            <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
               Ferramentas poderosas para automatizar seu negócio e aumentar sua produtividade
             </p>
           </motion.div>
@@ -343,13 +332,13 @@ export default function SalesPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="group p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-blue-500/30 hover:bg-white/10 transition-all duration-300"
+                className="glass p-6"
               >
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                  <feature.icon className="w-6 h-6 text-blue-400" />
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-highlight text-highlight-foreground">
+                  <feature.icon className="h-6 w-6" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-                <p className="text-gray-400 text-sm">{feature.description}</p>
+                <p className="text-muted-foreground text-sm">{feature.description}</p>
               </motion.div>
             ))}
           </div>
@@ -357,7 +346,7 @@ export default function SalesPage() {
       </section>
 
       {/* Pricing Section */}
-      <section id="planos" className="relative z-10 py-20 border-t border-white/5">
+      <section id="planos" className="relative z-10 py-20 scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -366,11 +355,10 @@ export default function SalesPage() {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <span className="text-purple-400 text-sm font-medium uppercase tracking-wider">Planos</span>
-            <h2 className="text-3xl sm:text-4xl font-bold mt-4">
+            <h2 className="text-balance font-display text-4xl font-semibold tracking-tight sm:text-5xl">
               Escolha o plano ideal para você
             </h2>
-            <p className="text-gray-400 mt-4 max-w-2xl mx-auto">
+            <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
               Comece gratuitamente e faça upgrade quando precisar. Todos os planos incluem 7 dias de teste grátis.
             </p>
           </motion.div>
@@ -383,15 +371,11 @@ export default function SalesPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className={`relative p-6 lg:p-8 rounded-2xl border transition-all duration-300 ${
-                  plan.popular 
-                    ? "bg-gradient-to-b from-blue-500/10 to-purple-500/10 border-blue-500/30 scale-105 shadow-xl shadow-blue-500/10" 
-                    : "bg-white/5 border-white/10 hover:border-white/20"
-                }`}
+                className={`relative p-6 lg:p-8 ${plan.popular ? "glass-strong border-primary/50 md:scale-105" : "glass"}`}
               >
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium shadow-lg">
+                    <span className="rounded-full bg-highlight px-4 py-1.5 text-sm font-semibold text-highlight-foreground shadow-float">
                       Mais Popular
                     </span>
                   </div>
@@ -400,18 +384,18 @@ export default function SalesPage() {
                 <div className="text-center mb-6">
                   <h3 className="text-xl font-semibold mb-4">{plan.name}</h3>
                   <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-gray-400">R$</span>
-                    <span className="text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                    <span className="text-muted-foreground">R$</span>
+                    <span className="font-display text-5xl font-semibold tracking-tight text-foreground">
                       {plan.price}
                     </span>
-                    <span className="text-gray-500">{plan.period}</span>
+                    <span className="text-muted-foreground">{plan.period}</span>
                   </div>
                 </div>
 
                 <ul className="space-y-3 mb-8">
                   {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-center gap-3 text-gray-300 text-sm">
-                      <Check className="w-5 h-5 text-green-400 flex-shrink-0" />
+                    <li key={feature} className="flex items-center gap-3 text-foreground/85 text-sm">
+                      <Check className="w-5 h-5 text-success flex-shrink-0" />
                       <span>{feature}</span>
                     </li>
                   ))}
@@ -420,11 +404,8 @@ export default function SalesPage() {
                 <Link href="/login" data-testid={`link-plan-${plan.name.toLowerCase()}`}>
                   <Button 
                     data-testid={`button-plan-${plan.name.toLowerCase()}`}
-                    className={`w-full py-6 ${
-                      plan.popular 
-                        ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg shadow-blue-500/25" 
-                        : "bg-white/10 hover:bg-white/20 text-white border border-white/10"
-                    }`}
+                    variant={plan.popular ? "default" : "secondary"}
+                    className="h-12 w-full"
                   >
                     Começar Agora
                     <ArrowRight className="w-4 h-4 ml-2" />
@@ -437,7 +418,7 @@ export default function SalesPage() {
       </section>
 
       {/* FAQ Section */}
-      <section className="relative z-10 py-20 border-t border-white/5">
+      <section className="relative z-10 py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -446,8 +427,7 @@ export default function SalesPage() {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <span className="text-blue-400 text-sm font-medium uppercase tracking-wider">FAQ</span>
-            <h2 className="text-3xl sm:text-4xl font-bold mt-4">
+            <h2 className="text-balance font-display text-4xl font-semibold tracking-tight sm:text-5xl">
               Perguntas Frequentes
             </h2>
           </motion.div>
@@ -463,15 +443,15 @@ export default function SalesPage() {
                 <AccordionItem 
                   key={faq.question} 
                   value={`faq-${index}`}
-                  className="rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 transition-all duration-300 px-6 data-[state=open]:border-blue-500/30"
+                  className="glass border-b-0 px-6 data-[state=open]:border-primary/40"
                 >
                   <AccordionTrigger 
                     data-testid={`faq-toggle-${index}`}
-                    className="text-left text-lg font-semibold py-6 hover:no-underline text-white"
+                    className="text-left text-lg font-semibold py-6 hover:no-underline text-foreground"
                   >
                     {faq.question}
                   </AccordionTrigger>
-                  <AccordionContent className="text-gray-400 text-sm pb-6">
+                  <AccordionContent className="text-muted-foreground text-sm pb-6">
                     {faq.answer}
                   </AccordionContent>
                 </AccordionItem>
@@ -482,32 +462,32 @@ export default function SalesPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="relative z-10 py-20 border-t border-white/5">
+      <section className="relative z-10 py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="text-center p-8 lg:p-12 rounded-3xl bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-blue-500/10 border border-blue-500/20"
+            className="glass-strong rounded-panel p-8 text-center lg:p-12"
           >
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+            <h2 className="text-balance font-display text-4xl font-semibold tracking-tight sm:text-5xl mb-4">
               Pronto para automatizar seu negócio?
             </h2>
-            <p className="text-gray-400 mb-8 max-w-xl mx-auto">
+            <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
               Junte-se a centenas de revendedores que já transformaram a gestão de suas assinaturas IPTV.
             </p>
             <Link href="/login" data-testid="link-cta-start">
               <Button 
                 data-testid="button-cta-start"
                 size="lg"
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white border-0 shadow-xl shadow-blue-500/25 px-8 py-6 text-lg"
+                className="h-14 px-8 text-lg shadow-glow"
               >
                 Começar Teste Grátis
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             </Link>
-            <p className="text-gray-500 text-sm mt-4">
+            <p className="text-muted-foreground text-sm mt-4">
               7 dias grátis • Sem cartão de crédito • Cancele quando quiser
             </p>
           </motion.div>
@@ -515,18 +495,18 @@ export default function SalesPage() {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 py-8 border-t border-white/5">
+      <footer className="relative z-10 border-t border-border py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <Zap className="w-4 h-4 text-white" />
+              <div className="brand-tile flex h-8 w-8 items-center justify-center rounded-full">
+                <Zap className="h-4 w-4" />
               </div>
-              <span className="font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              <span className="font-display font-bold tracking-tight text-foreground">
                 Loopag
               </span>
             </div>
-            <p className="text-gray-500 text-sm">
+            <p className="text-muted-foreground text-sm">
               © 2024 Loopag. Todos os direitos reservados.
             </p>
           </div>

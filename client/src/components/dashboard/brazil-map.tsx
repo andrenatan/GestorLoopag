@@ -1,5 +1,4 @@
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "react-simple-maps";
-import { scaleLinear } from "d3-scale";
 import { useEffect, useRef, useState } from "react";
 import { RotateCcw, Move } from "lucide-react";
 
@@ -90,9 +89,11 @@ export function BrazilMap({ data }: BrazilMapProps) {
   const totalClients = data.reduce((sum, item) => sum + item.count, 0);
   const maxValue = Math.max(...data.map(d => d.count), 1);
 
-  const colorScale = scaleLinear<string>()
-    .domain([0, maxValue])
-    .range(["#3b82f6", "#dc2626"]);
+  // Cold (anil) to hot (pitaya), resolved by the browser so it follows the theme.
+  const colorScale = (count: number) => {
+    const t = Math.round(Math.min(1, Math.max(0, count / maxValue)) * 100);
+    return `color-mix(in oklab, hsl(var(--chart-1)) ${t}%, hsl(var(--chart-2)))`;
+  };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -121,7 +122,7 @@ export function BrazilMap({ data }: BrazilMapProps) {
       <button
         type="button"
         onClick={handleReset}
-        className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-md bg-[#243447] hover:bg-[#2a3a4a] border border-[#2a3a4a] px-2.5 py-1 text-xs text-cyan-300"
+        className="absolute right-3 top-3 z-20 flex h-8 items-center gap-1.5 rounded-full border border-edge bg-secondary px-3 text-xs font-semibold text-foreground shadow-glass transition-colors hover:bg-accent"
         data-testid="button-map-reset"
       >
         <RotateCcw className="w-3 h-3" />
@@ -159,13 +160,12 @@ export function BrazilMap({ data }: BrazilMapProps) {
                   <Geography
                     key={geo.rsmKey}
                     geography={geo}
-                    fill={count > 0 ? colorScale(count) : "#374151"}
-                    stroke="#1f2937"
-                    strokeWidth={0.5}
+                    stroke="hsl(var(--background))"
+                    strokeWidth={0.6}
                     style={{
-                      default: { outline: "none" },
-                      hover: { outline: "none", fill: "#6366f1" },
-                      pressed: { outline: "none" },
+                      default: { outline: "none", fill: count > 0 ? colorScale(count) : "hsl(var(--muted-foreground) / 0.22)" },
+                      hover: { outline: "none", fill: "hsl(var(--highlight))", cursor: "pointer" },
+                      pressed: { outline: "none", fill: "hsl(var(--highlight))" },
                     }}
                     onMouseEnter={() => {
                       setHoveredState({ name: stateName, count, percentage });
@@ -192,21 +192,21 @@ export function BrazilMap({ data }: BrazilMapProps) {
                     y={-labelH / 2}
                     width={labelW}
                     height={labelH}
-                    rx={4}
-                    fill="#1f2937"
-                    opacity={0.9}
+                    rx={8}
+                    fill="hsl(var(--ink))"
+                    opacity={0.88}
                   />
                   <text
                     textAnchor="middle"
                     y={-3}
-                    style={{ fontSize: "9px", fontWeight: 700, fill: "#ffffff" }}
+                    style={{ fontSize: "9px", fontWeight: 700, fill: "hsl(var(--ink-foreground))" }}
                   >
                     {stateCode}
                   </text>
                   <text
                     textAnchor="middle"
                     y={9}
-                    style={{ fontSize: "10px", fontWeight: 700, fill: "#ffffff" }}
+                    style={{ fontSize: "10px", fontWeight: 700, fill: "hsl(var(--ink-foreground))" }}
                   >
                     {count}
                   </text>
@@ -219,31 +219,31 @@ export function BrazilMap({ data }: BrazilMapProps) {
 
       {hoveredState && (
         <div
-          className="absolute bg-[#1a2a3a] border border-[#2a3a4a] rounded-lg p-3 shadow-lg pointer-events-none z-30"
+          className="pointer-events-none absolute z-30 rounded-2xl border border-edge bg-popover p-3 shadow-float"
           style={{
             left: Math.min(mousePos.x + 10, 240),
             top: Math.max(10, mousePos.y - 60),
           }}
         >
-          <div className="text-xs font-semibold mb-1 text-slate-300">Clientes por Estado</div>
-          <div className="text-sm text-white">
+          <div className="mb-1 text-xs font-medium text-muted-foreground">Clientes por Estado</div>
+          <div className="text-sm text-foreground">
             {hoveredState.name}: <span className="font-medium">{hoveredState.count}</span> ({hoveredState.percentage}%)
           </div>
         </div>
       )}
 
-      <div className="absolute left-3 bottom-3 z-20 flex items-center gap-2 rounded-md bg-[#243447]/90 border border-[#2a3a4a] px-2.5 py-1.5 text-xs text-slate-300">
-        <Move className="w-3 h-3 text-cyan-300" />
+      <div className="absolute bottom-3 left-3 z-20 flex items-center gap-2 rounded-full border border-edge bg-secondary px-3 py-1.5 text-xs text-muted-foreground shadow-glass">
+        <Move className="w-3 h-3 text-primary" />
         {hintLabel}
       </div>
 
       <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex flex-col items-center gap-1 z-20">
-        <span className="text-[10px] text-slate-400">Mais</span>
+        <span className="text-[10px] text-muted-foreground">Mais</span>
         <div
-          className="w-2.5 h-20 rounded"
-          style={{ background: "linear-gradient(to bottom, #dc2626, #3b82f6)" }}
+          className="h-20 w-2.5 rounded-full"
+          style={{ background: "linear-gradient(to bottom, hsl(var(--chart-1)), hsl(var(--chart-2)))" }}
         />
-        <span className="text-[10px] text-slate-400">Menos</span>
+        <span className="text-[10px] text-muted-foreground">Menos</span>
       </div>
     </div>
   );

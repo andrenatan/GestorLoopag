@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,6 +8,8 @@ import { ClientForm } from "@/components/clients/client-form";
 import { AddonDialog } from "@/components/clients/addon-dialog";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+import { PageHeader } from "@/components/layout/page-header";
 import {
   Plus,
   Search,
@@ -17,13 +20,14 @@ import {
   RefreshCw,
   FileText,
   User,
+  Users,
   ChevronLeft,
   ChevronRight,
   Gift,
   PlusCircle,
 } from "lucide-react";
-import type { Client, ClientPlan } from "@shared/schema";
-import { getBrasiliaStartOfDay, parseDateString } from "@/lib/timezone";
+import type { Client, ClientAppLink, ClientPlan } from "@shared/schema";
+import { getBrasiliaStartOfDay, parseDateString, formatLocalDateString } from "@/lib/timezone";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -40,19 +44,19 @@ function formatExpiryDate(expiryDate: string): string {
 }
 
 function expiryBadgeStyle(days: number, status: string): string {
-  if (status !== "Ativa") return "bg-red-600 text-white";
-  if (days < 0) return "bg-red-600 text-white";
-  if (days === 0) return "bg-red-500 text-white";
-  if (days <= 3) return "bg-orange-500 text-white";
-  return "bg-green-500 text-white";
+  if (status !== "Ativa") return "bg-destructive/15 text-destructive  border border-destructive/30";
+  if (days < 0) return "bg-destructive/15 text-destructive  border border-destructive/30";
+  if (days === 0) return "bg-destructive/15 text-destructive  border border-destructive/30";
+  if (days <= 3) return "bg-warning/15 text-warning  border border-warning/30";
+  return "bg-success/15 text-success  border border-success/30";
 }
 
 function statusBadgeStyle(status: string, days: number): string {
-  if (status !== "Ativa") return "bg-red-600 text-white";
-  if (days === 0) return "bg-cyan-500 text-white";
-  if (days === 1) return "bg-yellow-500 text-white";
-  if (days <= 3) return "bg-orange-500 text-white";
-  return "bg-green-500 text-white";
+  if (status !== "Ativa") return "bg-destructive/15 text-destructive  border border-destructive/30";
+  if (days === 0) return "bg-info/15 text-info  border border-info/30";
+  if (days === 1) return "bg-warning/15 text-warning  border border-warning/30";
+  if (days <= 3) return "bg-warning/15 text-warning  border border-warning/30";
+  return "bg-success/15 text-success  border border-success/30";
 }
 
 function statusLabel(status: string, days: number): string {
@@ -64,9 +68,9 @@ function statusLabel(status: string, days: number): string {
 }
 
 function dotColor(status: string, days: number): string {
-  if (status !== "Ativa") return "bg-red-500";
-  if (days <= 3) return "bg-orange-500";
-  return "bg-green-500";
+  if (status !== "Ativa") return "bg-destructive";
+  if (days <= 3) return "bg-warning";
+  return "bg-success";
 }
 
 // ─── Filter Bar ─────────────────────────────────────────────────────────────
@@ -82,6 +86,27 @@ interface FilterState {
 
 function emptyFilters(): FilterState {
   return { activationDate: "", expiryDate: "", status: "all", paymentStatus: "all", plan: "all", system: "all" };
+}
+
+// ─── Client App Cell ────────────────────────────────────────────────────────
+// Shows the app(s) linked to a client directly in the list, read from
+// clients.apps (already part of each client row — no extra request).
+
+function ClientAppCell({ links }: { links: ClientAppLink[] }) {
+  const primary = links.find((l) => l.isPrimary);
+  if (!primary) {
+    return <span className="text-muted-foreground text-xs italic">—</span>;
+  }
+
+  const extraCount = links.length - 1;
+  return (
+    <span className="text-foreground/80 text-sm">
+      {primary.name}
+      {extraCount > 0 && (
+        <span className="text-muted-foreground text-xs"> +{extraCount}</span>
+      )}
+    </span>
+  );
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
@@ -108,6 +133,28 @@ export default function Clients() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
+
+  const MANUAL_RENEWAL_TAB: Record<string, string> = {
+    Trimestral: "trimestral",
+    Semestral: "semestral",
+    Anual: "anual",
+  };
+
+  const notifyManualRenewal = (data: any) => {
+    if (data?.renewalMode !== "manual" || !data?.manualRenewalPlanPeriod) return;
+    const tab = MANUAL_RENEWAL_TAB[data.manualRenewalPlanPeriod];
+    if (!tab) return;
+    toast({
+      title: "Renovação manual configurada",
+      description: `Este cliente será acompanhado mês a mês em Renovações Manuais (${data.manualRenewalPlanPeriod}).`,
+      action: (
+        <ToastAction altText="Ver na tela de Renovações Manuais" onClick={() => navigate(`/manual-renewals?tab=${tab}`)}>
+          Ver Renovações Manuais
+        </ToastAction>
+      ),
+    });
+  };
 
   const { data: clients = [], isLoading } = useQuery<Client[]>({
     queryKey: ["/api/clients"],
@@ -125,11 +172,12 @@ export default function Clients() {
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.createClient(data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       setShowForm(false);
       setEditingClient(undefined);
       toast({ title: "Cliente cadastrado com sucesso." });
+      notifyManualRenewal(variables);
     },
     onError: () => toast({ title: "Erro ao cadastrar cliente.", variant: "destructive" }),
   });
@@ -150,6 +198,7 @@ export default function Clients() {
       } else {
         toast({ title: "Cliente atualizado com sucesso." });
       }
+      notifyManualRenewal(variables.data);
     },
     onError: () => toast({ title: "Erro ao atualizar cliente.", variant: "destructive" }),
   });
@@ -177,7 +226,7 @@ export default function Clients() {
     } else {
       date.setDate(date.getDate() + durationQuantity);
     }
-    return date.toISOString().split("T")[0];
+    return formatLocalDateString(date);
   }
 
   function getPlanDurationLabel(plan: ClientPlan): string {
@@ -247,7 +296,7 @@ export default function Clients() {
   function openGiftModal(client: Client) {
     const expiry = parseDateString(client.expiryDate);
     expiry.setMonth(expiry.getMonth() + 1);
-    const newDate = expiry.toISOString().split("T")[0];
+    const newDate = formatLocalDateString(expiry);
     setGiftDate(newDate);
     setGiftClient(client);
   }
@@ -359,10 +408,10 @@ export default function Clients() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-[#1a2a3a] rounded w-64" />
-          <div className="h-96 bg-[#1a2a3a] rounded" />
+          <div className="h-10 bg-foreground/[0.07] rounded-xl w-64" />
+          <div className="h-96 glass" />
         </div>
       </div>
     );
@@ -372,24 +421,20 @@ export default function Clients() {
 
   if (showForm) {
     return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center space-x-4">
+      <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
+        <div className="flex items-center gap-4">
           <button
             onClick={() => { setShowForm(false); setEditingClient(undefined); }}
-            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"
+            className="flex h-9 items-center gap-2 rounded-full border border-edge bg-secondary px-4 text-sm font-medium text-foreground shadow-glass transition-colors hover:bg-accent"
           >
             <ArrowLeft className="w-4 h-4" />
             Voltar
           </button>
-          <div>
-            <h1 className="text-2xl font-bold text-white">
-              {editingClient ? "Editar Cliente" : "Novo Cliente"}
-            </h1>
-            <p className="text-slate-400 text-sm">
-              {editingClient ? "Atualize as informações do cliente" : "Cadastre um novo cliente IPTV"}
-            </p>
-          </div>
         </div>
+        <PageHeader
+          title={editingClient ? "Editar Cliente" : "Novo Cliente"}
+          description={editingClient ? "Atualize as informações do cliente" : "Cadastre um novo cliente IPTV"}
+        />
         <ClientForm
           initialData={editingClient}
           onSubmit={handleFormSubmit}
@@ -406,56 +451,56 @@ export default function Clients() {
 
   return (
     <>
-    <div className="p-6 space-y-4 min-h-screen" style={{ background: "transparent" }}>
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Clientes</h1>
-          <p className="text-slate-400 text-sm">Lista de clientes</p>
-        </div>
+      <PageHeader
+        title="Clientes"
+        description="Lista de clientes"
+        actions={
         <button
           onClick={() => { setEditingClient(undefined); setShowForm(true); }}
-          className="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-400 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors text-sm"
+          className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-5 py-2.5 rounded-full transition-colors text-sm"
         >
           <Plus className="w-4 h-4" />
           Novo cliente
         </button>
-      </div>
+        }
+      />
 
       {/* ── Filter Bar ── */}
-      <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl p-4">
+      <div className="glass p-4">
         <div className="flex flex-wrap items-end gap-3">
 
           {/* Activation Date */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-400">Data de Ativação</label>
+            <label className="text-xs text-muted-foreground">Data de Ativação</label>
             <input
               type="date"
               value={filters.activationDate}
               onChange={(e) => setFilter("activationDate", e.target.value)}
-              className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 w-40"
+              className="field text-sm rounded-lg px-3 py-2 w-40"
             />
           </div>
 
           {/* Expiry Date */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-400">Data de Vencimento</label>
+            <label className="text-xs text-muted-foreground">Data de Vencimento</label>
             <input
               type="date"
               value={filters.expiryDate}
               onChange={(e) => setFilter("expiryDate", e.target.value)}
-              className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 w-40"
+              className="field text-sm rounded-lg px-3 py-2 w-40"
             />
           </div>
 
           {/* Status */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-400">Status</label>
+            <label className="text-xs text-muted-foreground">Status</label>
             <select
               value={filters.status}
               onChange={(e) => setFilter("status", e.target.value)}
-              className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 w-40"
+              className="field text-sm rounded-lg px-3 py-2 w-40"
             >
               <option value="all">Todos</option>
               <option value="Ativa">Ativos</option>
@@ -470,11 +515,11 @@ export default function Clients() {
 
           {/* Situação Pgto */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-400">Situação Pgto</label>
+            <label className="text-xs text-muted-foreground">Situação Pgto</label>
             <select
               value={filters.paymentStatus}
               onChange={(e) => setFilter("paymentStatus", e.target.value)}
-              className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 w-40"
+              className="field text-sm rounded-lg px-3 py-2 w-40"
             >
               <option value="all">Todos</option>
               <option value="Pago">Pago</option>
@@ -485,11 +530,11 @@ export default function Clients() {
 
           {/* Planos */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-400">Planos</label>
+            <label className="text-xs text-muted-foreground">Planos</label>
             <select
               value={filters.plan}
               onChange={(e) => setFilter("plan", e.target.value)}
-              className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 w-40"
+              className="field text-sm rounded-lg px-3 py-2 w-40"
             >
               <option value="all">Todos</option>
               {clientPlansList.map((p) => (
@@ -500,11 +545,11 @@ export default function Clients() {
 
           {/* Sistemas */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-400">Sistemas</label>
+            <label className="text-xs text-muted-foreground">Sistemas</label>
             <select
               value={filters.system}
               onChange={(e) => setFilter("system", e.target.value)}
-              className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 w-40"
+              className="field text-sm rounded-lg px-3 py-2 w-40"
             >
               <option value="all">Todos</option>
               {systemsList.map((s) => (
@@ -516,7 +561,7 @@ export default function Clients() {
           {/* Limpar */}
           <button
             onClick={handleClearFilters}
-            className="ml-auto bg-[#1e3a5f] hover:bg-[#2a4a70] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-[#2a4a70]"
+            className="ml-auto bg-secondary hover:bg-secondary/80 text-secondary-foreground text-sm font-medium px-4 py-2 rounded-full transition-colors border border-border"
           >
             Limpar
           </button>
@@ -524,14 +569,14 @@ export default function Clients() {
       </div>
 
       {/* ── Search + Bulk ── */}
-      <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl p-4">
+      <div className="glass p-4">
         <div className="flex items-center gap-4 flex-wrap">
           {/* Search */}
           <div className="flex flex-1 min-w-[280px] gap-2">
             <select
               value={searchField}
               onChange={(e) => { setSearchField(e.target.value as typeof searchField); setSearchTerm(""); setCurrentPage(1); }}
-              className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 shrink-0"
+              className="field text-sm rounded-lg px-3 py-2 shrink-0"
             >
               <option value="nome">Nome</option>
               <option value="usuario">Usuário</option>
@@ -539,7 +584,7 @@ export default function Clients() {
               <option value="id">ID</option>
             </select>
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 ref={searchRef}
                 type="text"
@@ -551,12 +596,12 @@ export default function Clients() {
                   searchField === "telefone" ? "Buscar por telefone (número exato)..." :
                   "Buscar por ID (ex: 1158)..."
                 }
-                className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg pl-9 pr-9 py-2 focus:outline-none focus:border-cyan-500 placeholder-slate-600"
+                className="w-full field text-sm rounded-lg pl-9 pr-9 py-2 placeholder:text-muted-foreground/70"
               />
               {searchTerm && (
                 <button
                   onClick={() => { setSearchTerm(""); searchRef.current?.focus(); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -566,13 +611,13 @@ export default function Clients() {
 
           {/* Selection info + bulk actions */}
           <div className="flex items-center gap-3">
-            <span className="text-slate-400 text-sm whitespace-nowrap">
+            <span className="text-muted-foreground text-sm whitespace-nowrap">
               {selectedClients.length} cliente(s) selecionado(s)
             </span>
             {selectedClients.length > 0 && (
               <button
                 onClick={handleDeleteSelected}
-                className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+                className="flex items-center gap-1.5 bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm font-medium px-3 py-1.5 rounded-full transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Deletar
@@ -585,7 +630,7 @@ export default function Clients() {
             <select
               value={itemsPerPage}
               onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500"
+              className="field text-sm rounded-lg px-3 py-2"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>
@@ -596,32 +641,33 @@ export default function Clients() {
       </div>
 
       {/* ── Table ── */}
-      <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl overflow-hidden">
-        <table className="w-full">
+      <div className="glass-strong overflow-hidden">
+        <div className="overflow-x-auto">
+        <table className="w-full [&_td]:whitespace-nowrap">
           <thead>
-            <tr className="border-b border-[#1e2e3e]">
+            <tr className="border-b border-border">
               <th className="px-4 py-3 text-left w-10">
                 <Checkbox
                   checked={allOnPageSelected}
                   onCheckedChange={handleSelectAll}
-                  className="border-slate-600"
                 />
               </th>
               <th className="px-2 py-3 w-6" />
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">ID</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Nome</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Usuário</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Plano</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Sistema</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Vencimento</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Ações</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">ID</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Nome</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Usuário</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Plano</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Sistema</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Aplicativo</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Vencimento</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Status</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Ações</th>
             </tr>
           </thead>
           <tbody>
             {paginatedClients.length === 0 ? (
               <tr>
-                <td colSpan={10} className="text-center py-16 text-slate-500 text-sm">
+                <td colSpan={11} className="text-center py-16 text-muted-foreground text-sm">
                   Nenhum cliente encontrado
                 </td>
               </tr>
@@ -633,14 +679,13 @@ export default function Clients() {
                 return (
                   <tr
                     key={client.id}
-                    className={`border-b border-[#1a2a3a] transition-colors ${isSelected ? "bg-[#1a2f45]" : "hover:bg-[#142030]"}`}
+                    className={`border-b border-border/60 transition-colors ${isSelected ? "bg-primary/10" : "hover:bg-muted/50"}`}
                   >
                     {/* Checkbox */}
                     <td className="px-4 py-3">
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={(c) => handleSelectClient(client.id, !!c)}
-                        className="border-slate-600"
                       />
                     </td>
 
@@ -650,46 +695,51 @@ export default function Clients() {
                     </td>
 
                     {/* ID */}
-                    <td className="px-4 py-3 text-slate-400 text-sm font-mono">
+                    <td className="px-4 py-3 text-muted-foreground text-sm font-mono">
                       #{client.clientNumber}
                     </td>
 
                     {/* Nome + Telefone */}
                     <td className="px-4 py-3">
-                      <p className="text-white text-sm font-medium">{client.name}</p>
-                      <p className="text-slate-500 text-xs">{client.phone}</p>
+                      <p className="text-foreground text-sm font-medium">{client.name}</p>
+                      <p className="text-muted-foreground text-xs">{client.phone}</p>
                     </td>
 
                     {/* Usuário */}
-                    <td className="px-4 py-3 text-slate-300 text-sm">{client.username}</td>
+                    <td className="px-4 py-3 text-foreground/80 text-sm">{client.username}</td>
 
                     {/* Plano + Valor */}
                     <td className="px-4 py-3">
-                      <p className="text-slate-300 text-sm">
+                      <p className="text-foreground/80 text-sm">
                         {client.plan} {client.value ? `- R$ ${parseFloat(client.value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : ""}
                       </p>
                     </td>
 
                     {/* Sistema */}
-                    <td className="px-4 py-3 text-slate-300 text-sm">{client.system}</td>
+                    <td className="px-4 py-3 text-foreground/80 text-sm">{client.system}</td>
+
+                    {/* Aplicativo */}
+                    <td className="px-4 py-3">
+                      <ClientAppCell links={client.apps ?? []} />
+                    </td>
 
                     {/* Vencimento */}
                     <td className="px-4 py-3">
-                      <span className={`inline-block px-2.5 py-1 rounded text-xs font-semibold ${expiryBadgeStyle(days, client.subscriptionStatus)}`}>
+                      <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${expiryBadgeStyle(days, client.subscriptionStatus)}`}>
                         {formatExpiryDate(client.expiryDate)}
                       </span>
                     </td>
 
                     {/* Status badge */}
                     <td className="px-4 py-3">
-                      <span className={`inline-block px-2.5 py-1 rounded text-xs font-semibold ${statusBadgeStyle(client.subscriptionStatus, days)}`}>
+                      <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${statusBadgeStyle(client.subscriptionStatus, days)}`}>
                         {statusLabel(client.subscriptionStatus, days)}
                       </span>
                     </td>
 
                     {/* Ações */}
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center justify-end gap-1">
                         <ActionBtn title="Detalhes" onClick={() => {}}>
                           <FileText className="w-3.5 h-3.5" />
                         </ActionBtn>
@@ -721,13 +771,14 @@ export default function Clients() {
             )}
           </tbody>
         </table>
+        </div>
 
       {/* ── Footer ── */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-[#1e2e3e]">
-          <p className="text-slate-400 text-sm">
+        <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+          <p className="text-muted-foreground text-sm">
             Mostrando {filteredClients.length === 0 ? 0 : startIndex + 1} até{" "}
             {Math.min(startIndex + itemsPerPage, filteredClients.length)} de{" "}
-            <span className="text-cyan-400 font-medium underline cursor-default">
+            <span className="text-primary font-medium">
               {filteredClients.length} resultados
             </span>
           </p>
@@ -760,26 +811,26 @@ export default function Clients() {
       const formattedRenewDate = renewDate ? `${rd}/${rm}/${ry}` : "";
 
       return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-md mx-4 rounded-2xl overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 backdrop-blur-sm">
+          <div className="w-full max-w-md mx-4 rounded-card overflow-hidden border border-edge shadow-float">
 
             {/* ── Teal header ── */}
-            <div className="bg-[#0d9488] px-6 pt-6 pb-5 text-center">
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-amber-400/20 border-2 border-amber-400 mx-auto mb-3">
-                <span className="text-amber-400 text-xl font-bold">!</span>
+            <div className="bg-success px-6 pt-6 pb-5 text-center">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-highlight mx-auto mb-3">
+                <span className="text-highlight-foreground text-xl font-bold">!</span>
               </div>
-              <h2 className="text-white text-xl font-bold mb-1">Atenção</h2>
-              <p className="text-white/90 text-sm font-medium">Tem certeza que deseja renovar esse cliente?</p>
-              <p className="text-white/80 text-sm">Será renovado: <span className="font-semibold">{durationLabel}</span></p>
+              <h2 className="text-success-foreground text-xl font-bold mb-1">Atenção</h2>
+              <p className="text-success-foreground/90 text-sm font-medium">Tem certeza que deseja renovar esse cliente?</p>
+              <p className="text-success-foreground/80 text-sm">Será renovado: <span className="font-semibold">{durationLabel}</span></p>
             </div>
 
             {/* ── Body ── */}
-            <div className="bg-[#0a1929] px-6 py-5 space-y-4">
+            <div className="bg-popover px-6 py-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
 
                 {/* Fatura */}
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1.5 font-medium">Fatura</label>
+                  <label className="text-xs text-muted-foreground block mb-1.5 font-medium">Fatura</label>
                   <input
                     type="text"
                     value={renewPlanValue ? `R$ ${parseFloat(renewPlanValue).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : ""}
@@ -787,31 +838,31 @@ export default function Clients() {
                       const raw = e.target.value.replace(/[^\d,\.]/g, "").replace(",", ".");
                       setRenewPlanValue(raw);
                     }}
-                    className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-teal-500"
+                    className="w-full field text-sm rounded-lg px-3 py-2.5"
                   />
                 </div>
 
                 {/* Data */}
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1.5 font-medium">Data</label>
+                  <label className="text-xs text-muted-foreground block mb-1.5 font-medium">Data</label>
                   <input
                     type="date"
                     value={renewDate}
                     onChange={(e) => setRenewDate(e.target.value)}
-                    className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-teal-500"
+                    className="w-full field text-sm rounded-lg px-3 py-2.5"
                   />
-                  <p className="text-slate-500 text-[11px] mt-1 leading-tight">
+                  <p className="text-muted-foreground text-[11px] mt-1 leading-tight">
                     Para renovar um mês corrente, deixe o campo de data vazio
                   </p>
                 </div>
 
                 {/* Plano */}
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1.5 font-medium">Plano</label>
+                  <label className="text-xs text-muted-foreground block mb-1.5 font-medium">Plano</label>
                   <select
                     value={renewPlanName}
                     onChange={(e) => handleRenewPlanChange(e.target.value)}
-                    className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-teal-500"
+                    className="w-full field text-sm rounded-lg px-3 py-2.5"
                   >
                     {clientPlansList.length === 0 && (
                       <option value={renewPlanName}>{renewPlanName || "Mensal"}</option>
@@ -829,14 +880,14 @@ export default function Clients() {
               <div className="flex gap-3 pt-1">
                 <button
                   onClick={() => setRenewClient(undefined)}
-                  className="flex-1 bg-[#1a2a3a] hover:bg-[#243548] text-slate-300 font-medium py-2.5 rounded-lg transition-colors text-sm border border-[#2a3a4a]"
+                  className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium py-2.5 rounded-full transition-colors text-sm border border-border"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={confirmRenewal}
                   disabled={!renewDate || updateMutation.isPending}
-                  className="flex-1 bg-green-500 hover:bg-green-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors text-sm"
+                  className="flex-1 bg-success hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed text-success-foreground font-semibold py-2.5 rounded-full transition-colors text-sm"
                 >
                   {updateMutation.isPending ? "Renovando..." : "Sim, Renovar"}
                 </button>
@@ -849,30 +900,30 @@ export default function Clients() {
 
     {/* ── Free Month Modal ── */}
     {giftClient && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-        <div className="bg-[#0f1e2e] border border-[#2a3a4a] rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 backdrop-blur-sm">
+        <div className="glass-strong w-full max-w-md mx-4 p-6">
           <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-full bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center">
-              <Gift className="w-5 h-5 text-indigo-400" />
+            <div className="w-10 h-10 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center">
+              <Gift className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-white font-semibold text-lg">Mês Gratuito</h2>
-              <p className="text-slate-400 text-sm">{giftClient.name}</p>
+              <h2 className="text-foreground font-semibold text-lg">Mês Gratuito</h2>
+              <p className="text-muted-foreground text-sm">{giftClient.name}</p>
             </div>
           </div>
 
           <div className="space-y-4">
             <div>
-              <label className="text-xs text-slate-400 block mb-1.5">Novo vencimento</label>
+              <label className="text-xs text-muted-foreground block mb-1.5">Novo vencimento</label>
               <input
                 type="date"
                 value={giftDate}
                 onChange={(e) => setGiftDate(e.target.value)}
-                className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500"
+                className="w-full field text-sm rounded-lg px-3 py-2.5"
               />
             </div>
 
-            <p className="text-slate-500 text-xs bg-[#1a2d42]/50 border border-[#1a2d42] rounded-lg px-3 py-2">
+            <p className="text-muted-foreground text-xs bg-muted/50 border border-border rounded-lg px-3 py-2">
               O mês gratuito estende o vencimento sem gerar cobrança ou histórico de pagamento.
             </p>
           </div>
@@ -880,14 +931,14 @@ export default function Clients() {
           <div className="flex gap-3 mt-6">
             <button
               onClick={() => setGiftClient(undefined)}
-              className="flex-1 bg-[#1a2a3a] hover:bg-[#243548] text-slate-300 font-medium py-2.5 rounded-lg transition-colors text-sm border border-[#2a3a4a]"
+              className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium py-2.5 rounded-full transition-colors text-sm border border-border"
             >
               Cancelar
             </button>
             <button
               onClick={confirmFreeMonth}
               disabled={!giftDate || freeMonthMutation.isPending}
-              className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors text-sm"
+              className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground font-semibold py-2.5 rounded-full transition-colors text-sm"
             >
               {freeMonthMutation.isPending ? "Aplicando..." : "Confirmar"}
             </button>
@@ -921,10 +972,10 @@ function ActionBtn({
     <button
       title={title}
       onClick={onClick}
-      className={`p-1.5 rounded-md border transition-colors ${
+      className={`p-1.5 rounded-full border transition-colors ${
         danger
-          ? "border-[#3a1a1a] text-red-400 hover:bg-red-900/30"
-          : "border-[#2a3a4a] text-slate-400 hover:text-white hover:bg-[#1e3a5f]"
+          ? "border-destructive/30 text-destructive hover:bg-destructive/10"
+          : "border-border text-muted-foreground hover:text-primary hover:bg-primary/10 hover:border-primary/30"
       }`}
     >
       {children}
@@ -947,12 +998,12 @@ function PagBtn({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+      className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium transition-colors ${
         active
-          ? "bg-cyan-500 text-white"
+          ? "bg-ink text-ink-foreground"
           : disabled
-          ? "text-slate-600 cursor-not-allowed"
-          : "text-slate-400 hover:bg-[#1e3a5f] hover:text-white"
+          ? "text-muted-foreground/50 cursor-not-allowed"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
       }`}
     >
       {children}

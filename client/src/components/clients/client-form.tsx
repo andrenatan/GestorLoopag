@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,11 +12,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileSpreadsheet, AlertTriangle, ChevronsUpDown, Check } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertTriangle, ChevronsUpDown, Check, Smartphone, ChevronDown, Plus, X, User, KeyRound, CreditCard, CalendarDays, FileText } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import type { Client, System, ClientPlan } from "@shared/schema";
-import { getBrasiliaStartOfDay, parseDateString } from "@/lib/timezone";
+import type { Client, System, ClientPlan, App } from "@shared/schema";
+import { getBrasiliaStartOfDay, getBrasiliaDateString, parseDateString } from "@/lib/timezone";
+import { getSupabase } from "@/lib/supabase";
 
 const FALLBACK_PLANS = [
   { name: "Mensal", value: "" },
@@ -33,11 +34,13 @@ const countries = [
   { name: "Alemanha", code: "+49", flag: "🇩🇪" },
   { name: "Andorra", code: "+376", flag: "🇦🇩" },
   { name: "Angola", code: "+244", flag: "🇦🇴" },
+  { name: "Anguila", code: "+1264", flag: "🇦🇮" },
   { name: "Antiga e Barbuda", code: "+1268", flag: "🇦🇬" },
   { name: "Arábia Saudita", code: "+966", flag: "🇸🇦" },
   { name: "Argélia", code: "+213", flag: "🇩🇿" },
   { name: "Argentina", code: "+54", flag: "🇦🇷" },
   { name: "Armênia", code: "+374", flag: "🇦🇲" },
+  { name: "Aruba", code: "+297", flag: "🇦🇼" },
   { name: "Austrália", code: "+61", flag: "🇦🇺" },
   { name: "Áustria", code: "+43", flag: "🇦🇹" },
   { name: "Azerbaijão", code: "+994", flag: "🇦🇿" },
@@ -48,6 +51,7 @@ const countries = [
   { name: "Bélgica", code: "+32", flag: "🇧🇪" },
   { name: "Belize", code: "+501", flag: "🇧🇿" },
   { name: "Benin", code: "+229", flag: "🇧🇯" },
+  { name: "Bermudas", code: "+1441", flag: "🇧🇲" },
   { name: "Bielorrússia", code: "+375", flag: "🇧🇾" },
   { name: "Bolívia", code: "+591", flag: "🇧🇴" },
   { name: "Bósnia e Herzegovina", code: "+387", flag: "🇧🇦" },
@@ -58,8 +62,8 @@ const countries = [
   { name: "Burundi", code: "+257", flag: "🇧🇮" },
   { name: "Butão", code: "+975", flag: "🇧🇹" },
   { name: "Cabo Verde", code: "+238", flag: "🇨🇻" },
-  { name: "Camboja", code: "+855", flag: "🇰🇭" },
   { name: "Camarões", code: "+237", flag: "🇨🇲" },
+  { name: "Camboja", code: "+855", flag: "🇰🇭" },
   { name: "Canadá", code: "+1", flag: "🇨🇦" },
   { name: "Catar", code: "+974", flag: "🇶🇦" },
   { name: "Cazaquistão", code: "+7", flag: "🇰🇿" },
@@ -77,6 +81,7 @@ const countries = [
   { name: "Costa Rica", code: "+506", flag: "🇨🇷" },
   { name: "Croácia", code: "+385", flag: "🇭🇷" },
   { name: "Cuba", code: "+53", flag: "🇨🇺" },
+  { name: "Curaçao", code: "+599", flag: "🇨🇼" },
   { name: "Dinamarca", code: "+45", flag: "🇩🇰" },
   { name: "Djibuti", code: "+253", flag: "🇩🇯" },
   { name: "Dominica", code: "+1767", flag: "🇩🇲" },
@@ -88,6 +93,8 @@ const countries = [
   { name: "Eslováquia", code: "+421", flag: "🇸🇰" },
   { name: "Eslovênia", code: "+386", flag: "🇸🇮" },
   { name: "Espanha", code: "+34", flag: "🇪🇸" },
+  { name: "Estados Unidos", code: "+1", flag: "🇺🇸" },
+  { name: "Estônia", code: "+372", flag: "🇪🇪" },
   { name: "Eswatini", code: "+268", flag: "🇸🇿" },
   { name: "Etiópia", code: "+251", flag: "🇪🇹" },
   { name: "Fiji", code: "+679", flag: "🇫🇯" },
@@ -98,17 +105,31 @@ const countries = [
   { name: "Gâmbia", code: "+220", flag: "🇬🇲" },
   { name: "Gana", code: "+233", flag: "🇬🇭" },
   { name: "Geórgia", code: "+995", flag: "🇬🇪" },
+  { name: "Gibraltar", code: "+350", flag: "🇬🇮" },
   { name: "Granada", code: "+1473", flag: "🇬🇩" },
   { name: "Grécia", code: "+30", flag: "🇬🇷" },
+  { name: "Groenlândia", code: "+299", flag: "🇬🇱" },
+  { name: "Guadalupe", code: "+590", flag: "🇬🇵" },
+  { name: "Guam", code: "+1671", flag: "🇬🇺" },
   { name: "Guatemala", code: "+502", flag: "🇬🇹" },
   { name: "Guiana", code: "+592", flag: "🇬🇾" },
+  { name: "Guiana Francesa", code: "+594", flag: "🇬🇫" },
   { name: "Guiné", code: "+224", flag: "🇬🇳" },
-  { name: "Guiné-Bissau", code: "+245", flag: "🇬🇼" },
   { name: "Guiné Equatorial", code: "+240", flag: "🇬🇶" },
+  { name: "Guiné-Bissau", code: "+245", flag: "🇬🇼" },
   { name: "Haiti", code: "+509", flag: "🇭🇹" },
   { name: "Honduras", code: "+504", flag: "🇭🇳" },
+  { name: "Hong Kong", code: "+852", flag: "🇭🇰" },
   { name: "Hungria", code: "+36", flag: "🇭🇺" },
   { name: "Iêmen", code: "+967", flag: "🇾🇪" },
+  { name: "Ilhas Cayman", code: "+1345", flag: "🇰🇾" },
+  { name: "Ilhas Faroé", code: "+298", flag: "🇫🇴" },
+  { name: "Ilhas Malvinas", code: "+500", flag: "🇫🇰" },
+  { name: "Ilhas Marshall", code: "+692", flag: "🇲🇭" },
+  { name: "Ilhas Salomão", code: "+677", flag: "🇸🇧" },
+  { name: "Ilhas Turcas e Caicos", code: "+1649", flag: "🇹🇨" },
+  { name: "Ilhas Virgens Americanas", code: "+1340", flag: "🇻🇮" },
+  { name: "Ilhas Virgens Britânicas", code: "+1284", flag: "🇻🇬" },
   { name: "Índia", code: "+91", flag: "🇮🇳" },
   { name: "Indonésia", code: "+62", flag: "🇮🇩" },
   { name: "Irã", code: "+98", flag: "🇮🇷" },
@@ -120,6 +141,7 @@ const countries = [
   { name: "Jamaica", code: "+1876", flag: "🇯🇲" },
   { name: "Japão", code: "+81", flag: "🇯🇵" },
   { name: "Jordânia", code: "+962", flag: "🇯🇴" },
+  { name: "Kiribati", code: "+686", flag: "🇰🇮" },
   { name: "Kosovo", code: "+383", flag: "🇽🇰" },
   { name: "Kuwait", code: "+965", flag: "🇰🇼" },
   { name: "Laos", code: "+856", flag: "🇱🇦" },
@@ -131,6 +153,8 @@ const countries = [
   { name: "Liechtenstein", code: "+423", flag: "🇱🇮" },
   { name: "Lituânia", code: "+370", flag: "🇱🇹" },
   { name: "Luxemburgo", code: "+352", flag: "🇱🇺" },
+  { name: "Macau", code: "+853", flag: "🇲🇴" },
+  { name: "Macedônia do Norte", code: "+389", flag: "🇲🇰" },
   { name: "Madagascar", code: "+261", flag: "🇲🇬" },
   { name: "Malásia", code: "+60", flag: "🇲🇾" },
   { name: "Malawi", code: "+265", flag: "🇲🇼" },
@@ -138,8 +162,10 @@ const countries = [
   { name: "Mali", code: "+223", flag: "🇲🇱" },
   { name: "Malta", code: "+356", flag: "🇲🇹" },
   { name: "Marrocos", code: "+212", flag: "🇲🇦" },
-  { name: "Mauritânia", code: "+222", flag: "🇲🇷" },
+  { name: "Martinica", code: "+596", flag: "🇲🇶" },
   { name: "Maurício", code: "+230", flag: "🇲🇺" },
+  { name: "Mauritânia", code: "+222", flag: "🇲🇷" },
+  { name: "Mayotte", code: "+262", flag: "🇾🇹" },
   { name: "México", code: "+52", flag: "🇲🇽" },
   { name: "Mianmar", code: "+95", flag: "🇲🇲" },
   { name: "Micronésia", code: "+691", flag: "🇫🇲" },
@@ -148,6 +174,7 @@ const countries = [
   { name: "Mônaco", code: "+377", flag: "🇲🇨" },
   { name: "Mongólia", code: "+976", flag: "🇲🇳" },
   { name: "Montenegro", code: "+382", flag: "🇲🇪" },
+  { name: "Montserrat", code: "+1664", flag: "🇲🇸" },
   { name: "Namíbia", code: "+264", flag: "🇳🇦" },
   { name: "Nauru", code: "+674", flag: "🇳🇷" },
   { name: "Nepal", code: "+977", flag: "🇳🇵" },
@@ -155,6 +182,7 @@ const countries = [
   { name: "Níger", code: "+227", flag: "🇳🇪" },
   { name: "Nigéria", code: "+234", flag: "🇳🇬" },
   { name: "Noruega", code: "+47", flag: "🇳🇴" },
+  { name: "Nova Caledônia", code: "+687", flag: "🇳🇨" },
   { name: "Nova Zelândia", code: "+64", flag: "🇳🇿" },
   { name: "Omã", code: "+968", flag: "🇴🇲" },
   { name: "Países Baixos", code: "+31", flag: "🇳🇱" },
@@ -164,17 +192,21 @@ const countries = [
   { name: "Papua Nova Guiné", code: "+675", flag: "🇵🇬" },
   { name: "Paraguai", code: "+595", flag: "🇵🇾" },
   { name: "Peru", code: "+51", flag: "🇵🇪" },
+  { name: "Polinésia Francesa", code: "+689", flag: "🇵🇫" },
   { name: "Polônia", code: "+48", flag: "🇵🇱" },
+  { name: "Porto Rico", code: "+1787", flag: "🇵🇷" },
   { name: "Portugal", code: "+351", flag: "🇵🇹" },
-  { name: "Quirguistão", code: "+996", flag: "🇰🇬" },
   { name: "Quênia", code: "+254", flag: "🇰🇪" },
+  { name: "Quirguistão", code: "+996", flag: "🇰🇬" },
   { name: "Reino Unido", code: "+44", flag: "🇬🇧" },
   { name: "Rep. Centro-Africana", code: "+236", flag: "🇨🇫" },
   { name: "Rep. Dominicana", code: "+1809", flag: "🇩🇴" },
   { name: "República Checa", code: "+420", flag: "🇨🇿" },
+  { name: "Reunião", code: "+262", flag: "🇷🇪" },
   { name: "Romênia", code: "+40", flag: "🇷🇴" },
   { name: "Ruanda", code: "+250", flag: "🇷🇼" },
   { name: "Rússia", code: "+7", flag: "🇷🇺" },
+  { name: "Saint-Pierre e Miquelon", code: "+508", flag: "🇵🇲" },
   { name: "Samoa", code: "+685", flag: "🇼🇸" },
   { name: "San Marino", code: "+378", flag: "🇸🇲" },
   { name: "Santa Lúcia", code: "+1758", flag: "🇱🇨" },
@@ -184,7 +216,9 @@ const countries = [
   { name: "Senegal", code: "+221", flag: "🇸🇳" },
   { name: "Serra Leoa", code: "+232", flag: "🇸🇱" },
   { name: "Sérvia", code: "+381", flag: "🇷🇸" },
+  { name: "Seychelles", code: "+248", flag: "🇸🇨" },
   { name: "Singapura", code: "+65", flag: "🇸🇬" },
+  { name: "Sint Maarten", code: "+1721", flag: "🇸🇽" },
   { name: "Síria", code: "+963", flag: "🇸🇾" },
   { name: "Somália", code: "+252", flag: "🇸🇴" },
   { name: "Sri Lanka", code: "+94", flag: "🇱🇰" },
@@ -210,9 +244,10 @@ const countries = [
   { name: "Uruguai", code: "+598", flag: "🇺🇾" },
   { name: "Uzbequistão", code: "+998", flag: "🇺🇿" },
   { name: "Vanuatu", code: "+678", flag: "🇻🇺" },
+  { name: "Vaticano", code: "+379", flag: "🇻🇦" },
   { name: "Venezuela", code: "+58", flag: "🇻🇪" },
   { name: "Vietnã", code: "+84", flag: "🇻🇳" },
-  { name: "Estados Unidos", code: "+1", flag: "🇺🇸" },
+  { name: "Wallis e Futuna", code: "+681", flag: "🇼🇫" },
   { name: "Zâmbia", code: "+260", flag: "🇿🇲" },
   { name: "Zimbábue", code: "+263", flag: "🇿🇼" },
 ];
@@ -230,6 +265,7 @@ const clientFormSchema = z.object({
   paymentStatus: z.enum(["Pago", "Vencido", "A Pagar"]).default("Pago"),
   plan: z.string().min(1, "Plano é obrigatório"),
   value: z.string().min(1, "Valor é obrigatório"),
+  renewalMode: z.enum(["automatic", "manual"]).default("automatic"),
   referralSource: z.string().optional(),
   referredById: z.number().optional(),
   notes: z.string().optional(),
@@ -244,9 +280,22 @@ interface ClientFormProps {
   isLoading?: boolean;
 }
 
+interface ClientAppLink {
+  id: number;
+  appId: number;
+  isPrimary: boolean;
+  expiryDate: string | null;
+  appName: string;
+}
+
+interface AdditionalAppRow {
+  appId: string;
+  expiryDate: string;
+}
+
 const paymentMethodOptions = [
-  { id: "pix", label: "PIX", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" },
-  { id: "cartao", label: "Cartão", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" },
+  { id: "pix", label: "PIX", color: "bg-success/10 text-success  " },
+  { id: "cartao", label: "Cartão", color: "bg-info/10 text-info  " },
 ];
 
 export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false }: ClientFormProps) {
@@ -263,6 +312,95 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   const { data: clientPlans = [] } = useQuery<ClientPlan[]>({
     queryKey: ["/api/client-plans"],
   });
+
+  const { data: apps = [], isLoading: appsLoading } = useQuery<App[]>({
+    queryKey: ["/api/apps"],
+  });
+  const activeApps = apps.filter((a) => a.isActive);
+
+  // No custom queryFn: relies on queryClient's default getQueryFn (see
+  // client/src/lib/queryClient.ts), which builds the URL from the key and
+  // attaches the Supabase Bearer token. A hand-rolled fetch() here was
+  // missing that header and silently 401ing on every request — the actual
+  // root cause of "app selection doesn't stick" investigated in this session.
+  const { data: existingClientApps = [] } = useQuery<ClientAppLink[]>({
+    queryKey: ["/api/clients", initialData?.id, "apps"],
+    enabled: !!initialData?.id,
+  });
+
+  const [appId, setAppId] = useState<string>("");
+  const [appExpiryDate, setAppExpiryDate] = useState<string>("");
+  const [additionalApps, setAdditionalApps] = useState<AdditionalAppRow[]>([]);
+  const [showAdditionalApps, setShowAdditionalApps] = useState(false);
+
+  // The <Select> must still show a currently-linked app even if it was
+  // deactivated afterward — otherwise the field silently falls back to the
+  // placeholder and looks like the saved selection was lost, when it's
+  // actually intact in clients.apps.
+  const primarySelectableApps = useMemo(() => {
+    if (!appId || activeApps.some((a) => String(a.id) === appId)) return activeApps;
+    const inactiveApp = apps.find((a) => String(a.id) === appId);
+    return inactiveApp ? [...activeApps, inactiveApp] : activeApps;
+  }, [activeApps, apps, appId]);
+
+  const selectableAppsForRow = (rowAppId: string) => {
+    if (!rowAppId || activeApps.some((a) => String(a.id) === rowAppId)) return activeApps;
+    const inactiveApp = apps.find((a) => String(a.id) === rowAppId);
+    return inactiveApp ? [...activeApps, inactiveApp] : activeApps;
+  };
+
+  useEffect(() => {
+    if (existingClientApps.length === 0) return;
+    const primary = existingClientApps.find((c) => c.isPrimary);
+    const extras = existingClientApps.filter((c) => !c.isPrimary);
+    if (primary) {
+      setAppId(String(primary.appId));
+      setAppExpiryDate(primary.expiryDate || "");
+    }
+    if (extras.length > 0) {
+      setAdditionalApps(extras.map((e) => ({ appId: String(e.appId), expiryDate: e.expiryDate || "" })));
+      setShowAdditionalApps(true);
+    }
+  }, [existingClientApps]);
+
+  const addAdditionalAppRow = () => {
+    setAdditionalApps((prev) => [...prev, { appId: "", expiryDate: "" }]);
+  };
+
+  const updateAdditionalAppRow = (index: number, field: keyof AdditionalAppRow, value: string) => {
+    setAdditionalApps((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+  };
+
+  const { data: existingManualPlan } = useQuery<{ renewDay: number } | null>({
+    queryKey: ["/api/clients", initialData?.id, "manual-renewal-plan"],
+    queryFn: async () => {
+      // Custom queryFn needed here (404 → null isn't handled by the default
+      // getQueryFn), so the auth header has to be attached by hand — same
+      // Supabase session lookup queryClient's default uses internally.
+      const supabase = await getSupabase();
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: HeadersInit = session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : {};
+      const res = await fetch(`/api/clients/${initialData!.id}/manual-renewal-plan`, { credentials: "include", headers });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error("Falha ao carregar plano de renovação manual");
+      return res.json();
+    },
+    enabled: !!initialData?.id,
+  });
+
+  const [renewDay, setRenewDay] = useState<string>("");
+
+  useEffect(() => {
+    if (existingManualPlan?.renewDay) {
+      setRenewDay(String(existingManualPlan.renewDay));
+    }
+  }, [existingManualPlan]);
+
+  const removeAdditionalAppRow = (index: number) => {
+    setAdditionalApps((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const planOptions = clientPlans.length > 0
     ? clientPlans.map((p) => ({ name: p.name, value: String(p.value) }))
@@ -299,16 +437,29 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
       system: initialData?.system || "",
       subscriptionStatus: initialData?.subscriptionStatus || "Ativa",
       paymentMethod: initialData?.paymentMethod || "pix",
-      activationDate: initialData?.activationDate || new Date().toISOString().split('T')[0],
+      activationDate: initialData?.activationDate || getBrasiliaDateString(),
       expiryDate: initialData?.expiryDate || "",
       paymentStatus: initialData?.paymentStatus || "Pago",
       plan: initialData?.plan || "",
       value: initialData?.value || "",
+      renewalMode: initialData?.renewalMode || "automatic",
       referralSource: initialData?.referralSource || "",
       referredById: initialData?.referredById || undefined,
       notes: initialData?.notes || "",
     },
   });
+
+  const selectedPlanName = form.watch("plan");
+  const renewalModeValue = form.watch("renewalMode");
+  const selectedClientPlan = clientPlans.find((p) => p.name === selectedPlanName);
+  const selectedPlanPeriod =
+    selectedClientPlan?.durationType === "months" && [3, 6, 12].includes(selectedClientPlan.durationQuantity)
+      ? selectedClientPlan.durationQuantity === 3
+        ? "Trimestral"
+        : selectedClientPlan.durationQuantity === 6
+          ? "Semestral"
+          : "Anual"
+      : null;
 
   // Auto-generate username from name and phone
   const handleNameChange = (name: string) => {
@@ -360,27 +511,37 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   }, [expiryDateWatch]);
 
   const getDaysToExpiryColor = () => {
-    if (daysToExpiry <= 0) return "text-yellow-600 font-bold"; // Vencido
-    if (daysToExpiry <= 3) return "text-red-600 font-bold"; // Crítico
-    return "text-green-600"; // Normal
+    if (daysToExpiry <= 0) return "text-warning font-bold"; // Vencido
+    if (daysToExpiry <= 3) return "text-destructive font-bold"; // Crítico
+    return "text-success"; // Normal
   };
 
   const handleSubmit = (data: ClientFormData) => {
+    const appsPayload = {
+      appId: appId ? parseInt(appId) : null,
+      appExpiryDate: appId ? (appExpiryDate || null) : null,
+      additionalApps: additionalApps
+        .filter((row) => row.appId)
+        .map((row) => ({ appId: parseInt(row.appId), expiryDate: row.expiryDate || null })),
+      ...(data.renewalMode === "manual" && renewDay ? { renewDay: parseInt(renewDay) } : {}),
+      manualRenewalPlanPeriod: data.renewalMode === "manual" ? selectedPlanPeriod : null,
+    };
+
     // When editing, remove activationDate from the payload
     // activationDate is immutable after creation to preserve historical revenue data
     if (initialData) {
       const { activationDate, ...dataWithoutActivationDate } = data;
       console.log('[ClientForm] Editing client - activationDate removed from payload to preserve revenue history');
-      onSubmit(dataWithoutActivationDate as ClientFormData);
+      onSubmit({ ...dataWithoutActivationDate, ...appsPayload } as unknown as ClientFormData);
     } else {
-      onSubmit(data);
+      onSubmit({ ...data, ...appsPayload } as unknown as ClientFormData);
     }
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Opção de Importação de Planilha */}
-      <Card className="glassmorphism neon-border">
+      <Card>
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -400,12 +561,12 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
         </CardContent>
       </Card>
 
-      <Card className="glassmorphism neon-border">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>{initialData ? "Editar Cliente" : "Novo Cliente"}</span>
             {!initialData && (
-              <Badge variant="secondary" className="text-lg px-3 py-1">
+              <Badge variant="secondary" className="text-sm font-semibold px-3 py-1 rounded-full">
                 ID: {userId.toString().padStart(3, '0')}
               </Badge>
             )}
@@ -416,7 +577,10 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
               {/* Informações Pessoais */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Informações Pessoais</h3>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-primary" />
+                  Informações Pessoais
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -518,7 +682,10 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
 
               {/* Credenciais de Acesso */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Credenciais de Acesso</h3>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <KeyRound className="w-5 h-5 text-primary" />
+                  Credenciais de Acesso
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -590,7 +757,10 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
 
               {/* Status e Pagamento */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Status e Pagamento</h3>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-primary" />
+                  Status e Pagamento
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -679,7 +849,10 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
 
               {/* Datas e Valores */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Datas e Valores</h3>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <CalendarDays className="w-5 h-5 text-primary" />
+                  Datas e Valores
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
@@ -709,7 +882,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                   />
                   <div className="flex flex-col space-y-2">
                     <FormLabel>Dias para Vencimento</FormLabel>
-                    <div className={`p-3 text-center font-bold text-lg border rounded-md ${getDaysToExpiryColor()}`}>
+                    <div className={`p-3 text-center font-bold text-lg border border-border rounded-lg ${getDaysToExpiryColor()}`}>
                       {daysToExpiry > 0 ? `${daysToExpiry} dias` : daysToExpiry === 0 ? "Vence hoje" : `${Math.abs(daysToExpiry)} dias vencido`}
                       {daysToExpiry <= 3 && daysToExpiry > 0 && (
                         <AlertTriangle className="w-4 h-4 inline ml-2" />
@@ -760,13 +933,61 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                     )}
                   />
                 </div>
+
+                {selectedPlanPeriod && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <FormField
+                      control={form.control}
+                      name="renewalMode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Modo de renovação no servidor
+                            <span className="text-xs text-muted-foreground ml-2">
+                              (plano {selectedPlanPeriod})
+                            </span>
+                          </FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-renewal-mode">
+                                <SelectValue placeholder="Selecione o modo" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="automatic">Automática</SelectItem>
+                              <SelectItem value="manual">Manual</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {renewalModeValue === "manual" && (
+                      <div className="space-y-2">
+                        <FormLabel>Dia de renovação</FormLabel>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={31}
+                          value={renewDay}
+                          onChange={(e) => setRenewDay(e.target.value)}
+                          placeholder="Ex: 15"
+                          data-testid="input-renew-day"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <Separator />
 
               {/* Indicação e Observações */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Indicação e Observações</h3>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-primary" />
+                  Indicação e Observações
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -817,6 +1038,108 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                     </FormItem>
                   )}
                 />
+              </div>
+
+              <Separator />
+
+              {/* Aplicativo */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Smartphone className="w-5 h-5 text-primary" />
+                  Aplicativo
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <FormLabel>Aplicativo</FormLabel>
+                    <Select value={appId} onValueChange={setAppId} disabled={appsLoading}>
+                      <SelectTrigger data-testid="select-app">
+                        <SelectValue placeholder={appsLoading ? "Carregando aplicativos..." : "Selecione o aplicativo"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {primarySelectableApps.map((app) => (
+                          <SelectItem key={app.id} value={String(app.id)}>
+                            {app.name}
+                            {!app.isActive && " (Inativo)"}
+                          </SelectItem>
+                        ))}
+                        {primarySelectableApps.length === 0 && (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            Nenhum aplicativo ativo encontrado
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <FormLabel>Vencimento do App</FormLabel>
+                    <Input
+                      type="date"
+                      value={appExpiryDate}
+                      onChange={(e) => setAppExpiryDate(e.target.value)}
+                      disabled={!appId}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdditionalApps((v) => !v)}
+                    className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                  >
+                    <ChevronDown className={`w-4 h-4 transition-transform ${showAdditionalApps ? "rotate-180" : ""}`} />
+                    Aplicativos Adicionais (Opcional)
+                  </button>
+
+                  {showAdditionalApps && (
+                    <div className="mt-3 space-y-3">
+                      {additionalApps.map((row, index) => (
+                        <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+                          <div className="space-y-2">
+                            <FormLabel className="text-xs text-muted-foreground">Aplicativo</FormLabel>
+                            <Select
+                              value={row.appId}
+                              onValueChange={(val) => updateAdditionalAppRow(index, "appId", val)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione o aplicativo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {selectableAppsForRow(row.appId).map((app) => (
+                                  <SelectItem key={app.id} value={String(app.id)}>
+                                    {app.name}
+                                    {!app.isActive && " (Inativo)"}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <FormLabel className="text-xs text-muted-foreground">Vencimento</FormLabel>
+                            <Input
+                              type="date"
+                              value={row.expiryDate}
+                              onChange={(e) => updateAdditionalAppRow(index, "expiryDate", e.target.value)}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive"
+                            onClick={() => removeAdditionalAppRow(index)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button type="button" variant="outline" size="sm" onClick={addAdditionalAppRow} className="space-x-2">
+                        <Plus className="w-4 h-4" />
+                        <span>Adicionar Aplicativo</span>
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Form Actions */}

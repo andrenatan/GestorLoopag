@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
 import {
   LayoutDashboard,
@@ -16,46 +18,111 @@ import {
   ChevronDown,
   ListFilter,
   Tag,
+  MessageCircle,
+  Link2,
+  FileText,
+  Smartphone,
+  CalendarClock,
+  Wallet,
+  BarChart3,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
+
+interface NavChild {
+  title: string;
+  href: string;
+  icon: React.ElementType;
+  permission: string;
+}
 
 interface NavItem {
   title: string;
   href: string;
   icon: React.ElementType;
-  children?: { title: string; href: string; icon: React.ElementType }[];
+  children?: NavChild[];
 }
 
 interface NavItemEx extends NavItem {
-  ownerOnly?: boolean;
+  // Present on leaf items (no children); children carry their own permission.
+  permission?: string;
 }
 
+// Permission keys mirror server/routes.ts's PermissionKey 1:1 — keep both in
+// sync when adding/removing a protected sidebar item.
 const sidebarItems: NavItemEx[] = [
-  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, ownerOnly: true },
+  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard" },
   {
     title: "Clientes",
     href: "/clients",
     icon: Users,
     children: [
-      { title: "Listar/Criar", href: "/clients", icon: ListFilter },
-      { title: "Planos", href: "/clients/plans", icon: Tag },
-      { title: "Sistemas", href: "/systems", icon: Server },
+      { title: "Listar/Criar", href: "/clients", icon: ListFilter, permission: "clients.list" },
+      { title: "Planos", href: "/clients/plans", icon: Tag, permission: "clients.plans" },
+      { title: "Sistemas", href: "/systems", icon: Server, permission: "clients.systems" },
+      { title: "Aplicativos", href: "/apps", icon: Smartphone, permission: "clients.apps" },
+      { title: "Renovações Manuais", href: "/manual-renewals", icon: CalendarClock, permission: "clients.manual_renewals" },
     ],
   },
-  { title: "Rankings", href: "/rankings", icon: Trophy },
-  { title: "Funcionários", href: "/employees", icon: UserCheck, ownerOnly: true },
+  { title: "Rankings", href: "/rankings", icon: Trophy, permission: "rankings" },
+  { title: "Funcionários", href: "/employees", icon: UserCheck, permission: "employees" },
+  {
+    title: "Financeiro",
+    href: "/financeiro",
+    icon: Wallet,
+    children: [
+      { title: "Visão Geral", href: "/financeiro", icon: ListFilter, permission: "financial.overview" },
+      { title: "Relatórios", href: "/financeiro/relatorios", icon: BarChart3, permission: "financial.reports" },
+    ],
+  },
+  {
+    title: "CRM WhatsApp",
+    href: "/crm",
+    icon: MessageCircle,
+    children: [
+      { title: "Conversas", href: "/crm", icon: MessageCircle, permission: "crm.conversations" },
+      { title: "Automações", href: "/crm/automations", icon: Zap, permission: "crm.automations" },
+      { title: "Templates", href: "/crm/templates", icon: FileText, permission: "crm.templates" },
+      { title: "Conexão", href: "/crm/connection", icon: Link2, permission: "crm.connection" },
+    ],
+  },
 ];
 
-interface SidebarProps {
-  className?: string;
+const pillBase =
+  "flex w-full items-center rounded-full text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const pillIdle = "text-foreground/75 hover:bg-accent hover:text-foreground";
+const pillActive = "bg-ink text-ink-foreground shadow-float hover:bg-ink hover:text-ink-foreground";
+
+function Brand({ collapsed }: { collapsed: boolean }) {
+  return (
+    <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
+      <div className="brand-tile flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl">
+        <Zap className="h-5 w-5" strokeWidth={2.4} />
+      </div>
+      {!collapsed && <span className="font-display text-xl font-bold tracking-tight text-foreground">Loopag</span>}
+    </div>
+  );
 }
 
-export function Sidebar({ className }: SidebarProps) {
-  const [location] = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
-  const { logout, user, isOwner } = useAuth();
-  const visibleItems = sidebarItems.filter((it) => !it.ownerOnly || isOwner);
+interface SidebarBodyProps {
+  collapsed: boolean;
+  onNavigate?: () => void;
+}
 
-  const isClientsActive = location === "/clients" || location.startsWith("/clients/") || location === "/systems" || location.startsWith("/systems/");
+function SidebarBody({ collapsed, onNavigate }: SidebarBodyProps) {
+  const [location] = useLocation();
+  const { logout, user, hasPermission } = useAuth();
+  const visibleItems = sidebarItems
+    .map((it) => {
+      if (it.children) {
+        const visibleChildren = it.children.filter((c) => hasPermission(c.permission));
+        return visibleChildren.length > 0 ? { ...it, children: visibleChildren } : null;
+      }
+      return !it.permission || hasPermission(it.permission) ? it : null;
+    })
+    .filter((it): it is NavItemEx => it !== null);
+
+  const isClientsActive = location === "/clients" || location.startsWith("/clients/") || location === "/systems" || location.startsWith("/systems/") || location === "/apps" || location.startsWith("/apps/") || location === "/manual-renewals" || location.startsWith("/manual-renewals/");
 
   const [openItems, setOpenItems] = useState<Set<string>>(() => {
     const initial = new Set<string>();
@@ -75,161 +142,211 @@ export function Sidebar({ className }: SidebarProps) {
     });
   };
 
+  const displayName = user?.name || user?.username;
+
   return (
-    <aside
-      className={cn(
-        "bg-[#091829] border-r border-[#1a2d42] transition-all duration-300 relative text-white flex flex-col",
-        collapsed ? "w-16" : "w-64",
-        className
-      )}
-    >
-      <div className="p-6 flex-1 flex flex-col">
-        {/* Logo */}
-        <div className="flex items-center space-x-3 mb-8">
-          <div className="w-10 h-10 gradient-bg rounded-xl flex items-center justify-center">
-            <Zap className="w-6 h-6 text-white" />
-          </div>
-          {!collapsed && <span className="text-xl font-bold text-white">Loopag</span>}
-        </div>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <ScrollArea className="-mx-1 flex-1 px-1">
+        <nav className="space-y-1 pb-2" aria-label="Navegação principal">
+          {visibleItems.map((item) => {
+            const Icon = item.icon;
 
-        {/* Collapse Toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-6 rounded-full border border-[#1a2d42] bg-[#091829] text-white hover:bg-[#1a2d42]"
-        >
-          <Menu className="h-4 w-4" />
-        </Button>
+            if (item.children) {
+              const isParentActive =
+                location === item.href ||
+                location.startsWith(`${item.href}/`) ||
+                item.children.some((c) => location === c.href || location.startsWith(`${c.href}/`));
+              const isOpen = openItems.has(item.href) || isParentActive;
 
-        {/* Navigation */}
-        <ScrollArea className="flex-1 mb-4">
-          <nav className="space-y-1">
-            {visibleItems.map((item) => {
-              const Icon = item.icon;
-
-              if (item.children) {
-                const isParentActive =
-                  location === item.href ||
-                  location.startsWith(`${item.href}/`) ||
-                  item.children.some(
-                    (c) => location === c.href || location.startsWith(`${c.href}/`)
-                  );
-                const isOpen = openItems.has(item.href) || isParentActive;
-
-                return (
-                  <div key={item.href}>
-                    <button
-                      onClick={() => {
-                        if (collapsed) return;
-                        toggleItem(item.href);
-                      }}
-                      className={cn(
-                        "w-full flex items-center justify-start h-10 px-4 py-2 rounded-md text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200",
-                        isParentActive && "bg-blue-600/30 text-white border border-blue-500/30"
-                      )}
-                    >
-                      <Icon className="h-5 w-5 shrink-0" />
-                      {!collapsed && (
-                        <>
-                          <span className="ml-3 flex-1 text-left text-sm">{item.title}</span>
-                          <ChevronDown
-                            className={cn(
-                              "h-4 w-4 text-white/50 transition-transform duration-200",
-                              isOpen && "rotate-180"
-                            )}
-                          />
-                        </>
-                      )}
-                    </button>
-
-                    {/* Submenu */}
-                    {!collapsed && isOpen && (
-                      <div className="ml-4 mt-1 space-y-1 border-l border-[#1a2d42] pl-3">
-                        {item.children.map((child) => {
-                          const ChildIcon = child.icon;
-                          const isChildActive = location === child.href;
-                          return (
-                            <Link key={child.href} href={child.href}>
-                              <button
-                                className={cn(
-                                  "w-full flex items-center h-9 px-3 py-1.5 rounded-md text-sm text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200",
-                                  isChildActive && "bg-blue-600 text-white hover:bg-blue-700 border border-blue-500/50"
-                                )}
-                              >
-                                <ChildIcon className="h-4 w-4 shrink-0" />
-                                <span className="ml-2.5">{child.title}</span>
-                              </button>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Collapsed: show child icons when parent active */}
-                    {collapsed && isParentActive && (
-                      <div className="space-y-1 mt-1">
-                        {item.children.map((child) => {
-                          const ChildIcon = child.icon;
-                          const isChildActive = location === child.href;
-                          return (
-                            <Link key={child.href} href={child.href}>
-                              <button
-                                className={cn(
-                                  "w-full flex items-center justify-center h-9 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-all",
-                                  isChildActive && "bg-blue-600 text-white"
-                                )}
-                                title={child.title}
-                              >
-                                <ChildIcon className="h-4 w-4" />
-                              </button>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              }
-
-              const isActive = location === item.href;
               return (
-                <Link key={item.href} href={item.href}>
-                  <Button
-                    variant="ghost"
+                <div key={item.href}>
+                  <button
+                    type="button"
+                    aria-expanded={collapsed ? undefined : isOpen}
+                    title={collapsed ? item.title : undefined}
+                    onClick={() => {
+                      if (collapsed) return;
+                      toggleItem(item.href);
+                    }}
                     className={cn(
-                      "w-full justify-start h-10 px-4 py-2 text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 bg-transparent border-0",
-                      isActive && "bg-blue-600 text-white hover:bg-blue-700 border border-blue-500/50"
+                      pillBase,
+                      pillIdle,
+                      "h-11",
+                      collapsed ? "justify-center px-0" : "px-3.5",
+                      isParentActive && "text-foreground",
+                      collapsed && isParentActive && "bg-accent",
                     )}
                   >
-                    <Icon className="h-5 w-5" />
-                    {!collapsed && <span className="ml-3">{item.title}</span>}
-                  </Button>
-                </Link>
-              );
-            })}
-          </nav>
-        </ScrollArea>
+                    <Icon className="h-[18px] w-[18px] shrink-0" />
+                    {!collapsed && (
+                      <>
+                        <span className={cn("ml-3 flex-1 text-left", isParentActive && "font-semibold")}>{item.title}</span>
+                        {isParentActive && <span className="mr-2 h-1.5 w-1.5 rounded-full bg-highlight" aria-hidden />}
+                        <ChevronDown
+                          className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", isOpen && "rotate-180")}
+                        />
+                      </>
+                    )}
+                  </button>
 
-        {/* User Info & Logout */}
-        <div className="border-t border-[#1a2d42] pt-4">
-          {!collapsed && user && (
-            <div className="mb-3 px-2">
-              <p className="text-sm text-white font-semibold truncate">{user.name || user.username}</p>
-              <p className="text-xs text-white/60 truncate">{user.email}</p>
+                  {!collapsed && isOpen && (
+                    <div className="ml-[1.6rem] mt-1 space-y-0.5 border-l border-border pb-1 pl-2.5">
+                      {item.children.map((child) => {
+                        const ChildIcon = child.icon;
+                        const isChildActive = location === child.href;
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            onClick={onNavigate}
+                            aria-current={isChildActive ? "page" : undefined}
+                            className={cn(pillBase, "h-9 px-3 text-[13.5px]", isChildActive ? pillActive : pillIdle)}
+                          >
+                            <ChildIcon className="h-4 w-4 shrink-0" />
+                            <span className="ml-2.5 truncate text-left">{child.title}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {collapsed && isParentActive && (
+                    <div className="mt-1 space-y-1">
+                      {item.children.map((child) => {
+                        const ChildIcon = child.icon;
+                        const isChildActive = location === child.href;
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            onClick={onNavigate}
+                            title={child.title}
+                            aria-label={child.title}
+                            aria-current={isChildActive ? "page" : undefined}
+                            className={cn(pillBase, "h-9 justify-center", isChildActive ? pillActive : pillIdle)}
+                          >
+                            <ChildIcon className="h-4 w-4" />
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            const isActive = location === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                title={collapsed ? item.title : undefined}
+                aria-current={isActive ? "page" : undefined}
+                className={cn(pillBase, "h-11", collapsed ? "justify-center px-0" : "px-3.5", isActive ? pillActive : pillIdle)}
+              >
+                <Icon className="h-[18px] w-[18px] shrink-0" />
+                {!collapsed && <span className="ml-3 font-semibold">{item.title}</span>}
+              </Link>
+            );
+          })}
+        </nav>
+      </ScrollArea>
+
+      {/* User, theme & logout */}
+      <div className="mt-3 space-y-2 border-t border-border pt-3">
+        {!collapsed && user && (
+          <div className="flex items-center gap-3 rounded-2xl px-1.5 py-1">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-highlight font-display text-sm font-bold text-highlight-foreground">
+              {(displayName || "?").charAt(0).toUpperCase()}
             </div>
-          )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
+              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+            </div>
+          </div>
+        )}
+        <div className={cn("flex gap-2", collapsed ? "flex-col items-center" : "items-center")}>
           <Button
             data-testid="button-logout"
             variant="ghost"
             onClick={() => logout()}
-            className="w-full justify-start h-10 px-4 py-2 text-white/80 hover:text-white hover:bg-red-500/20 transition-all duration-200 bg-transparent border-0"
+            title={collapsed ? "Sair" : undefined}
+            className={cn(
+              "h-10 rounded-full text-foreground/75 hover:bg-destructive/10 hover:text-destructive",
+              collapsed ? "w-10 px-0" : "flex-1 justify-start px-3.5",
+            )}
           >
-            <LogOut className="h-5 w-5" />
-            {!collapsed && <span className="ml-3">Sair</span>}
+            <LogOut className="h-[18px] w-[18px]" />
+            {!collapsed && <span className="ml-1">Sair</span>}
           </Button>
+          <ThemeToggle />
         </div>
       </div>
-    </aside>
+    </div>
+  );
+}
+
+interface SidebarProps {
+  className?: string;
+}
+
+export function Sidebar({ className }: SidebarProps) {
+  const [location] = useLocation();
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location]);
+
+  return (
+    <>
+      {/* Desktop: floating glass rail */}
+      <aside
+        className={cn(
+          "glass relative my-3 ml-3 hidden shrink-0 flex-col rounded-panel p-4 transition-[width] duration-300 lg:flex",
+          collapsed ? "w-[76px]" : "w-[264px]",
+          className,
+        )}
+      >
+        <div className={cn("mb-6 flex items-center", collapsed ? "flex-col gap-3" : "justify-between")}>
+          <Brand collapsed={collapsed} />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          >
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </Button>
+        </div>
+        <SidebarBody collapsed={collapsed} />
+      </aside>
+
+      {/* Mobile: floating top bar + drawer */}
+      <div className="glass fixed inset-x-3 top-3 z-40 flex h-14 items-center justify-between rounded-full py-2 pl-4 pr-2 lg:hidden">
+        <Brand collapsed={false} />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Abrir menu"
+          className="text-foreground"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      </div>
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" className="flex w-[86%] max-w-[300px] flex-col p-4 pt-5">
+          <SheetTitle className="sr-only">Menu</SheetTitle>
+          <div className="mb-6">
+            <Brand collapsed={false} />
+          </div>
+          <SidebarBody collapsed={false} onNavigate={() => setMobileOpen(false)} />
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
