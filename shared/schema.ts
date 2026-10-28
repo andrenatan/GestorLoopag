@@ -95,6 +95,15 @@ export const clients = pgTable("clients", {
     enum: ["Pago", "Vencido", "A Pagar"]
   }).notNull().default("Pago"),
   plan: text("plan").notNull(),
+  // Denormalized mirror of the client's PRIMARY app name (client_apps.appId
+  // -> apps.name), kept in sync by storage.setClientApps whenever the
+  // primary app link changes. Same pattern as `system`/`plan` above — a
+  // plain text column, not a FK — added so external tools (e.g. n8n reading
+  // this table directly via Supabase) can see the app without joining
+  // client_apps+apps. The join table remains the source of truth for
+  // additional apps and per-app expiry dates; this column never represents
+  // those, only the primary app's name.
+  app: text("app"),
   value: decimal("value", { precision: 10, scale: 2 }).notNull(),
   renewalMode: text("renewal_mode", { enum: ["automatic", "manual"] }).notNull().default("automatic"),
   referralSource: text("referral_source"),
@@ -360,6 +369,10 @@ export const insertClientSchema = createInsertSchema(clients).omit({
   clientNumber: true,
   createdAt: true,
   updatedAt: true,
+  // Server-managed mirror of the primary app's name — set exclusively by
+  // storage.setClientApps from a validated appId, never accepted directly
+  // from a client payload (see `app` column comment on the clients table).
+  app: true,
 });
 
 export const insertPaymentHistorySchema = createInsertSchema(paymentHistory).omit({

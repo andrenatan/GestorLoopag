@@ -179,6 +179,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================
   // N8N INTEGRATION ENDPOINT (registered before session/auth middleware)
   // ============================================
+  // NOTE: this endpoint does not set a primary app (clients.app / client_apps)
+  // at creation time — it has no concept of apps at all. Clients created here
+  // have app = NULL until edited in the UI and assigned a primary app there.
   app.post("/api/n8n/clients", async (req: Request, res: Response) => {
     try {
       const apiKey = (req.headers["x-api-key"] as string || "").trim();
@@ -1979,11 +1982,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Syncs client_apps for a client from optional appId/appExpiryDate (primary)
   // and additionalApps (array) fields in the request body. No-op if neither
   // field is present in the payload, so plain client edits that don't touch
-  // apps never clear existing links.
-  async function syncClientAppsFromBody(authUserId: string, clientId: number, body: any) {
+  // apps never clear existing links. Returns the resolved primary app name
+  // so the caller can patch it onto the `client` object used in the HTTP
+  // response (setClientApps runs after createClient/updateClient already
+  // returned) — undefined means "apps untouched, leave client.app as-is".
+  async function syncClientAppsFromBody(authUserId: string, clientId: number, body: any): Promise<string | null | undefined> {
     const hasPrimary = "appId" in body;
     const hasAdditional = "additionalApps" in body;
-    if (!hasPrimary && !hasAdditional) return;
+    if (!hasPrimary && !hasAdditional) return undefined;
 
     const primary = body.appId
       ? clientAppLinkSchema.parse({ appId: body.appId, expiryDate: body.appExpiryDate ?? null })
@@ -1991,7 +1997,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const additionalRaw = Array.isArray(body.additionalApps) ? body.additionalApps : [];
     const additional = additionalRaw.map((item: any) => clientAppLinkSchema.parse(item));
 
-    await storage.setClientApps(authUserId, clientId, primary, additional);
+    const appName = await storage.setClientApps(authUserId, clientId, primary, additional);
+    return hasPrimary ? appName : undefined;
   }
 
   // Syncs the manual renewal plan for a client based on its (already-persisted)
@@ -2033,7 +2040,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         previousExpiryDate: null
       });
 
-      await syncClientAppsFromBody(authUserId, client.id, req.body);
+      const resolvedApp = await syncClientAppsFromBody(authUserId, client.id, req.body);
+      if (resolvedApp !== undefined) client.app = resolvedApp;
       await syncManualRenewalFromBody(authUserId, client, req.body);
 
       res.status(201).json(client);
@@ -2124,7 +2132,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Client not found" });
       }
 
-      await syncClientAppsFromBody(authUserId, client.id, req.body);
+      const resolvedApp = await syncClientAppsFromBody(authUserId, client.id, req.body);
+      if (resolvedApp !== undefined) client.app = resolvedApp;
       await syncManualRenewalFromBody(authUserId, client, req.body);
 
       // Check if expiryDate changed (renewal detected)

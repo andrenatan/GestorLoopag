@@ -182,12 +182,14 @@ export interface IStorage {
 
   // Client Apps (links clients to apps)
   getClientApps(authUserId: string, clientId: number): Promise<(ClientApp & { appName: string })[]>;
+  // Returns the resolved primary app's name (or null if primary is null /
+  // not found) — also mirrored onto clients.app in the same transaction.
   setClientApps(
     authUserId: string,
     clientId: number,
     primary: { appId: number; expiryDate?: string | null } | null,
     additional: { appId: number; expiryDate?: string | null }[]
-  ): Promise<void>;
+  ): Promise<string | null>;
 
   // System Credit Rules (credits consumed per system + client plan)
   getSystemCreditRules(authUserId: string, systemId: number): Promise<(SystemCreditRule & { clientPlanName: string })[]>;
@@ -1334,8 +1336,8 @@ export class DbStorage implements IStorage {
     clientId: number,
     primary: { appId: number; expiryDate?: string | null } | null,
     additional: { appId: number; expiryDate?: string | null }[]
-  ): Promise<void> {
-    await db.transaction(async (tx) => {
+  ): Promise<string | null> {
+    return await db.transaction(async (tx) => {
       await tx.delete(clientApps)
         .where(and(eq(clientApps.clientId, clientId), eq(clientApps.authUserId, authUserId)));
 
@@ -1362,6 +1364,23 @@ export class DbStorage implements IStorage {
       if (rows.length > 0) {
         await tx.insert(clientApps).values(rows);
       }
+
+      // Mirror the primary app's name onto clients.app (denormalized, same
+      // pattern as clients.system/plan) so external tools reading the
+      // clients table directly (e.g. n8n via Supabase) see it without
+      // joining client_apps+apps. client_apps stays the source of truth.
+      let appName: string | null = null;
+      if (primary) {
+        const appRow = await tx.select({ name: apps.name }).from(apps)
+          .where(and(eq(apps.id, primary.appId), eq(apps.authUserId, authUserId)))
+          .limit(1);
+        appName = appRow[0]?.name ?? null;
+      }
+      await tx.update(clients)
+        .set({ app: appName, updatedAt: new Date() })
+        .where(and(eq(clients.id, clientId), eq(clients.authUserId, authUserId)));
+
+      return appName;
     });
   }
 
