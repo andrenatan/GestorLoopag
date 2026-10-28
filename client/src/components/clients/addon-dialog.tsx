@@ -74,11 +74,11 @@ export function AddonDialog({ client, onClose }: AddonDialogProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-popover border border-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 backdrop-blur-sm">
+      <div className="glass-strong w-full max-w-md mx-4 p-6">
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center">
-            <PlusCircle className="w-5 h-5 text-green-500 dark:text-green-400" />
+          <div className="w-10 h-10 rounded-full bg-success/15 border border-success/30 flex items-center justify-center">
+            <PlusCircle className="w-5 h-5 text-success" />
           </div>
           <div>
             <h2 className="text-foreground font-semibold text-lg">Adesão Extra</h2>
@@ -95,7 +95,7 @@ export function AddonDialog({ client, onClose }: AddonDialogProps) {
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(/[^\d,\.]/g, ""))}
               placeholder="Ex: 30,00"
-              className="w-full bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:border-green-500"
+              className="w-full field text-sm rounded-lg px-3 py-2.5"
               data-testid="input-addon-amount"
             />
           </div>
@@ -108,7 +108,7 @@ export function AddonDialog({ client, onClose }: AddonDialogProps) {
               onChange={(e) => setDescription(e.target.value)}
               placeholder='Ex: "2ª tela", "TV do quarto"'
               maxLength={255}
-              className="w-full bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:border-green-500"
+              className="w-full field text-sm rounded-lg px-3 py-2.5"
               data-testid="input-addon-description"
             />
           </div>
@@ -119,17 +119,17 @@ export function AddonDialog({ client, onClose }: AddonDialogProps) {
               type="date"
               value={paymentDate}
               onChange={(e) => setPaymentDate(e.target.value)}
-              className="w-full bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:border-green-500"
+              className="w-full field text-sm rounded-lg px-3 py-2.5"
               data-testid="input-addon-date"
             />
           </div>
 
-          <label className="flex items-start gap-3 cursor-pointer select-none bg-background border border-border rounded-lg px-3 py-2.5 hover:border-green-500/50 transition-colors">
+          <label className="flex items-start gap-3 cursor-pointer select-none field rounded-lg px-3 py-2.5 hover:border-success/40 transition-colors">
             <input
               type="checkbox"
               checked={bumpClientValue}
               onChange={(e) => setBumpClientValue(e.target.checked)}
-              className="mt-0.5 w-4 h-4 accent-green-500"
+              className="mt-0.5 w-4 h-4 accent-success"
               data-testid="checkbox-addon-bump"
             />
             <div>
@@ -149,7 +149,7 @@ export function AddonDialog({ client, onClose }: AddonDialogProps) {
           <button
             onClick={onClose}
             disabled={mutation.isPending}
-            className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium py-2.5 rounded-lg transition-colors text-sm border border-border"
+            className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium py-2.5 rounded-full transition-colors text-sm border border-border"
             data-testid="button-addon-cancel"
           >
             Cancelar
@@ -157,7 +157,7 @@ export function AddonDialog({ client, onClose }: AddonDialogProps) {
           <button
             onClick={handleConfirm}
             disabled={mutation.isPending}
-            className="flex-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors text-sm"
+            className="flex-1 bg-success hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed text-success-foreground font-semibold py-2.5 rounded-full transition-colors text-sm"
             data-testid="button-addon-confirm"
           >
             {mutation.isPending ? "Registrando..." : "Confirmar adesão"}

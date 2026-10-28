@@ -124,7 +124,7 @@ function CreditRulesSection({ systemId }: { systemId: number }) {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="text-red-600"
+                className="text-destructive"
                 onClick={() => deleteMutation.mutate(rule.id)}
               >
                 <Trash2 className="w-4 h-4" />
@@ -293,7 +293,7 @@ export default function Systems() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-muted rounded w-64" />
           <div className="h-96 bg-muted rounded" />
@@ -303,15 +303,12 @@ export default function Systems() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
+      <div data-reveal className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl gradient-bg flex items-center justify-center shrink-0">
-            <Server className="w-5 h-5 text-white" />
-          </div>
           <div>
-            <h1 className="text-3xl font-bold">Gestão de Sistemas</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-balance font-display text-3xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-[2.6rem]">Gestão de Sistemas</h1>
+            <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground sm:text-base">
               Gerencie os sistemas disponíveis para os clientes
             </p>
           </div>
@@ -320,7 +317,7 @@ export default function Systems() {
           <DialogTrigger asChild>
             <Button
               onClick={() => handleOpenDialog()}
-              className="gradient-bg text-white hover:opacity-90 flex items-center space-x-2 border-0"
+              className="flex items-center space-x-2"
               data-testid="button-new-system"
             >
               <Plus className="w-4 h-4" />
@@ -399,7 +396,7 @@ export default function Systems() {
         </Dialog>
       </div>
 
-      <Card className="glassmorphism neon-border">
+      <Card>
         <CardContent className="p-4">
           <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -414,7 +411,7 @@ export default function Systems() {
         </CardContent>
       </Card>
 
-      <Card className="glassmorphism neon-border">
+      <Card>
         <CardHeader>
           <CardTitle>Sistemas ({filteredSystems.length})</CardTitle>
         </CardHeader>
@@ -422,13 +419,13 @@ export default function Systems() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-xs uppercase tracking-wider">ID</TableHead>
-                <TableHead className="text-xs uppercase tracking-wider">Nome</TableHead>
-                <TableHead className="text-xs uppercase tracking-wider">Clientes</TableHead>
-                <TableHead className="text-xs uppercase tracking-wider">Valor</TableHead>
-                <TableHead className="text-xs uppercase tracking-wider">Descrição</TableHead>
-                <TableHead className="text-xs uppercase tracking-wider">Status</TableHead>
-                <TableHead className="text-xs uppercase tracking-wider">Ações</TableHead>
+                <TableHead className="text-xs">ID</TableHead>
+                <TableHead className="text-xs">Nome</TableHead>
+                <TableHead className="text-xs">Clientes</TableHead>
+                <TableHead className="text-xs">Valor</TableHead>
+                <TableHead className="text-xs">Descrição</TableHead>
+                <TableHead className="text-xs">Status</TableHead>
+                <TableHead className="text-xs">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -437,21 +434,21 @@ export default function Systems() {
                   <TableCell className="font-mono text-sm text-muted-foreground">#{system.systemNumber}</TableCell>
                   <TableCell>
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 gradient-bg rounded-lg flex items-center justify-center text-white shrink-0">
+                      <div className="w-8 h-8 brand-tile rounded-lg flex items-center justify-center text-white shrink-0">
                         <Server className="w-4 h-4" />
                       </div>
                       <span className="font-medium">{system.name}</span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className="inline-flex items-center gap-1.5 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs font-semibold px-2.5 py-1 rounded-full">
+                    <span className="inline-flex items-center gap-1.5 bg-primary/10 text-primary text-xs font-semibold px-2.5 py-1 rounded-full">
                       <Users className="w-3 h-3" />
                       {system.clientCount}
                     </span>
                   </TableCell>
                   <TableCell>
                     {formatCurrency(system.value) ? (
-                      <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs font-semibold px-2.5 py-1 rounded-full">
+                      <span className="inline-flex items-center gap-1 bg-info/10 text-info text-xs font-semibold px-2.5 py-1 rounded-full">
                         {formatCurrency(system.value)}
                       </span>
                     ) : (
@@ -462,7 +459,7 @@ export default function Systems() {
                     {system.description || "-"}
                   </TableCell>
                   <TableCell>
-                    <Badge className={system.isActive ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"}>
+                    <Badge className={system.isActive ? "bg-success/10 text-success  " : "bg-destructive/10 text-destructive  "}>
                       {system.isActive ? "Ativo" : "Inativo"}
                     </Badge>
                   </TableCell>
@@ -474,7 +471,7 @@ export default function Systems() {
                         title="Editar"
                         onClick={() => handleOpenDialog(system)}
                         data-testid={`button-edit-${system.id}`}
-                        className="h-8 w-8 rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
+                        className="h-8 w-8 rounded-full bg-info/10 text-info hover:bg-info/20"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </Button>
@@ -484,7 +481,7 @@ export default function Systems() {
                         title="Excluir"
                         onClick={() => deleteSystemMutation.mutate(system.id)}
                         data-testid={`button-delete-${system.id}`}
-                        className="h-8 w-8 rounded-full bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
+                        className="h-8 w-8 rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>

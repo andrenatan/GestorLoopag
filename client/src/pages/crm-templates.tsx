@@ -17,10 +17,10 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  approved: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-  disabled: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
+  pending: "bg-warning/10 text-warning  ",
+  approved: "bg-success/10 text-success  ",
+  rejected: "bg-destructive/10 text-destructive  ",
+  disabled: "bg-muted text-foreground  ",
 };
 
 export default function CrmTemplates() {
@@ -58,11 +58,11 @@ export default function CrmTemplates() {
   });
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
+      <div data-reveal className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div>
-          <h1 className="text-3xl font-bold">Templates de Mensagem</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-balance font-display text-3xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-[2.6rem]">Templates de Mensagem</h1>
+          <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground sm:text-base">
             Templates aprovados pela Meta para iniciar conversas fora da janela de 24h
           </p>
         </div>
@@ -74,7 +74,7 @@ export default function CrmTemplates() {
         </Link>
       </div>
 
-      <Card className="glassmorphism neon-border">
+      <Card>
         <CardHeader>
           <CardTitle>Templates ({templates.length})</CardTitle>
         </CardHeader>
@@ -109,7 +109,7 @@ export default function CrmTemplates() {
                           {STATUS_LABEL[template.status] || template.status}
                         </Badge>
                         {template.status === "rejected" && template.rejectionReason && (
-                          <p className="text-xs text-red-500 max-w-xs">{template.rejectionReason}</p>
+                          <p className="text-xs text-destructive max-w-xs">{template.rejectionReason}</p>
                         )}
                       </div>
                     </TableCell>
@@ -127,7 +127,7 @@ export default function CrmTemplates() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-red-600"
+                          className="text-destructive"
                           title="Excluir"
                           onClick={() => deleteMutation.mutate(template.id)}
                         >

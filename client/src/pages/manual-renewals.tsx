@@ -36,9 +36,9 @@ interface ManualRenewalPlanRow {
 }
 
 const STATUS_STYLE: Record<ManualRenewalPlanRow["status"], string> = {
-  "ULTIMO OK": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  "ULTIMO": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  "FALTA": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+  "ULTIMO OK": "bg-success/10 text-success  ",
+  "ULTIMO": "bg-warning/10 text-warning  ",
+  "FALTA": "bg-destructive/10 text-destructive  ",
 };
 
 const PERIOD_LABELS: Record<Period, string> = {
@@ -50,11 +50,11 @@ const PERIOD_LABELS: Record<Period, string> = {
 // Soft, theme-aware backgrounds for grouping rows by calendar month of the
 // plan's date-base (activation or last renewal). Cycles when months repeat.
 const MONTH_GROUP_COLORS = [
-  "bg-pink-50 dark:bg-pink-950/30",
-  "bg-amber-50 dark:bg-amber-950/30",
-  "bg-emerald-50 dark:bg-emerald-950/30",
-  "bg-sky-50 dark:bg-sky-950/30",
-  "bg-violet-50 dark:bg-violet-950/30",
+  "bg-primary/10 ",
+  "bg-warning/10 ",
+  "bg-success/10 ",
+  "bg-info/10 ",
+  "bg-primary/10 ",
 ];
 
 function buildMonthGroupColorMap(plans: ManualRenewalPlanRow[]): Map<string, string> {
@@ -181,15 +181,15 @@ export default function ManualRenewals() {
   const [tab, setTab] = useState<Period>(initialTab);
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Renovações Manuais</h1>
-        <p className="text-muted-foreground">
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
+      <div data-reveal>
+        <h1 className="text-balance font-display text-3xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-[2.6rem]">Renovações Manuais</h1>
+        <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground sm:text-base">
           Acompanhamento mês a mês dos planos Trimestral, Semestral e Anual renovados manualmente no servidor
         </p>
       </div>
 
-      <Card className="glassmorphism neon-border">
+      <Card>
         <CardHeader>
           <CardTitle>Planos em Acompanhamento</CardTitle>
         </CardHeader>

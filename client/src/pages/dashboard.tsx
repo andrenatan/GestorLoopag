@@ -2,12 +2,25 @@ import { useState, Component, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { BrazilMap } from "@/components/dashboard/brazil-map";
-import { scaleLinear } from "d3-scale";
 import { PeriodSelector, defaultPeriod } from "@/components/dashboard/period-selector";
 import type { PeriodValue } from "@/components/dashboard/period-selector";
+import { PageHeader, PageShell } from "@/components/layout/page-header";
 import { useTheme } from "@/hooks/use-theme";
+import { useAuth } from "@/hooks/use-auth";
+import { cn } from "@/lib/utils";
+import {
+  CHART_PALETTE,
+  chartAxisTick,
+  chartColors,
+  chartCursor,
+  chartGridStroke,
+  chartTooltipItemStyle,
+  chartTooltipLabelStyle,
+  chartTooltipStyle,
+} from "@/lib/chart-theme";
 import {
   Users,
   UserCheck,
@@ -25,9 +38,9 @@ import {
   Medal,
   Map as MapIcon,
   Download,
-  LayoutDashboard,
   DollarSign,
   CalendarClock,
+  AlertTriangle,
 } from "lucide-react";
 import {
   AreaChart,
@@ -46,7 +59,7 @@ import {
   Line,
 } from "recharts";
 
-const CHART_COLORS = ["#6366f1", "#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#ec4899"];
+const CHART_COLORS = CHART_PALETTE;
 
 const getCurrentMonth = () => {
   const now = new Date();
@@ -83,6 +96,17 @@ function formatXLabel(date: string, totalDays: number): string {
   return `${d}/${MONTH_SHORT[m - 1]}`;
 }
 
+const formatTooltipDate = (d: unknown) => {
+  if (!d) return "";
+  const [y, m, day] = String(d).split("-").map(Number);
+  return `${String(day).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`;
+};
+
+const blurStyle = (on: boolean) =>
+  on
+    ? { filter: "blur(8px)", transition: "filter 0.3s ease", pointerEvents: "none" as const }
+    : { transition: "filter 0.3s ease" };
+
 interface ClientsByDayItem {
   day: number;
   date: string;
@@ -95,6 +119,21 @@ interface PaymentsByDayResult {
   average: number;
   bestDayAmount: number;
   dailyData: { day: number; date: string; total: number; count: number }[];
+}
+
+function StatusScreen({ title, message, action }: { title: string; message: string; action: ReactNode }) {
+  return (
+    <PageShell className="flex min-h-[70vh] items-center justify-center">
+      <div className="glass-strong max-w-md space-y-4 p-8 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+          <AlertTriangle className="h-6 w-6" />
+        </div>
+        <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+        <p className="text-sm text-muted-foreground">{message}</p>
+        {action}
+      </div>
+    </PageShell>
+  );
 }
 
 class DashboardErrorBoundary extends Component<
@@ -113,20 +152,16 @@ class DashboardErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-6 bg-background min-h-screen flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <div className="text-red-400 text-5xl mb-4">⚠️</div>
-            <h2 className="text-foreground text-xl font-semibold">Algo deu errado</h2>
-            <p className="text-muted-foreground text-sm">Ocorreu um erro inesperado. Recarregue a página para tentar novamente.</p>
-            <Button
-              onClick={() => window.location.reload()}
-              className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
+        <StatusScreen
+          title="Algo deu errado"
+          message="Ocorreu um erro inesperado. Recarregue a página para tentar novamente."
+          action={
+            <Button onClick={() => window.location.reload()} className="mt-2">
+              <RefreshCw className="h-4 w-4" />
               Recarregar página
             </Button>
-          </div>
-        </div>
+          }
+        />
       );
     }
     return this.props.children;
@@ -142,6 +177,7 @@ function DashboardContent() {
   const [churnPeriod, setChurnPeriod] = useState<PeriodValue>(defaultPeriod());
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
+  const { user } = useAuth();
 
   const { data: stats, isLoading, isError } = useQuery({
     queryKey: ["/api/dashboard/stats"],
@@ -207,195 +243,177 @@ function DashboardContent() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6 bg-background min-h-screen">
-        <div className="animate-pulse space-y-4">
-          <div className="grid grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-28 rounded-xl bg-card" />
-            ))}
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-40 rounded-xl bg-card" />
-            ))}
-          </div>
+      <PageShell>
+        <div className="space-y-2">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-4 w-80" />
         </div>
-      </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="glass h-36 p-6">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="mt-5 h-10 w-24" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="glass h-48 p-6">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="mt-4 h-4 w-full" />
+              <Skeleton className="mt-3 h-4 w-full" />
+            </div>
+          ))}
+        </div>
+      </PageShell>
     );
   }
 
   if (isError) {
     return (
-      <div className="p-6 bg-background min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="text-red-400 text-5xl mb-4">⚠️</div>
-          <h2 className="text-foreground text-xl font-semibold">Erro ao carregar dados</h2>
-          <p className="text-muted-foreground text-sm">Não foi possível conectar ao servidor. Tente novamente.</p>
+      <StatusScreen
+        title="Erro ao carregar dados"
+        message="Não foi possível conectar ao servidor. Tente novamente."
+        action={
           <Button
             onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] })}
-            className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground"
+            className="mt-2"
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <RefreshCw className="h-4 w-4" />
             Tentar novamente
           </Button>
-        </div>
-      </div>
+        }
+      />
     );
   }
 
-  const cardTooltipStyle = {
-    backgroundColor: "#1a2a3a",
-    border: "1px solid #2a3a4a",
-    borderRadius: "8px",
-    color: "#e2e8f0",
-  };
+  const totalClients = stats?.totalClients ?? 0;
+  const activeClients = stats?.activeClients ?? 0;
+  const inactiveClients = stats?.inactiveClients ?? 0;
+  const share = (n: number) => (totalClients > 0 ? Math.round((n / totalClients) * 100) : 0);
+  const firstName = (user?.name || user?.username || "").trim().split(/\s+/)[0];
 
   return (
-    <div className="p-6 space-y-6 bg-background min-h-screen">
-      {/* Header */}
-      <div
-        className="rounded-2xl p-6 flex items-center justify-between flex-wrap gap-4"
-        style={{
-          background: "linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.1) 100%)",
-          border: "1px solid rgba(99,102,241,0.2)",
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-          >
-            <LayoutDashboard className="w-5 h-5 text-white" />
+    <PageShell>
+      <PageHeader
+        title={firstName ? `Olá, ${firstName}` : "Dashboard"}
+        description="Visão geral do sistema de gestão IPTV"
+        actions={
+          <div className="flex items-center gap-1.5 rounded-full border border-edge bg-secondary p-1 shadow-glass">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={async () => {
+                setIsRefreshing(true);
+                await queryClient.invalidateQueries();
+                setTimeout(() => setIsRefreshing(false), 1000);
+              }}
+              title="Atualizar dados"
+              aria-label="Atualizar dados"
+              className="h-9 w-9"
+            >
+              <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setBlurBilling(!blurBilling)}
+              title={blurBilling ? "Mostrar faturamento" : "Ocultar faturamento"}
+              aria-label={blurBilling ? "Mostrar faturamento" : "Ocultar faturamento"}
+              aria-pressed={blurBilling}
+              className={cn("h-9 w-9", blurBilling && "bg-ink text-ink-foreground hover:bg-ink/90 hover:text-ink-foreground")}
+            >
+              {blurBilling ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+              title={theme === "light" ? "Modo escuro" : "Modo claro"}
+              aria-label={theme === "light" ? "Modo escuro" : "Modo claro"}
+              className="relative h-9 w-9"
+            >
+              <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            </Button>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground text-sm">Visão geral do sistema de gestão IPTV</p>
+        }
+      />
+
+      {/* Row 1 — headline metrics */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div data-reveal className="relative overflow-hidden rounded-card bg-ink p-6 text-ink-foreground shadow-float">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium opacity-80">Total de Clientes</span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-highlight text-highlight-foreground">
+              <Users className="h-4 w-4" />
+            </span>
           </div>
+          <p className="mt-4 font-display text-5xl font-semibold tracking-tight">{totalClients}</p>
+          <p className="mt-1 text-sm opacity-70">Cadastrados na sua base</p>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={async () => {
-              setIsRefreshing(true);
-              await queryClient.invalidateQueries();
-              setTimeout(() => setIsRefreshing(false), 1000);
-            }}
-            title="Atualizar dados"
-            className="border-border bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:scale-110 transition-all duration-300"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setBlurBilling(!blurBilling)}
-            title={blurBilling ? "Mostrar faturamento" : "Ocultar faturamento"}
-            className="border-border bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:scale-110 transition-all duration-300"
-          >
-            {blurBilling ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-            title={theme === "light" ? "Modo escuro" : "Modo claro"}
-            className="border-border bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:scale-110 transition-all duration-300"
-          >
-            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-          </Button>
-        </div>
+
+        <MetricCard
+          label="Clientes Ativos"
+          value={activeClients}
+          icon={<UserCheck className="h-4 w-4" />}
+          iconClass="bg-success/15 text-success"
+          barClass="bg-highlight"
+          percent={share(activeClients)}
+        />
+        <MetricCard
+          label="Clientes Inativos"
+          value={inactiveClients}
+          icon={<UserX className="h-4 w-4" />}
+          iconClass="bg-destructive/10 text-destructive"
+          barClass="bg-ink"
+          percent={share(inactiveClients)}
+        />
       </div>
 
-      {/* Row 1 — 3 headline metric cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-card border border-border rounded-xl p-4 space-y-2">
-          <span className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-            <Users className="w-4 h-4 text-primary" />
-            Total de Clientes
-          </span>
-          <p className="text-3xl font-bold text-foreground">{stats?.totalClients ?? 0}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4 space-y-2">
-          <span className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-            <UserCheck className="w-4 h-4 text-green-500" />
-            Clientes Ativos
-          </span>
-          <p className="text-3xl font-bold text-green-500">{stats?.activeClients ?? 0}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4 space-y-2">
-          <span className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-            <UserX className="w-4 h-4 text-red-500" />
-            Clientes Inativos
-          </span>
-          <p className="text-3xl font-bold text-red-500">{stats?.inactiveClients ?? 0}</p>
-        </div>
+      {/* Row 2 — grouped lists */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <ListCard title="Novos clientes" icon={<UserPlus className="h-4 w-4" />}>
+          <InfoRow label="Novos Clientes Hoje" value={stats?.newClientsToday ?? 0} />
+          <InfoRow label="Novos Clientes Esta Semana" value={stats?.newClientsThisWeek ?? 0} />
+          <InfoRow label="Novos Clientes Este Mês" value={stats?.newClientsThisMonth ?? 0} />
+        </ListCard>
+
+        <ListCard title="Vencimentos e renovações" icon={<CalendarClock className="h-4 w-4" />}>
+          <InfoRow label="Clientes Vencendo Hoje" value={stats?.expiringToday ?? 0} accent />
+          <InfoRow label="Clientes Vencendo em 3 Dias" value={stats?.expiring3Days ?? 0} />
+          <InfoRow label="Sem Renovar este Mês" value={stats?.clientsNotRenewedThisMonth ?? 0} />
+          <InfoRow label="Recuperados este Mês" value={stats?.clientsRecoveredThisMonth ?? 0} />
+          <InfoRow label="Total Renovados este Mês" value={stats?.totalRecoveredThisMonth ?? 0} />
+        </ListCard>
+
+        <ListCard title="A receber" icon={<Send className="h-4 w-4" />}>
+          <div style={blurStyle(blurBilling)}>
+            <InfoRowMoney label="A Receber no Mês" value={stats?.projectedMonthlyRevenue ?? 0} featured />
+            <InfoRowMoney label="Hoje" value={stats?.revenueToday ?? 0} />
+            <InfoRowMoney label="Amanhã" value={stats?.revenueTomorrow ?? 0} />
+          </div>
+        </ListCard>
       </div>
 
-      {/* Row 2 — 3 grouped cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-xl p-5 bg-card border border-border flex items-start justify-between">
-          <div className="space-y-3 flex-1">
-            <InfoRow icon={<UserPlus className="w-4 h-4 text-primary" />} label="Novos Clientes Hoje" value={stats?.newClientsToday ?? 0} />
-            <InfoRow icon={<UserPlus className="w-4 h-4 text-primary" />} label="Novos Clientes Esta Semana" value={stats?.newClientsThisWeek ?? 0} />
-            <InfoRow icon={<UserPlus className="w-4 h-4 text-primary" />} label="Novos Clientes Este Mês" value={stats?.newClientsThisMonth ?? 0} />
-          </div>
-          <div className="bg-muted p-3 rounded-full ml-4">
-            <UserCheck className="w-6 h-6 text-primary" />
-          </div>
-        </div>
-
-        <div className="rounded-xl p-5 bg-card border border-border flex items-start justify-between">
-          <div className="space-y-3 flex-1">
-            <InfoRow icon={<Calendar className="w-4 h-4 text-primary" />} label="Clientes Vencendo Hoje" value={stats?.expiringToday ?? 0} />
-            <InfoRow icon={<Calendar className="w-4 h-4 text-primary" />} label="Clientes Vencendo em 3 Dias" value={stats?.expiring3Days ?? 0} />
-            <InfoRow icon={<Calendar className="w-4 h-4 text-primary" />} label="Sem Renovar este Mês" value={stats?.clientsNotRenewedThisMonth ?? 0} />
-            <InfoRow icon={<Calendar className="w-4 h-4 text-primary" />} label="Recuperados este Mês" value={stats?.clientsRecoveredThisMonth ?? 0} />
-            <InfoRow icon={<Calendar className="w-4 h-4 text-primary" />} label="Total Renovados este Mês" value={stats?.totalRecoveredThisMonth ?? 0} />
-          </div>
-          <div className="bg-muted p-3 rounded-full ml-4">
-            <CalendarClock className="w-6 h-6 text-primary" />
-          </div>
-        </div>
-
-        <div className="rounded-xl p-5 bg-card border border-border flex items-start justify-between">
-          <div
-            className="space-y-3 flex-1"
-            style={blurBilling ? { filter: "blur(8px)", transition: "filter 0.3s ease", pointerEvents: "none" } : { transition: "filter 0.3s ease" }}
-          >
-            <InfoRowMoney icon={<DollarSign className="w-4 h-4 text-primary" />} label="A Receber no Mês" value={stats?.projectedMonthlyRevenue ?? 0} />
-            <InfoRowMoney icon={<Calendar className="w-4 h-4 text-primary" />} label="Hoje" value={stats?.revenueToday ?? 0} />
-            <InfoRowMoney icon={<Calendar className="w-4 h-4 text-primary" />} label="Amanhã" value={stats?.revenueTomorrow ?? 0} />
-          </div>
-          <div className="bg-muted p-3 rounded-full ml-4">
-            <Send className="w-6 h-6 text-primary" />
-          </div>
-        </div>
-      </div>
-
-      {/* Row 3 — 2 charts with mini stats and period selectors */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Row 3 — daily charts */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Clientes Novos Por Dia */}
-        <div className="rounded-xl bg-card border border-border p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-foreground font-semibold flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-primary" />
-                Clientes Novos Por Dia
-              </h3>
-              <p className="text-muted-foreground text-xs mt-0.5">Cadastros diários no período selecionado</p>
-            </div>
-            <PeriodSelector value={clientsPeriod} onChange={setClientsPeriod} />
+        <div className="glass p-5 sm:p-6">
+          <PaneHeader
+            icon={<UserPlus className="h-4 w-4" />}
+            title="Clientes Novos Por Dia"
+            description="Cadastros diários no período selecionado"
+            action={<PeriodSelector value={clientsPeriod} onChange={setClientsPeriod} />}
+          />
+
+          <div className="mb-4 grid grid-cols-3 gap-2.5">
+            <MiniCard label="Total no Período" value={String(totalClientsMonth)} color={chartColors.lagoa} />
+            <MiniCard label="Média por Dia" value={avgClientsPerDay.toFixed(1)} color={chartColors.anil} />
+            <MiniCard label="Melhor Dia" value={String(bestClientsDay)} color={chartColors.pitaya} />
           </div>
 
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <MiniCard label="Total no Período" value={String(totalClientsMonth)} color="#10b981" />
-            <MiniCard label="Média por Dia" value={avgClientsPerDay.toFixed(1)} color="#6366f1" />
-            <MiniCard label="Melhor Dia" value={String(bestClientsDay)} color="#8b5cf6" />
-          </div>
-
-          <p className="text-center text-xs text-muted-foreground mb-2">
+          <p className="mb-2 text-center text-xs text-muted-foreground">
             Clientes Novos — {clientsPeriod.label}
           </p>
           <div className="h-52">
@@ -403,127 +421,119 @@ function DashboardContent() {
               <AreaChart data={clientsChartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                 <defs>
                   <linearGradient id="clientsGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    <stop offset="5%" stopColor={chartColors.lagoa} stopOpacity={0.45} />
+                    <stop offset="95%" stopColor={chartColors.lagoa} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2a3a4a" />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
                 <XAxis
                   dataKey="date"
-                  tick={{ fill: "#94a3b8", fontSize: 10 }}
+                  tick={{ ...chartAxisTick, fontSize: 10 }}
                   tickLine={false}
+                  axisLine={false}
                   tickFormatter={(d) => formatXLabel(d, clientsTotalDays)}
                   interval={clientsTotalDays <= 31 ? 0 : Math.floor(clientsTotalDays / 8)}
                 />
-                <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                <YAxis tick={chartAxisTick} tickLine={false} axisLine={false} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={cardTooltipStyle}
+                  contentStyle={chartTooltipStyle}
+                  labelStyle={chartTooltipLabelStyle}
+                  itemStyle={chartTooltipItemStyle}
                   formatter={(v: number) => [v, "Novos Clientes"]}
-                  labelFormatter={(d) => {
-                    if (!d) return "";
-                    const [y, m, day] = String(d).split("-").map(Number);
-                    return `${String(day).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`;
-                  }}
+                  labelFormatter={formatTooltipDate}
                 />
-                <Area type="monotone" dataKey="count" stroke="#10b981" strokeWidth={2} fill="url(#clientsGrad)" dot={clientsTotalDays <= 31 ? { fill: "#10b981", r: 3 } : false} activeDot={{ r: 5 }} />
+                <Area type="monotone" dataKey="count" stroke={chartColors.lagoa} strokeWidth={2.5} fill="url(#clientsGrad)" dot={clientsTotalDays <= 31 ? { fill: chartColors.lagoa, r: 2.5, strokeWidth: 0 } : false} activeDot={{ r: 5 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Pagamentos Por Dia */}
-        <div
-          className="rounded-xl bg-card border border-border p-5"
-          style={blurBilling ? { filter: "blur(8px)", transition: "filter 0.3s ease", pointerEvents: "none" } : { transition: "filter 0.3s ease" }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-foreground font-semibold flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-primary" />
-                Pagamentos Por Dia
-              </h3>
-              <p className="text-muted-foreground text-xs mt-0.5">Faturamento diário no período selecionado</p>
-            </div>
-            <PeriodSelector value={paymentsPeriod} onChange={setPaymentsPeriod} />
+        <div className="glass p-5 sm:p-6" style={blurStyle(blurBilling)}>
+          <PaneHeader
+            icon={<DollarSign className="h-4 w-4" />}
+            title="Pagamentos Por Dia"
+            description="Faturamento diário no período selecionado"
+            action={<PeriodSelector value={paymentsPeriod} onChange={setPaymentsPeriod} />}
+          />
+
+          <div className="mb-4 grid grid-cols-2 gap-2.5 2xl:grid-cols-4">
+            <MiniCard label="Total no Período" value={`R$ ${fmt(paymentsData.total || 0)}`} color={chartColors.pitaya} small />
+            <MiniCard label="Total Pagamentos" value={String(paymentsData.count || 0)} color={chartColors.anil} small />
+            <MiniCard label="Média por Dia" value={`R$ ${fmt(paymentsData.average || 0)}`} color={chartColors.lagoa} small />
+            <MiniCard label="Melhor Dia" value={`R$ ${fmt(paymentsData.bestDayAmount || 0)}`} color={chartColors.sol} small />
           </div>
 
-          <div className="grid grid-cols-4 gap-2 mb-4">
-            <MiniCard label="Total no Período" value={`R$ ${fmt(paymentsData.total || 0)}`} color="#f59e0b" small />
-            <MiniCard label="Total Pagamentos" value={String(paymentsData.count || 0)} color="#10b981" small />
-            <MiniCard label="Média por Dia" value={`R$ ${fmt(paymentsData.average || 0)}`} color="#6366f1" small />
-            <MiniCard label="Melhor Dia" value={`R$ ${fmt(paymentsData.bestDayAmount || 0)}`} color="#8b5cf6" small />
-          </div>
-
-          <p className="text-center text-xs text-muted-foreground mb-2">
+          <p className="mb-2 text-center text-xs text-muted-foreground">
             Pagamentos — {paymentsPeriod.label}
           </p>
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={paymentsChartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2a3a4a" />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
                 <XAxis
                   dataKey="date"
-                  tick={{ fill: "#94a3b8", fontSize: 10 }}
+                  tick={{ ...chartAxisTick, fontSize: 10 }}
                   tickLine={false}
+                  axisLine={false}
                   tickFormatter={(d) => formatXLabel(d, paymentsTotalDays)}
                   interval={paymentsTotalDays <= 31 ? 0 : Math.floor(paymentsTotalDays / 8)}
                 />
-                <YAxis yAxisId="left" tick={{ fill: "#94a3b8", fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fill: "#94a3b8", fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                <YAxis yAxisId="left" tick={chartAxisTick} tickLine={false} axisLine={false} />
+                <YAxis yAxisId="right" orientation="right" tick={chartAxisTick} tickLine={false} axisLine={false} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={cardTooltipStyle}
+                  contentStyle={chartTooltipStyle}
+                  labelStyle={chartTooltipLabelStyle}
+                  itemStyle={chartTooltipItemStyle}
+                  cursor={chartCursor}
                   formatter={(v: number, name: string) => [
                     name === "total" ? `R$ ${fmt(Number(v))}` : v,
                     name === "total" ? "Valor dos Pagamentos" : "Quantidade de Pagamentos",
                   ]}
-                  labelFormatter={(d) => {
-                    if (!d) return "";
-                    const [y, m, day] = String(d).split("-").map(Number);
-                    return `${String(day).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`;
-                  }}
+                  labelFormatter={formatTooltipDate}
                 />
-                <Bar yAxisId="right" dataKey="count" fill="#10b981" fillOpacity={0.6} radius={[2, 2, 0, 0]} />
-                <Line yAxisId="left" type="monotone" dataKey="total" stroke="#f59e0b" strokeWidth={2} dot={paymentsTotalDays <= 31 ? { fill: "#f59e0b", r: 3 } : false} activeDot={{ r: 5 }} />
+                <Bar yAxisId="right" dataKey="count" fill={chartColors.anil} fillOpacity={0.45} radius={[6, 6, 0, 0]} />
+                <Line yAxisId="left" type="monotone" dataKey="total" stroke={chartColors.pitaya} strokeWidth={2.5} dot={paymentsTotalDays <= 31 ? { fill: chartColors.pitaya, r: 2.5, strokeWidth: 0 } : false} activeDot={{ r: 5 }} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* Row 4 — existing charts (Financeiro, Servidores, Estado) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="rounded-xl bg-card border border-border p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-foreground font-semibold">Financeiro</h3>
-              <p className="text-muted-foreground text-xs">{getMonthLabel(selectedMonth)}</p>
-            </div>
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-28 h-8 text-xs bg-muted border-border text-muted-foreground">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border text-muted-foreground">
-                {monthOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div
-            className="h-56"
-            style={blurBilling ? { filter: "blur(8px)", transition: "filter 0.3s ease", pointerEvents: "none" } : { transition: "filter 0.3s ease" }}
-          >
+      {/* Row 4 — Financeiro, Servidores, Churn */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="glass p-5 sm:p-6">
+          <PaneHeader
+            title="Financeiro"
+            description={getMonthLabel(selectedMonth)}
+            action={
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="h-8 w-28 rounded-full text-xs font-semibold">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            }
+          />
+          <div className="h-56" style={blurStyle(blurBilling)}>
             {revenueBySystem && revenueBySystem.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={revenueBySystem} margin={{ top: 5, right: 5, left: -20, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2a3a4a" />
-                  <XAxis dataKey="system" tick={{ fill: "#94a3b8", fontSize: 11 }} tickLine={false} />
-                  <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
+                  <XAxis dataKey="system" tick={chartAxisTick} tickLine={false} axisLine={false} />
+                  <YAxis tick={chartAxisTick} tickLine={false} axisLine={false} />
                   <Tooltip
-                    contentStyle={cardTooltipStyle}
+                    contentStyle={chartTooltipStyle}
+                    labelStyle={chartTooltipLabelStyle}
+                    itemStyle={chartTooltipItemStyle}
+                    cursor={chartCursor}
                     formatter={(v: number) => [`R$ ${fmt(Number(v))}`, "Faturamento"]}
                   />
-                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                  <Bar dataKey="value" radius={[8, 8, 0, 0]}>
                     {revenueBySystem.map((_: unknown, index: number) => (
                       <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                     ))}
@@ -531,20 +541,13 @@ function DashboardContent() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                Sem dados para este período
-              </div>
+              <EmptyChart />
             )}
           </div>
         </div>
 
-        <div className="rounded-xl bg-card border border-border p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-foreground font-semibold">Servidores</h3>
-              <p className="text-muted-foreground text-xs">{getMonthLabel(selectedMonth)}</p>
-            </div>
-          </div>
+        <div className="glass p-5 sm:p-6">
+          <PaneHeader title="Servidores" description={getMonthLabel(selectedMonth)} />
           <div className="h-64">
             {clientsBySystem && clientsBySystem.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -553,7 +556,11 @@ function DashboardContent() {
                     data={clientsBySystem}
                     cx="50%"
                     cy="50%"
+                    innerRadius={52}
                     outerRadius={90}
+                    paddingAngle={2}
+                    cornerRadius={6}
+                    stroke="none"
                     dataKey="count"
                     nameKey="system"
                     label={({ cx, cy, midAngle, outerRadius, system }: { cx: number; cy: number; midAngle: number; outerRadius: number; system: string }) => {
@@ -562,7 +569,7 @@ function DashboardContent() {
                       const x = cx + radius * Math.cos(-midAngle * RADIAN);
                       const y = cy + radius * Math.sin(-midAngle * RADIAN);
                       return (
-                        <text x={x} y={y} textAnchor={x > cx ? "start" : "end"} dominantBaseline="central" fill="#94a3b8" fontSize={11}>
+                        <text x={x} y={y} textAnchor={x > cx ? "start" : "end"} dominantBaseline="central" fill="hsl(var(--muted-foreground))" fontSize={11}>
                           {system}
                         </text>
                       );
@@ -573,7 +580,9 @@ function DashboardContent() {
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={cardTooltipStyle}
+                    contentStyle={chartTooltipStyle}
+                    labelStyle={chartTooltipLabelStyle}
+                    itemStyle={chartTooltipItemStyle}
                     formatter={(v: number, _name: string, props: any) => [
                       `${v} (${((v / clientsBySystem.reduce((s: number, c: { count: number }) => s + c.count, 0)) * 100).toFixed(1)}%)`,
                       props.payload.system,
@@ -582,130 +591,120 @@ function DashboardContent() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                Sem dados para este período
-              </div>
+              <EmptyChart />
             )}
           </div>
         </div>
 
-        <div className="rounded-xl bg-card border border-border p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-foreground font-semibold flex items-center gap-2">
-                <UserX className="w-4 h-4 text-red-500" />
-                Churn por Dia
-              </h3>
-              <p className="text-muted-foreground text-xs mt-0.5">Clientes que não renovaram no período</p>
-            </div>
-            <PeriodSelector value={churnPeriod} onChange={setChurnPeriod} />
+        <div className="glass p-5 sm:p-6">
+          <PaneHeader
+            icon={<UserX className="h-4 w-4" />}
+            iconClass="bg-destructive/10 text-destructive"
+            title="Churn por Dia"
+            description="Clientes que não renovaram no período"
+            action={<PeriodSelector value={churnPeriod} onChange={setChurnPeriod} />}
+          />
+
+          <div className="mb-4 grid grid-cols-3 gap-2.5">
+            <MiniCard label="Total no Período" value={String(totalChurn)} color={chartColors.danger} />
+            <MiniCard label="Média por Dia" value={avgChurnPerDay.toFixed(1)} color={chartColors.laranja} />
+            <MiniCard label="Pior Dia" value={String(worstChurnDay)} color={chartColors.uva} />
           </div>
 
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <MiniCard label="Total no Período" value={String(totalChurn)} color="#ef4444" />
-            <MiniCard label="Média por Dia" value={avgChurnPerDay.toFixed(1)} color="#f59e0b" />
-            <MiniCard label="Pior Dia" value={String(worstChurnDay)} color="#8b5cf6" />
-          </div>
-
-          <p className="text-center text-xs text-muted-foreground mb-2">
+          <p className="mb-2 text-center text-xs text-muted-foreground">
             Churn — {churnPeriod.label}
           </p>
           <div className="h-52">
             {totalChurn > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={churnChartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="churnGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2a3a4a" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fill: "#94a3b8", fontSize: 10 }}
-                  tickLine={false}
-                  tickFormatter={(d) => formatXLabel(d, churnTotalDays)}
-                  interval={churnTotalDays <= 31 ? 0 : Math.floor(churnTotalDays / 8)}
-                />
-                <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={cardTooltipStyle}
-                  formatter={(v: number) => [v, "Churn"]}
-                  labelFormatter={(d) => {
-                    if (!d) return "";
-                    const [y, m, day] = String(d).split("-").map(Number);
-                    return `${String(day).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`;
-                  }}
-                />
-                <Area type="monotone" dataKey="count" stroke="#ef4444" strokeWidth={2} fill="url(#churnGrad)" dot={churnTotalDays <= 31 ? { fill: "#ef4444", r: 3 } : false} activeDot={{ r: 5 }} />
-              </AreaChart>
-            </ResponsiveContainer>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={churnChartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="churnGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={chartColors.danger} stopOpacity={0.4} />
+                      <stop offset="95%" stopColor={chartColors.danger} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ ...chartAxisTick, fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(d) => formatXLabel(d, churnTotalDays)}
+                    interval={churnTotalDays <= 31 ? 0 : Math.floor(churnTotalDays / 8)}
+                  />
+                  <YAxis tick={chartAxisTick} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={chartTooltipStyle}
+                    labelStyle={chartTooltipLabelStyle}
+                    itemStyle={chartTooltipItemStyle}
+                    formatter={(v: number) => [v, "Churn"]}
+                    labelFormatter={formatTooltipDate}
+                  />
+                  <Area type="monotone" dataKey="count" stroke={chartColors.danger} strokeWidth={2.5} fill="url(#churnGrad)" dot={churnTotalDays <= 31 ? { fill: chartColors.danger, r: 2.5, strokeWidth: 0 } : false} activeDot={{ r: 5 }} />
+                </AreaChart>
+              </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                Sem dados para este período
-              </div>
+              <EmptyChart />
             )}
           </div>
         </div>
       </div>
 
       {/* Row 5 — Mapa Do Brasil (Top 5 + interactive map) */}
-      <div className="rounded-xl bg-card border border-border p-5">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-start gap-3">
-            <div className="bg-muted p-2 rounded-lg">
-              <MapIcon className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h3 className="text-foreground font-semibold text-lg leading-tight">Mapa Do Brasil</h3>
-              <p className="text-muted-foreground text-xs mt-0.5">Distribuição geográfica de clientes</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="bg-muted hover:bg-accent border border-border rounded-md p-2 text-muted-foreground hover:text-accent-foreground transition-colors"
-            data-testid="button-map-export"
-          >
-            <Download className="w-4 h-4" />
-          </button>
-        </div>
+      <div className="glass p-5 sm:p-6">
+        <PaneHeader
+          icon={<MapIcon className="h-4 w-4" />}
+          title="Mapa Do Brasil"
+          description="Distribuição geográfica de clientes"
+          large
+          action={
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              className="h-9 w-9"
+              aria-label="Exportar mapa"
+              data-testid="button-map-export"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          }
+        />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-1 rounded-lg bg-background border border-border p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Trophy className="w-4 h-4 text-amber-400" />
-              <h4 className="text-foreground font-semibold text-sm">Top 5 Estados</h4>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="glass-inset p-4 lg:col-span-1">
+            <div className="mb-1 flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-warning" />
+              <h4 className="text-sm font-semibold text-foreground">Top 5 Estados</h4>
             </div>
-            <p className="text-muted-foreground text-[11px] mb-3">Estados com mais clientes</p>
+            <p className="mb-3 text-xs text-muted-foreground">Estados com mais clientes</p>
 
             {clientsByState && clientsByState.length > 0 ? (
               <TopStatesList data={clientsByState} />
             ) : (
-              <div className="text-muted-foreground text-xs py-6 text-center">Sem dados</div>
+              <div className="py-6 text-center text-xs text-muted-foreground">Sem dados</div>
             )}
           </div>
 
-          <div className="lg:col-span-2 rounded-lg bg-background border border-border p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <MapIcon className="w-4 h-4 text-primary" />
-              <h4 className="text-foreground font-semibold text-sm">Clientes por Estado</h4>
+          <div className="glass-inset p-4 lg:col-span-2">
+            <div className="mb-1 flex items-center gap-2">
+              <MapIcon className="h-4 w-4 text-primary" />
+              <h4 className="text-sm font-semibold text-foreground">Clientes por Estado</h4>
             </div>
-            <p className="text-muted-foreground text-[11px] mb-3">Zoom e arraste com o mouse</p>
+            <p className="mb-3 text-xs text-muted-foreground">Zoom e arraste com o mouse</p>
 
-            <div className="h-[480px] relative overflow-hidden rounded-md">
+            <div className="relative h-[480px] overflow-hidden rounded-xl">
               {clientsByState && clientsByState.length > 0 ? (
                 <BrazilMap data={clientsByState} />
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                  Sem dados para este período
-                </div>
+                <EmptyChart />
               )}
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }
 
@@ -725,15 +724,15 @@ function TopStatesList({ data }: { data: { state: string; count: number }[] }) {
   const total = data.reduce((s, d) => s + d.count, 0);
   const maxValue = Math.max(...data.map((d) => d.count), 1);
 
-  const colorScale = scaleLinear<string>()
-    .domain([0, maxValue])
-    .range(["#3b82f6", "#dc2626"]);
+  // Same cold-to-hot ramp as the map (anil -> pitaya).
+  const colorScale = (count: number) =>
+    `color-mix(in oklab, hsl(var(--chart-1)) ${Math.round((count / maxValue) * 100)}%, hsl(var(--chart-2)))`;
 
   const rankIcon = (idx: number) => {
-    if (idx === 0) return <Crown className="w-3.5 h-3.5 text-amber-400" />;
-    if (idx === 1) return <Medal className="w-3.5 h-3.5 text-slate-300" />;
-    if (idx === 2) return <Medal className="w-3.5 h-3.5 text-amber-700" />;
-    return <span className="text-muted-foreground text-[11px] font-semibold">{idx + 1}</span>;
+    if (idx === 0) return <Crown className="h-3.5 w-3.5 text-warning" />;
+    if (idx === 1) return <Medal className="h-3.5 w-3.5 text-muted-foreground" />;
+    if (idx === 2) return <Medal className="h-3.5 w-3.5 text-chart-5" />;
+    return <span className="text-[11px] font-semibold text-muted-foreground">{idx + 1}</span>;
   };
 
   return (
@@ -744,69 +743,170 @@ function TopStatesList({ data }: { data: { state: string; count: number }[] }) {
         return (
           <div
             key={item.state}
-            className="flex items-center gap-2 rounded-md bg-card border border-border px-2 py-1.5"
+            className="flex items-center gap-2 rounded-xl border border-edge bg-secondary px-2.5 py-2"
             data-testid={`top-state-${item.state}`}
           >
-            <div className="w-5 flex items-center justify-center">{rankIcon(idx)}</div>
+            <div className="flex w-5 items-center justify-center">{rankIcon(idx)}</div>
             <span
-              className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded"
+              className="rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
               style={{ backgroundColor: color }}
               title={STATE_FULL_NAMES[item.state] || item.state}
             >
               {item.state}
             </span>
-            <span className="text-foreground font-bold text-sm w-6 text-center">{item.count}</span>
-            <div className="flex-1 h-1.5 bg-muted rounded overflow-hidden">
-              <div className="h-full rounded" style={{ width: `${pct}%`, background: color }} />
+            <span className="w-7 text-center text-sm font-bold tabular-nums text-foreground">{item.count}</span>
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-foreground/10">
+              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
             </div>
           </div>
         );
       })}
 
-      <div className="mt-2 rounded-md bg-card border border-border py-3 text-center">
-        <div className="text-primary font-bold text-lg leading-tight">{total}</div>
-        <div className="text-muted-foreground text-[11px]">Total de Clientes</div>
+      <div className="mt-2 rounded-xl bg-ink py-3 text-center text-ink-foreground">
+        <div className="font-display text-2xl font-semibold leading-tight">{total}</div>
+        <div className="text-xs opacity-75">Total de Clientes</div>
       </div>
     </div>
   );
 }
 
-function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+function MetricCard({
+  label,
+  value,
+  icon,
+  iconClass,
+  barClass,
+  percent,
+}: {
+  label: string;
+  value: number;
+  icon: ReactNode;
+  iconClass: string;
+  barClass: string;
+  percent: number;
+}) {
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        {icon}
-        <span className="text-muted-foreground text-sm">{label}</span>
+    <div className="glass p-6">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-muted-foreground">{label}</span>
+        <span className={cn("flex h-9 w-9 items-center justify-center rounded-full", iconClass)}>{icon}</span>
       </div>
-      <span className="text-foreground font-bold text-sm">{value}</span>
+      <p className="mt-4 font-display text-5xl font-semibold tracking-tight text-foreground">{value}</p>
+      <div className="mt-3 flex items-center gap-3">
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-foreground/10">
+          <div className={cn("h-full rounded-full transition-[width] duration-700", barClass)} style={{ width: `${percent}%` }} />
+        </div>
+        <span className="text-xs font-semibold tabular-nums text-muted-foreground">{percent}% da base</span>
+      </div>
     </div>
   );
 }
 
-function InfoRowMoney({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+function ListCard({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        {icon}
-        <span className="text-muted-foreground text-sm">{label}</span>
+    <div className="glass p-5 sm:p-6">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-base font-semibold text-foreground">{title}</h3>
+        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-edge bg-secondary text-foreground shadow-glass">
+          {icon}
+        </span>
       </div>
-      <span className="text-foreground font-bold text-sm">
-        R${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+      <div className="divide-y divide-border">{children}</div>
+    </div>
+  );
+}
+
+function PaneHeader({
+  icon,
+  iconClass,
+  title,
+  description,
+  action,
+  large,
+}: {
+  icon?: ReactNode;
+  iconClass?: string;
+  title: string;
+  description?: string;
+  action?: ReactNode;
+  large?: boolean;
+}) {
+  return (
+    <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="flex min-w-0 items-start gap-3">
+        {icon && (
+          <span className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary", iconClass)}>
+            {icon}
+          </span>
+        )}
+        <div className="min-w-0">
+          <h3 className={cn("font-semibold leading-tight text-foreground", large ? "text-lg" : "text-base")}>{title}</h3>
+          {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function EmptyChart() {
+  return (
+    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+      Sem dados para este período
+    </div>
+  );
+}
+
+function InfoRow({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-2.5">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className={cn("h-2 w-2 shrink-0 rounded-full", accent && value > 0 ? "bg-highlight" : "bg-foreground/25")} aria-hidden />
+        <span className="truncate text-sm text-foreground/80">{label}</span>
+      </div>
+      <span
+        className={cn(
+          "min-w-[2.25rem] rounded-full px-2.5 py-0.5 text-center text-sm font-bold tabular-nums",
+          accent && value > 0 ? "bg-highlight text-highlight-foreground" : "text-foreground",
+        )}
+      >
+        {value}
       </span>
+    </div>
+  );
+}
+
+function InfoRowMoney({ label, value, featured }: { label: string; value: number; featured?: boolean }) {
+  const formatted = `R$${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+  if (featured) {
+    return (
+      <div className="pb-3 pt-1">
+        <span className="text-sm text-muted-foreground">{label}</span>
+        <p className="mt-1 font-display text-3xl font-semibold tracking-tight tabular-nums text-foreground">{formatted}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center justify-between gap-3 border-t border-border py-2.5">
+      <div className="flex items-center gap-2.5">
+        <Calendar className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm text-foreground/80">{label}</span>
+      </div>
+      <span className="text-sm font-bold tabular-nums text-foreground">{formatted}</span>
     </div>
   );
 }
 
 function MiniCard({ label, value, color, small }: { label: string; value: string; color: string; small?: boolean }) {
   return (
-    <div
-      className="rounded-lg bg-muted p-3 text-center border"
-      style={{ borderColor: color }}
-    >
-      <p className={`font-bold ${small ? "text-sm" : "text-lg"}`} style={{ color }}>
+    <div className="glass-inset px-3 py-2.5">
+      <div className="flex items-center gap-1.5">
+        <span className="mt-0.5 h-2 w-2 shrink-0 self-start rounded-full" style={{ background: color }} aria-hidden />
+        <p className="text-[11px] leading-tight text-muted-foreground">{label}</p>
+      </div>
+      <p className={cn("mt-1 font-display font-semibold tabular-nums text-foreground", small ? "text-sm sm:text-base" : "text-xl")}>
         {value}
       </p>
-      <p className="text-muted-foreground text-xs mt-0.5 leading-tight">{label}</p>
     </div>
   );
 }

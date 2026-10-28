@@ -77,8 +77,8 @@ export function RequireOwner({ children }: ProtectedRouteProps) {
   if (!isOwner) {
     return (
       <div className="flex h-screen items-center justify-center p-6">
-        <div className="text-center max-w-md">
-          <h2 className="text-2xl font-bold mb-2">Acesso restrito</h2>
+        <div className="glass-strong max-w-md p-8 text-center">
+          <h2 className="mb-2 text-2xl font-semibold tracking-tight">Acesso restrito</h2>
           <p className="text-muted-foreground">
             Você não tem acesso a esta tela. Verifique com seu gestor.
           </p>
@@ -124,8 +124,8 @@ export function RequirePermission({ children, permission }: RequirePermissionPro
   if (!hasPermission(permission)) {
     return (
       <div className="flex h-screen items-center justify-center p-6">
-        <div className="text-center max-w-md">
-          <h2 className="text-2xl font-bold mb-2">Acesso restrito</h2>
+        <div className="glass-strong max-w-md p-8 text-center">
+          <h2 className="mb-2 text-2xl font-semibold tracking-tight">Acesso restrito</h2>
           <p className="text-muted-foreground">
             Você não tem acesso a esta tela. Verifique com seu gestor.
           </p>

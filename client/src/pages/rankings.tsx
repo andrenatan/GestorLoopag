@@ -23,11 +23,11 @@ export default function Rankings() {
   const getRankIcon = (position: number) => {
     switch (position) {
       case 1:
-        return <Crown className="w-5 h-5 text-yellow-500" />;
+        return <Crown className="w-5 h-5 text-warning" />;
       case 2:
-        return <Medal className="w-5 h-5 text-gray-400" />;
+        return <Medal className="w-5 h-5 text-muted-foreground" />;
       case 3:
-        return <Award className="w-5 h-5 text-amber-600" />;
+        return <Award className="w-5 h-5 text-warning" />;
       default:
         return <Trophy className="w-5 h-5 text-muted-foreground" />;
     }
@@ -36,11 +36,11 @@ export default function Rankings() {
   const getRankBadge = (position: number) => {
     switch (position) {
       case 1:
-        return <Badge className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-white">1º</Badge>;
+        return <Badge variant="highlight">1º</Badge>;
       case 2:
-        return <Badge className="bg-gradient-to-r from-gray-300 to-gray-500 text-white">2º</Badge>;
+        return <Badge variant="ink">2º</Badge>;
       case 3:
-        return <Badge className="bg-gradient-to-r from-amber-400 to-amber-600 text-white">3º</Badge>;
+        return <Badge variant="warning">3º</Badge>;
       default:
         return <Badge variant="outline">{position}º</Badge>;
     }
@@ -55,10 +55,10 @@ export default function Rankings() {
     isLoading: boolean; 
     title: string;
   }) => (
-    <Card className="glassmorphism neon-border rounded-xl">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center space-x-2 text-lg">
-          <Trophy className="w-5 h-5 text-yellow-500" />
+          <Trophy className="w-5 h-5 text-warning" />
           <span>{title}</span>
         </CardTitle>
       </CardHeader>
@@ -88,10 +88,10 @@ export default function Rankings() {
               return (
                 <div
                   key={ranking.client.id}
-                  className={`flex items-center space-x-4 p-4 rounded-xl border transition-all duration-200 hover:scale-[1.02] ${
+                  className={`flex items-center space-x-4 p-4 rounded-xl border transition-all duration-200 ${
                     position <= 3
-                      ? "border-yellow-500/30 bg-gradient-to-r from-yellow-500/10 to-amber-500/10"
-                      : "border-border bg-muted/30"
+                      ? "border-highlight/50 bg-highlight/15"
+                      : "border-border bg-muted"
                   }`}
                 >
                   <div className="flex items-center space-x-3">
@@ -99,7 +99,7 @@ export default function Rankings() {
                     {getRankBadge(position)}
                   </div>
                   
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
+                  <div className="w-10 h-10 brand-tile rounded-full flex items-center justify-center text-white font-medium">
                     {ranking.client.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                   </div>
                   
@@ -114,7 +114,7 @@ export default function Rankings() {
                   </div>
                   
                   <div className="text-right">
-                    <p className="font-semibold text-green-600">
+                    <p className="font-semibold text-success">
                       R$ {(ranking.referralCount * 50).toLocaleString('pt-BR', { 
                         minimumFractionDigits: 2 
                       })}
@@ -131,15 +131,12 @@ export default function Rankings() {
   );
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
       {/* Header */}
-      <div className="rounded-2xl p-6 flex items-center gap-3 bg-primary/5 border border-primary/10">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center gradient-bg shrink-0">
-          <Trophy className="w-5 h-5 text-white" />
-        </div>
+      <div data-reveal className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div>
-          <h1 className="text-2xl font-bold">Rankings de Indicações</h1>
-          <p className="text-muted-foreground text-sm">
+          <h1 className="text-balance font-display text-3xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-[2.6rem]">Rankings de Indicações</h1>
+          <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground sm:text-base">
             Acompanhe os melhores indicadores e seus prêmios
           </p>
         </div>
@@ -147,48 +144,48 @@ export default function Rankings() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="glassmorphism neon-border rounded-xl border-yellow-500/30">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Total de Indicações (30 dias)</p>
-                <p className="text-2xl font-bold text-yellow-500">
+                <p className="font-display text-3xl font-semibold tracking-tight text-warning">
                   {rankings30Days.reduce((sum: number, r: any) => sum + r.referralCount, 0)}
                 </p>
               </div>
-              <div className="p-3 bg-yellow-500/10 rounded-xl">
-                <Trophy className="w-6 h-6 text-yellow-500" />
+              <div className="p-3 bg-warning/10 rounded-full">
+                <Trophy className="w-6 h-6 text-warning" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="glassmorphism neon-border rounded-xl border-green-500/30">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Prêmios Pagos (30 dias)</p>
-                <p className="text-2xl font-bold text-green-500">
+                <p className="font-display text-3xl font-semibold tracking-tight text-success">
                   R$ {(rankings30Days.reduce((sum: number, r: any) => sum + r.referralCount, 0) * 50)
                     .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
               </div>
-              <div className="p-3 bg-green-500/10 rounded-xl">
-                <Award className="w-6 h-6 text-green-500" />
+              <div className="p-3 bg-success/10 rounded-full">
+                <Award className="w-6 h-6 text-success" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="glassmorphism neon-border rounded-xl border-purple-500/30">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Indicadores Ativos</p>
-                <p className="text-2xl font-bold text-purple-500">{rankings30Days.length}</p>
+                <p className="font-display text-3xl font-semibold tracking-tight text-primary">{rankings30Days.length}</p>
               </div>
-              <div className="p-3 bg-purple-500/10 rounded-xl">
-                <Crown className="w-6 h-6 text-purple-500" />
+              <div className="p-3 bg-primary/10 rounded-full">
+                <Crown className="w-6 h-6 text-primary" />
               </div>
             </div>
           </CardContent>

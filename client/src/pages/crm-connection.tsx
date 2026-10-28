@@ -148,18 +148,15 @@ export default function CrmConnection() {
   const isConnected = connection?.status === "connected";
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-xl gradient-bg flex items-center justify-center shrink-0">
-          <MessageCircle className="w-5 h-5 text-white" />
-        </div>
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
+      <div data-reveal className="flex items-center gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Conexão do WhatsApp</h1>
-          <p className="text-muted-foreground">Conecte o número da sua operação para usar o CRM de WhatsApp</p>
+          <h1 className="text-balance font-display text-3xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-[2.6rem]">Conexão do WhatsApp</h1>
+          <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground sm:text-base">Conecte o número da sua operação para usar o CRM de WhatsApp</p>
         </div>
       </div>
 
-      <Card className="glassmorphism neon-border">
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
@@ -174,19 +171,19 @@ export default function CrmConnection() {
                 : "Nenhum número conectado"}
             </CardDescription>
           </div>
-          <Badge className={isConnected ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"}>
+          <Badge className={isConnected ? "bg-success/10 text-success  " : "bg-destructive/10 text-destructive  "}>
             {isConnected ? "Conectado" : "Desconectado"}
           </Badge>
         </CardHeader>
         {isConnected && (
           <CardContent className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm">
-              <ShieldCheck className="w-4 h-4 text-green-600" />
+              <ShieldCheck className="w-4 h-4 text-success" />
               <span>{connection?.displayPhoneNumber || "Número não informado pela Meta"}</span>
             </div>
             <Button
               variant="outline"
-              className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/40 dark:hover:bg-red-900/20"
+              className="text-destructive border-destructive/25 hover:bg-destructive/10"
               onClick={() => disconnectMutation.mutate()}
               disabled={disconnectMutation.isPending}
             >
@@ -197,7 +194,7 @@ export default function CrmConnection() {
         )}
       </Card>
 
-      <Card className="glassmorphism neon-border">
+      <Card>
         <CardContent className="pt-6">
           <Tabs defaultValue="embedded">
             <TabsList>
@@ -210,11 +207,11 @@ export default function CrmConnection() {
                 Conecte seu número diretamente pelo fluxo oficial da Meta (Facebook Login for Business).
               </p>
               {!FB_APP_ID || !FB_CONFIG_ID ? (
-                <p className="text-sm text-red-500">
+                <p className="text-sm text-destructive">
                   Login Incorporado não configurado (faltam VITE_WHATSAPP_APP_ID / VITE_WHATSAPP_CONFIG_ID).
                 </p>
               ) : (
-                <Button onClick={handleEmbeddedLogin} disabled={!sdkReady || embeddedSignupMutation.isPending} className="gradient-bg text-white hover:opacity-90 border-0">
+                <Button onClick={handleEmbeddedLogin} disabled={!sdkReady || embeddedSignupMutation.isPending}>
                   {embeddedSignupMutation.isPending ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
@@ -260,7 +257,7 @@ export default function CrmConnection() {
                     required
                   />
                 </div>
-                <Button type="submit" disabled={manualConnectMutation.isPending} className="gradient-bg text-white hover:opacity-90 border-0">
+                <Button type="submit" disabled={manualConnectMutation.isPending}>
                   {manualConnectMutation.isPending ? "Conectando..." : "Salvar conexão"}
                 </Button>
               </form>

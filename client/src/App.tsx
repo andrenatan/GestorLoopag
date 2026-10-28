@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/hooks/use-theme";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute, PublicRoute, RequireOwner, RequirePermission } from "@/components/auth/protected-route";
 import { Sidebar } from "@/components/layout/sidebar";
+import { RevealScope } from "@/components/layout/reveal";
 
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
@@ -32,10 +33,10 @@ import CrmTemplateNew from "@/pages/crm-template-new";
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0d1b2a]">
+    <div className="relative flex h-screen overflow-hidden">
       <Sidebar />
-      <main className="flex-1 overflow-auto bg-[#0d1b2a]">
-        {children}
+      <main className="flex-1 overflow-auto pt-[4.5rem] lg:pt-0">
+        <RevealScope>{children}</RevealScope>
       </main>
     </div>
   );
@@ -243,7 +244,8 @@ function App() {
       <ThemeProvider defaultTheme="dark" storageKey="loopag-theme">
         <AuthProvider>
           <TooltipProvider>
-            <div className="min-h-screen bg-background text-foreground">
+            <div className="min-h-screen text-foreground">
+              <div className="app-backdrop" aria-hidden />
               <Toaster />
               <Router />
             </div>

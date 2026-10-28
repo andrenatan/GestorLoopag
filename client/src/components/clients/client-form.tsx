@@ -260,8 +260,8 @@ interface AdditionalAppRow {
 }
 
 const paymentMethodOptions = [
-  { id: "pix", label: "PIX", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" },
-  { id: "cartao", label: "Cartão", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" },
+  { id: "pix", label: "PIX", color: "bg-success/10 text-success  " },
+  { id: "cartao", label: "Cartão", color: "bg-info/10 text-info  " },
 ];
 
 export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false }: ClientFormProps) {
@@ -477,9 +477,9 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   }, [expiryDateWatch]);
 
   const getDaysToExpiryColor = () => {
-    if (daysToExpiry <= 0) return "text-yellow-600 font-bold"; // Vencido
-    if (daysToExpiry <= 3) return "text-red-600 font-bold"; // Crítico
-    return "text-green-600"; // Normal
+    if (daysToExpiry <= 0) return "text-warning font-bold"; // Vencido
+    if (daysToExpiry <= 3) return "text-destructive font-bold"; // Crítico
+    return "text-success"; // Normal
   };
 
   const handleSubmit = (data: ClientFormData) => {
@@ -507,7 +507,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Opção de Importação de Planilha */}
-      <Card className="glassmorphism neon-border rounded-xl">
+      <Card>
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -527,7 +527,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
         </CardContent>
       </Card>
 
-      <Card className="glassmorphism neon-border rounded-xl">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>{initialData ? "Editar Cliente" : "Novo Cliente"}</span>
@@ -1092,7 +1092,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="text-red-600"
+                            className="text-destructive"
                             onClick={() => removeAdditionalAppRow(index)}
                           >
                             <X className="w-4 h-4" />

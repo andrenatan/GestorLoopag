@@ -6,6 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
+import { PageHeader } from "@/components/layout/page-header";
+import { getBrasiliaDateString } from "@/lib/timezone";
 import {
   Wallet,
   TrendingUp,
@@ -106,7 +108,7 @@ function Sparkline({ data, color }: { data: DailyPoint[]; color: string }) {
     <div className="h-10 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data}>
-          <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={false} />
+          <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2.5} dot={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -294,91 +296,75 @@ export default function FinancialOverview() {
   const isManualSavePending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="p-6 space-y-4 min-h-screen">
-      {/* Header */}
-      <div
-        className="rounded-2xl p-6 flex items-center justify-between flex-wrap gap-4"
-        style={{
-          background: "linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.1) 100%)",
-          border: "1px solid rgba(99,102,241,0.2)",
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-          >
-            <Wallet className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white">Financeiro</h1>
-            <p className="text-slate-400 text-sm">Entradas, saídas e lucro consolidados do seu negócio.</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setHideValues((v) => !v)}
-            title={hideValues ? "Exibir valores" : "Ocultar valores"}
-            className="flex items-center justify-center w-10 h-10 rounded-xl border border-[#2a3a4a] text-slate-300 hover:text-white hover:border-slate-500 transition-colors"
-          >
-            {hideValues ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          </button>
-          <Link href="/financeiro/relatorios">
-            <button
-              disabled
-              title="Em breve"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#2a3a4a] text-slate-500 text-sm font-medium cursor-not-allowed opacity-60"
-            >
-              <BarChart3 className="w-4 h-4" />
-              Relatórios
-            </button>
-          </Link>
-          <button
-            onClick={openCreateManual}
-            className="flex items-center gap-2 text-white font-semibold px-4 py-2.5 rounded-xl transition-all text-sm"
-            style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-          >
-            <Plus className="w-4 h-4" />
-            Novo
-          </button>
-        </div>
-      </div>
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
+      <PageHeader
+        title="Financeiro"
+        description="Entradas, saídas e lucro consolidados do seu negócio."
+        actions={
+          <>
+              <button
+                onClick={() => setHideValues((v) => !v)}
+                title={hideValues ? "Exibir valores" : "Ocultar valores"}
+                className="flex items-center justify-center w-10 h-10 rounded-full border border-edge bg-secondary text-foreground shadow-glass hover:bg-accent transition-colors"
+              >
+                {hideValues ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+              <Link href="/financeiro/relatorios">
+                <button
+                  disabled
+                  title="Em breve"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-full border border-edge bg-secondary text-muted-foreground text-sm font-medium cursor-not-allowed opacity-60"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  Relatórios
+                </button>
+              </Link>
+              <button
+                onClick={openCreateManual}
+                className="flex items-center gap-2 font-semibold px-4 py-2.5 rounded-full transition-all text-sm bg-primary text-primary-foreground shadow-glow hover:bg-primary/90"
+              >
+                <Plus className="w-4 h-4" />
+                Novo
+              </button>
+          </>
+        }
+      />
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl p-4 space-y-2">
+        <div className="glass p-5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <TrendingUp className="w-4 h-4 text-indigo-400" />
+            <span className="flex items-center gap-2 text-muted-foreground text-xs font-semibold">
+              <TrendingUp className="w-4 h-4 text-primary" />
               Lucros
             </span>
           </div>
-          <p className={`text-2xl font-bold ${(summary?.lucros ?? 0) >= 0 ? "text-indigo-300" : "text-red-400"}`}>
+          <p className={`font-display text-3xl font-semibold tracking-tight ${(summary?.lucros ?? 0) >= 0 ? "text-primary" : "text-destructive"}`}>
             {summary ? mask(formatCurrency(summary.lucros)) : "—"}
           </p>
-          {summary && <Sparkline data={summary.dailyLucros} color="#818cf8" />}
+          {summary && <Sparkline data={summary.dailyLucros} color="hsl(var(--primary))" />}
         </div>
 
-        <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl p-4 space-y-2">
+        <div className="glass p-5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <TrendingUp className="w-4 h-4 text-green-400" />
+            <span className="flex items-center gap-2 text-muted-foreground text-xs font-semibold">
+              <TrendingUp className="w-4 h-4 text-success" />
               Entradas
             </span>
           </div>
-          <p className="text-2xl font-bold text-green-400">{summary ? mask(formatCurrency(summary.entradas)) : "—"}</p>
-          {summary && <Sparkline data={summary.dailyEntradas} color="#4ade80" />}
+          <p className="font-display text-3xl font-semibold tracking-tight text-success">{summary ? mask(formatCurrency(summary.entradas)) : "—"}</p>
+          {summary && <Sparkline data={summary.dailyEntradas} color="hsl(var(--success))" />}
         </div>
 
-        <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl p-4 space-y-2">
+        <div className="glass p-5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <TrendingDown className="w-4 h-4 text-red-400" />
+            <span className="flex items-center gap-2 text-muted-foreground text-xs font-semibold">
+              <TrendingDown className="w-4 h-4 text-destructive" />
               Saídas
             </span>
           </div>
-          <p className="text-2xl font-bold text-red-400">{summary ? mask(formatCurrency(summary.saidas)) : "—"}</p>
-          {summary && <Sparkline data={summary.dailySaidas} color="#f87171" />}
+          <p className="font-display text-3xl font-semibold tracking-tight text-destructive">{summary ? mask(formatCurrency(summary.saidas)) : "—"}</p>
+          {summary && <Sparkline data={summary.dailySaidas} color="hsl(var(--destructive))" />}
         </div>
       </div>
 
@@ -389,16 +375,16 @@ export default function FinancialOverview() {
           { label: "Projeção Mensal", value: projections?.monthly },
           { label: "Projeção Anual", value: projections?.annual },
         ].map((p) => (
-          <div key={p.label} className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl p-4 flex items-center justify-between">
+          <div key={p.label} className="glass p-5 flex items-center justify-between">
             <div>
-              <span className="text-slate-400 text-xs font-semibold uppercase tracking-wider">{p.label}</span>
-              <p className="text-xl font-bold text-white mt-1">
+              <span className="text-muted-foreground text-xs font-semibold">{p.label}</span>
+              <p className="font-display text-2xl font-semibold tracking-tight text-foreground mt-1">
                 {p.value !== undefined ? mask(formatCurrency(p.value)) : "—"}
               </p>
             </div>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="text-slate-500 hover:text-slate-300 cursor-help">
+                <span className="text-muted-foreground hover:text-foreground cursor-help">
                   <Info className="w-4 h-4" />
                 </span>
               </TooltipTrigger>
@@ -413,9 +399,9 @@ export default function FinancialOverview() {
       </div>
 
       {/* Filters */}
-      <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl p-4 flex flex-wrap items-end gap-3">
+      <div className="glass p-4 flex flex-wrap items-end gap-3">
         <div className="space-y-1">
-          <span className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold uppercase tracking-wider">
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
             <CalendarRange className="w-3.5 h-3.5" />
             Data Inicial
           </span>
@@ -423,24 +409,24 @@ export default function FinancialOverview() {
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500"
+            className="field text-sm rounded-lg px-3 py-2"
           />
         </div>
         <div className="space-y-1">
-          <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Data Final</span>
+          <span className="text-xs text-muted-foreground font-semibold">Data Final</span>
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500"
+            className="field text-sm rounded-lg px-3 py-2"
           />
         </div>
         <div className="space-y-1">
-          <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Tipo</span>
+          <span className="text-xs text-muted-foreground font-semibold">Tipo</span>
           <select
             value={typeFilter}
             onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
-            className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500"
+            className="field text-sm rounded-lg px-3 py-2"
           >
             <option value="all">Todos</option>
             <option value="entrada">Entrada</option>
@@ -448,11 +434,11 @@ export default function FinancialOverview() {
           </select>
         </div>
         <div className="space-y-1">
-          <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Produto</span>
+          <span className="text-xs text-muted-foreground font-semibold">Produto</span>
           <select
             value={productFilter}
             onChange={(e) => { setProductFilter(e.target.value); setPage(1); }}
-            className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500"
+            className="field text-sm rounded-lg px-3 py-2"
           >
             <option value="all">Todos</option>
             {systemsList.map((s) => (
@@ -462,7 +448,7 @@ export default function FinancialOverview() {
         </div>
         <button
           onClick={handleFilter}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold px-4 py-2 rounded-full transition-colors"
         >
           <Filter className="w-4 h-4" />
           Filtrar
@@ -470,7 +456,7 @@ export default function FinancialOverview() {
         <button
           onClick={() => setBulkDeleteConfirm(true)}
           disabled={selected.size === 0}
-          className="ml-auto flex items-center gap-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 text-red-400 text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="ml-auto flex items-center gap-2 bg-destructive/15 hover:bg-destructive/25 border border-destructive/30 text-destructive text-sm font-medium px-4 py-2 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Trash2 className="w-4 h-4" />
           Deletar em Massa {selected.size > 0 ? `(${selected.size})` : ""}
@@ -478,10 +464,10 @@ export default function FinancialOverview() {
       </div>
 
       {/* Search + per-page */}
-      <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl p-4 flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider">
+      <div className="glass p-4 flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2 text-muted-foreground text-xs font-semibold">
           <Search className="w-4 h-4" />
-          BUSCAR
+          Buscar
         </div>
         <div className="relative flex-1 min-w-[200px]">
           <input
@@ -489,20 +475,20 @@ export default function FinancialOverview() {
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Buscar por cliente ou produto..."
-            className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg pl-3 pr-9 py-2 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
+            className="w-full field text-sm rounded-lg pl-3 pr-9 py-2 placeholder:text-muted-foreground"
           />
           {search && (
-            <button onClick={() => { setSearch(""); setPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
+            <button onClick={() => { setSearch(""); setPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
               <X className="w-4 h-4" />
             </button>
           )}
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">POR PÁGINA</span>
+          <span className="text-xs text-muted-foreground font-semibold">Por página</span>
           <select
             value={perPage}
             onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }}
-            className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500"
+            className="field text-sm rounded-lg px-3 py-2"
           >
             <option value={10}>10</option>
             <option value={25}>25</option>
@@ -512,81 +498,81 @@ export default function FinancialOverview() {
       </div>
 
       {/* Table */}
-      <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl overflow-hidden">
+      <div className="glass-strong overflow-x-auto">
         {movementsLoading ? (
-          <div className="p-8 text-center text-slate-400">Carregando movimentações...</div>
+          <div className="p-8 text-center text-muted-foreground">Carregando movimentações...</div>
         ) : (
           <>
             <table className="w-full">
               <thead>
-                <tr className="border-b border-[#1e2e3e]">
+                <tr className="border-b border-border">
                   <th className="px-4 py-3 text-left w-10">
                     <Checkbox
                       checked={movements.length > 0 && selected.size === movements.length}
                       onCheckedChange={(c) => toggleSelectAll(!!c)}
                     />
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Produto/Plano/Cliente</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Tipo</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Valor</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Data</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Ações</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">#</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Produto/Plano/Cliente</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Tipo</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Valor</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Data</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {movements.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-16 text-slate-500 text-sm">
+                    <td colSpan={7} className="text-center py-16 text-muted-foreground text-sm">
                       Nenhuma movimentação encontrada para os filtros selecionados.
                     </td>
                   </tr>
                 ) : (
                   movements.map((m, idx) => (
-                    <tr key={rowKey(m)} className="border-b border-[#1a2a3a] hover:bg-[#142030] transition-colors">
+                    <tr key={rowKey(m)} className="border-b border-border hover:bg-muted transition-colors">
                       <td className="px-4 py-3">
                         <Checkbox
                           checked={selected.has(rowKey(m))}
                           onCheckedChange={(c) => toggleSelectRow(m, !!c)}
                         />
                       </td>
-                      <td className="px-4 py-3 text-slate-400 text-sm font-mono">
+                      <td className="px-4 py-3 text-muted-foreground text-sm font-mono">
                         {(page - 1) * perPage + idx + 1}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-white text-sm font-medium">{m.productLabel}</div>
-                        {m.clientName && <div className="text-slate-500 text-xs">{m.clientName}</div>}
+                        <div className="text-foreground text-sm font-medium">{m.productLabel}</div>
+                        {m.clientName && <div className="text-muted-foreground text-xs">{m.clientName}</div>}
                       </td>
                       <td className="px-4 py-3">
                         <span
                           className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
                             m.type === "entrada"
-                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                              : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                              ? "bg-success/10 text-success  "
+                              : "bg-destructive/10 text-destructive  "
                           }`}
                         >
                           {m.type === "entrada" ? "Entrada" : "Saída"}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`font-semibold text-sm ${m.type === "entrada" ? "text-green-400" : "text-red-400"}`}>
+                        <span className={`font-semibold text-sm ${m.type === "entrada" ? "text-success" : "text-destructive"}`}>
                           {mask(formatCurrency(m.value))}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-slate-400 text-sm">{formatDateBr(m.date)}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-sm">{formatDateBr(m.date)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           {m.source === "manual" && (
                             <button
                               onClick={() => openEditManual(m)}
-                              className="flex items-center gap-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-500/30 text-indigo-300 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                              className="flex items-center gap-1.5 bg-primary/15 hover:bg-primary/25 border border-primary/30 text-primary text-xs font-medium px-3 py-1.5 rounded-full transition-colors"
                             >
                               <Edit2 className="w-3 h-3" />
                             </button>
                           )}
                           <button
                             onClick={() => setDeleteConfirm(m)}
-                            className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 text-red-400 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                            className="flex items-center gap-1.5 bg-destructive/15 hover:bg-destructive/25 border border-destructive/30 text-destructive text-xs font-medium px-3 py-1.5 rounded-full transition-colors"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -598,23 +584,23 @@ export default function FinancialOverview() {
               </tbody>
             </table>
 
-            <div className="px-4 py-3 border-t border-[#1e2e3e] flex items-center justify-between">
-              <p className="text-xs text-slate-500">
+            <div className="px-4 py-3 border-t border-border flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
                 Mostrando {total === 0 ? 0 : (page - 1) * perPage + 1} até {Math.min(page * perPage, total)} de {total} resultado{total !== 1 ? "s" : ""}
               </p>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="text-xs text-slate-400 px-2">Página {page} de {totalPages}</span>
+                <span className="text-xs text-muted-foreground px-2">Página {page} de {totalPages}</span>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -627,16 +613,15 @@ export default function FinancialOverview() {
       {/* Manual entry modal */}
       {showManualModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeManualModal} />
+          <div className="absolute inset-0 bg-scrim/50 backdrop-blur-sm" onClick={closeManualModal} />
           <div
-            className="relative w-full max-w-md rounded-2xl p-6 space-y-5 shadow-2xl"
-            style={{ background: "#0f1929", border: "1px solid rgba(99,102,241,0.2)" }}
+            className="relative w-full max-w-md rounded-card p-6 space-y-5 glass-strong"
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-white font-semibold text-lg">
+              <h2 className="text-foreground font-semibold text-lg">
                 {editingEntry ? "Editar Lançamento" : "Novo Lançamento Manual"}
               </h2>
-              <button onClick={closeManualModal} className="text-slate-400 hover:text-white transition-colors">
+              <button onClick={closeManualModal} className="text-muted-foreground hover:text-foreground transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -648,8 +633,8 @@ export default function FinancialOverview() {
                   onClick={() => setManualForm((f) => ({ ...f, type: "entrada" }))}
                   className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
                     manualForm.type === "entrada"
-                      ? "bg-green-600 border-green-500 text-white"
-                      : "bg-[#0d1b2a] border-[#2a3a4a] text-slate-400 hover:border-green-500/50"
+                      ? "bg-success border-success text-success-foreground"
+                      : "bg-field border-input text-muted-foreground hover:border-success/40"
                   }`}
                 >
                   Entrada
@@ -659,8 +644,8 @@ export default function FinancialOverview() {
                   onClick={() => setManualForm((f) => ({ ...f, type: "saida" }))}
                   className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
                     manualForm.type === "saida"
-                      ? "bg-red-600 border-red-500 text-white"
-                      : "bg-[#0d1b2a] border-[#2a3a4a] text-slate-400 hover:border-red-500/50"
+                      ? "bg-destructive border-destructive text-destructive-foreground"
+                      : "bg-field border-input text-muted-foreground hover:border-destructive/40"
                   }`}
                 >
                   Saída
@@ -668,19 +653,19 @@ export default function FinancialOverview() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Descrição</label>
+                <label className="text-xs font-semibold text-muted-foreground">Descrição</label>
                 <input
                   type="text"
                   value={manualForm.description}
                   onChange={(e) => setManualForm((f) => ({ ...f, description: e.target.value }))}
                   placeholder="Ex: Despesa administrativa"
-                  className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-200 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
+                  className="w-full field text-sm rounded-xl px-4 py-3 placeholder:text-muted-foreground"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Valor (R$)</label>
+                  <label className="text-xs font-semibold text-muted-foreground">Valor (R$)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -688,16 +673,16 @@ export default function FinancialOverview() {
                     value={manualForm.value}
                     onChange={(e) => setManualForm((f) => ({ ...f, value: e.target.value }))}
                     placeholder="0,00"
-                    className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-200 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
+                    className="w-full field text-sm rounded-xl px-4 py-3 placeholder:text-muted-foreground"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Data</label>
+                  <label className="text-xs font-semibold text-muted-foreground">Data</label>
                   <input
                     type="date"
                     value={manualForm.date}
                     onChange={(e) => setManualForm((f) => ({ ...f, date: e.target.value }))}
-                    className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-200 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500"
+                    className="w-full field text-sm rounded-xl px-4 py-3"
                   />
                 </div>
               </div>
@@ -706,15 +691,14 @@ export default function FinancialOverview() {
                 <button
                   type="button"
                   onClick={closeManualModal}
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-[#2a3a4a] text-slate-400 hover:text-white hover:border-slate-500 text-sm font-medium transition-colors"
+                  className="flex-1 px-4 py-2.5 rounded-full border border-input text-muted-foreground hover:text-foreground hover:border-foreground/25 text-sm font-medium transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isManualSavePending}
-                  className="flex-1 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-60"
-                  style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+                  className="flex-1 px-4 py-2.5 rounded-full text-sm font-semibold transition-all disabled:opacity-60 bg-primary text-primary-foreground shadow-glow hover:bg-primary/90"
                 >
                   {isManualSavePending ? "Salvando..." : "Salvar"}
                 </button>
@@ -727,34 +711,33 @@ export default function FinancialOverview() {
       {/* Single delete confirm */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)} />
+          <div className="absolute inset-0 bg-scrim/50 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)} />
           <div
-            className="relative w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl"
-            style={{ background: "#0f1929", border: "1px solid rgba(239,68,68,0.3)" }}
+            className="relative w-full max-w-sm rounded-card p-6 space-y-4 glass-strong border-destructive/30"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-600/20 border border-red-500/30 flex items-center justify-center">
-                <Trash2 className="w-5 h-5 text-red-400" />
+              <div className="w-10 h-10 rounded-xl bg-destructive/15 border border-destructive/30 flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-destructive" />
               </div>
               <div>
-                <h3 className="text-white font-semibold">Excluir movimentação</h3>
-                <p className="text-slate-400 text-sm">Essa ação não pode ser desfeita.</p>
+                <h3 className="text-foreground font-semibold">Excluir movimentação</h3>
+                <p className="text-muted-foreground text-sm">Essa ação não pode ser desfeita.</p>
               </div>
             </div>
-            <p className="text-slate-300 text-sm">
-              Tem certeza que deseja excluir <strong className="text-white">{deleteConfirm.productLabel}</strong> ({formatCurrency(deleteConfirm.value)})?
+            <p className="text-foreground/85 text-sm">
+              Tem certeza que deseja excluir <strong className="text-foreground">{deleteConfirm.productLabel}</strong> ({formatCurrency(deleteConfirm.value)})?
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-[#2a3a4a] text-slate-400 hover:text-white text-sm font-medium transition-colors"
+                className="flex-1 px-4 py-2.5 rounded-full border border-input text-muted-foreground hover:text-foreground text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => deleteMutation.mutate(deleteConfirm)}
                 disabled={deleteMutation.isPending}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors disabled:opacity-60"
+                className="flex-1 px-4 py-2.5 rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm font-semibold transition-colors disabled:opacity-60"
               >
                 {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
               </button>
@@ -766,27 +749,26 @@ export default function FinancialOverview() {
       {/* Bulk delete confirm */}
       {bulkDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setBulkDeleteConfirm(false)} />
+          <div className="absolute inset-0 bg-scrim/50 backdrop-blur-sm" onClick={() => setBulkDeleteConfirm(false)} />
           <div
-            className="relative w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl"
-            style={{ background: "#0f1929", border: "1px solid rgba(239,68,68,0.3)" }}
+            className="relative w-full max-w-sm rounded-card p-6 space-y-4 glass-strong border-destructive/30"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-600/20 border border-red-500/30 flex items-center justify-center">
-                <Trash2 className="w-5 h-5 text-red-400" />
+              <div className="w-10 h-10 rounded-xl bg-destructive/15 border border-destructive/30 flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-destructive" />
               </div>
               <div>
-                <h3 className="text-white font-semibold">Excluir movimentações</h3>
-                <p className="text-slate-400 text-sm">Essa ação não pode ser desfeita.</p>
+                <h3 className="text-foreground font-semibold">Excluir movimentações</h3>
+                <p className="text-muted-foreground text-sm">Essa ação não pode ser desfeita.</p>
               </div>
             </div>
-            <p className="text-slate-300 text-sm">
-              Tem certeza que deseja excluir <strong className="text-white">{selected.size}</strong> movimentação(ões) selecionada(s)?
+            <p className="text-foreground/85 text-sm">
+              Tem certeza que deseja excluir <strong className="text-foreground">{selected.size}</strong> movimentação(ões) selecionada(s)?
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setBulkDeleteConfirm(false)}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-[#2a3a4a] text-slate-400 hover:text-white text-sm font-medium transition-colors"
+                className="flex-1 px-4 py-2.5 rounded-full border border-input text-muted-foreground hover:text-foreground text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
@@ -799,7 +781,7 @@ export default function FinancialOverview() {
                   bulkDeleteMutation.mutate(items);
                 }}
                 disabled={bulkDeleteMutation.isPending}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors disabled:opacity-60"
+                className="flex-1 px-4 py-2.5 rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm font-semibold transition-colors disabled:opacity-60"
               >
                 {bulkDeleteMutation.isPending ? "Excluindo..." : "Excluir"}
               </button>

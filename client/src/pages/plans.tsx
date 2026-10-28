@@ -53,13 +53,13 @@ export default function Plans() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 dark:from-indigo-900 dark:via-purple-900 dark:to-pink-900 py-12">
+    <div className="min-h-screen py-12 sm:py-16">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">
+          <h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-tight text-foreground mb-3">
             Escolha seu Plano
           </h1>
-          <p className="text-lg sm:text-xl text-white/80">
+          <p className="text-lg sm:text-xl text-muted-foreground">
             Selecione o plano ideal para o seu negócio
           </p>
         </div>
@@ -68,26 +68,26 @@ export default function Plans() {
           {plans?.map((plan) => (
             <Card
               key={plan.id}
-              className={`glass-card relative rounded-2xl p-2 transition-all duration-300 ${
+              className={`relative p-2 ${
                 plan.isPopular
-                  ? "border-blue-400/40 shadow-xl shadow-blue-500/10 scale-[1.03]"
-                  : "hover:border-white/30"
+                  ? "border-primary/50 shadow-float lg:scale-[1.03]"
+                  : ""
               }`}
             >
               {plan.isPopular && (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-1.5 rounded-full text-sm font-medium shadow-lg">
+                  <span className="bg-highlight text-highlight-foreground px-4 py-1.5 rounded-full text-sm font-semibold shadow-float">
                     Mais Popular
                   </span>
                 </div>
               )}
               <CardHeader>
-                <CardTitle className="text-2xl font-semibold text-white">{plan.name}</CardTitle>
-                <CardDescription className="text-white/70">
-                  <span className="text-4xl font-bold text-white">
+                <CardTitle className="text-2xl text-foreground">{plan.name}</CardTitle>
+                <CardDescription className="text-muted-foreground">
+                  <span className="font-display text-4xl font-semibold tracking-tight text-foreground">
                     R$ {Number(plan.price).toFixed(2)}
                   </span>
-                  <span className="text-white/60">
+                  <span className="text-muted-foreground">
                     {plan.billingPeriod === "monthly" && "/mês"}
                     {plan.billingPeriod === "semiannual" && "/semestre"}
                     {plan.billingPeriod === "yearly" && "/ano"}
@@ -98,8 +98,8 @@ export default function Plans() {
               <CardContent className="space-y-4">
                 <ul className="space-y-3">
                   {plan.features.map((feature, index) => (
-                    <li key={index} className="flex items-center text-white text-sm">
-                      <Check className="h-5 w-5 mr-2 text-green-400 flex-shrink-0" />
+                    <li key={index} className="flex items-center text-foreground text-sm">
+                      <Check className="h-5 w-5 mr-2 text-success flex-shrink-0" />
                       <span>{feature}</span>
                     </li>
                   ))}
@@ -108,11 +108,7 @@ export default function Plans() {
                   data-testid={`button-select-plan-${plan.id}`}
                   onClick={() => checkoutMutation.mutate(plan.id)}
                   disabled={checkoutMutation.isPending}
-                  className={`w-full rounded-xl ${
-                    plan.isPopular
-                      ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg shadow-blue-500/25"
-                      : ""
-                  }`}
+                  className="w-full"
                   variant={plan.isPopular ? "default" : "outline"}
                 >
                   {checkoutMutation.isPending && (

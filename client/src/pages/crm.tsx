@@ -71,13 +71,13 @@ export default function Crm() {
   };
 
   return (
-    <div className="flex h-screen p-4 gap-4">
-      <div className="w-80 glassmorphism rounded-xl flex flex-col overflow-hidden shrink-0">
+    <div className="flex h-[calc(100dvh-4.5rem)] flex-col gap-4 p-3 sm:p-4 md:flex-row lg:h-screen lg:p-5">
+      <div className="glass flex max-h-[40%] w-full shrink-0 flex-col overflow-hidden md:max-h-none md:w-80">
         <div className="p-4 border-b border-border flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg gradient-bg flex items-center justify-center shrink-0">
-            <MessageCircle className="w-4 h-4 text-white" />
+          <div className="w-9 h-9 rounded-full brand-tile flex items-center justify-center shrink-0">
+            <MessageCircle className="w-4 h-4" />
           </div>
-          <h1 className="text-lg font-bold">Conversas</h1>
+          <h1 className="font-display text-xl font-semibold tracking-tight">Conversas</h1>
         </div>
         <ScrollArea className="flex-1">
           {loadingConversations ? (
@@ -90,8 +90,8 @@ export default function Crm() {
                 key={c.id}
                 onClick={() => setSelectedPhone(c.phone)}
                 className={cn(
-                  "w-full text-left px-4 py-3 border-b border-border/50 hover:bg-muted/50 transition-colors",
-                  selectedPhone === c.phone && "bg-muted"
+                  "w-full text-left px-4 py-3 border-b border-border hover:bg-accent transition-colors",
+                  selectedPhone === c.phone && "bg-ink text-ink-foreground hover:bg-ink [&_div]:text-ink-foreground/80"
                 )}
               >
                 <div className="font-medium text-sm truncate">{c.displayName}</div>
@@ -106,7 +106,7 @@ export default function Crm() {
         </ScrollArea>
       </div>
 
-      <div className="flex-1 glassmorphism rounded-xl flex flex-col overflow-hidden">
+      <div className="glass-strong flex min-h-0 flex-1 flex-col overflow-hidden">
         {!selectedPhone ? (
           <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-2">
             <MessageCircle className="w-10 h-10 text-muted-foreground/40" />
@@ -115,7 +115,7 @@ export default function Crm() {
         ) : (
           <>
             <div className="p-4 border-b border-border flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full gradient-bg flex items-center justify-center text-white text-xs font-semibold shrink-0">
+              <div className="w-9 h-9 rounded-full brand-tile flex items-center justify-center text-white text-xs font-semibold shrink-0">
                 {(conversationData?.contact?.displayName || selectedPhone).slice(0, 2).toUpperCase()}
               </div>
               <div>
@@ -132,8 +132,8 @@ export default function Crm() {
                   <div
                     key={m.id}
                     className={cn(
-                      "max-w-[70%] rounded-xl px-3 py-2 text-sm shadow-sm",
-                      m.direction === "outbound" ? "ml-auto bg-primary text-primary-foreground" : "mr-auto bg-muted"
+                      "max-w-[70%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",
+                      m.direction === "outbound" ? "ml-auto rounded-br-md bg-primary text-primary-foreground" : "mr-auto rounded-bl-md border border-edge bg-secondary"
                     )}
                   >
                     <div>{m.content}</div>
@@ -152,7 +152,7 @@ export default function Crm() {
                 placeholder="Digite uma mensagem..."
                 disabled={sendMutation.isPending}
               />
-              <Button type="submit" disabled={sendMutation.isPending || !draft.trim()} className="gradient-bg text-white hover:opacity-90 border-0">
+              <Button type="submit" disabled={sendMutation.isPending || !draft.trim()}>
                 {sendMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </Button>
             </form>

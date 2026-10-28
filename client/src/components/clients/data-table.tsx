@@ -31,16 +31,16 @@ interface DataTableProps {
 }
 
 const statusColors = {
-  "Ativa": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  "Inativa": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-  "Aguardando": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  "Teste": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  "Ativa": "bg-success/10 text-success  ",
+  "Inativa": "bg-destructive/10 text-destructive  ",
+  "Aguardando": "bg-warning/10 text-warning  ",
+  "Teste": "bg-info/10 text-info  ",
 };
 
 const systemColors = {
-  "P2P - Android": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  "IPTV - Geral": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  "Dois Pontos Distintos": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  "P2P - Android": "bg-primary/10 text-primary  ",
+  "IPTV - Geral": "bg-info/10 text-info  ",
+  "Dois Pontos Distintos": "bg-warning/10 text-warning  ",
 };
 
 export function DataTable({ 
@@ -85,11 +85,11 @@ export function DataTable({
   };
 
   const getExpiryColor = (days: number) => {
-    if (days < 0) return "text-red-600";
-    if (days === 0) return "text-red-500";
-    if (days <= 3) return "text-orange-600";
-    if (days <= 7) return "text-yellow-600";
-    return "text-green-600";
+    if (days < 0) return "text-destructive";
+    if (days === 0) return "text-destructive";
+    if (days <= 3) return "text-warning";
+    if (days <= 7) return "text-warning";
+    return "text-success";
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -110,7 +110,7 @@ export function DataTable({
 
   if (isLoading) {
     return (
-      <Card className="glassmorphism neon-border rounded-xl">
+      <Card>
         <CardContent className="p-6">
           <div className="animate-pulse space-y-4">
             <div className="h-10 bg-muted rounded-lg" />
@@ -122,7 +122,7 @@ export function DataTable({
   }
 
   return (
-    <Card className="glassmorphism neon-border rounded-xl">
+    <Card>
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
@@ -211,14 +211,14 @@ export function DataTable({
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>
-                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">ID</TableHead>
-                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Cliente</TableHead>
-                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Telefone</TableHead>
-                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Sistema</TableHead>
-                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
-                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Vencimento</TableHead>
-                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Valor</TableHead>
-                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Ações</TableHead>
+                <TableHead className="text-xs text-muted-foreground">ID</TableHead>
+                <TableHead className="text-xs text-muted-foreground">Cliente</TableHead>
+                <TableHead className="text-xs text-muted-foreground">Telefone</TableHead>
+                <TableHead className="text-xs text-muted-foreground">Sistema</TableHead>
+                <TableHead className="text-xs text-muted-foreground">Status</TableHead>
+                <TableHead className="text-xs text-muted-foreground">Vencimento</TableHead>
+                <TableHead className="text-xs text-muted-foreground">Valor</TableHead>
+                <TableHead className="text-xs text-muted-foreground text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -237,7 +237,7 @@ export function DataTable({
                     <TableCell className="font-mono text-sm text-muted-foreground">#{item.id}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-primary to-[hsl(262,52%,47%)] rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
+                        <div className="w-8 h-8 brand-tile rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
                           {item.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                         </div>
                         <div>
@@ -248,12 +248,12 @@ export function DataTable({
                     </TableCell>
                     <TableCell className="text-sm">{item.phone}</TableCell>
                     <TableCell>
-                      <Badge className={systemColors[item.system] || "bg-gray-100 text-gray-800"}>
+                      <Badge className={systemColors[item.system] || "bg-muted text-foreground"}>
                         {item.system}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className={statusColors[item.subscriptionStatus] || "bg-gray-100 text-gray-800"}>
+                      <Badge className={statusColors[item.subscriptionStatus] || "bg-muted text-foreground"}>
                         {item.subscriptionStatus}
                       </Badge>
                     </TableCell>
@@ -287,7 +287,7 @@ export function DataTable({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 rounded-full text-green-600 hover:bg-green-500/10 hover:text-green-600 dark:text-green-400 dark:hover:text-green-400"
+                            className="h-8 w-8 rounded-full text-success hover:bg-success/10 hover:text-success"
                             onClick={() => onWhatsApp(item)}
                             title="WhatsApp"
                           >

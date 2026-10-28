@@ -1,83 +1,125 @@
 import type { Config } from "tailwindcss";
 
+// Tokens live in client/src/index.css as bare HSL channels ("334 82% 47%").
+// `tone` maps a token to a Tailwind color that supports opacity modifiers
+// (bg-primary/15). Glass tokens carry their own base alpha (e.g. --card-alpha),
+// multiplied by the modifier so `bg-card` is translucent by design.
+const tone = (name: string) => `hsl(var(--${name}) / <alpha-value>)`;
+const glassTone = (name: string, alphaVar: string) =>
+  `hsl(var(--${name}) / calc(<alpha-value> * var(--${alphaVar})))`;
+
 export default {
   darkMode: ["class"],
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Instrument Sans"', "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ['"Bricolage Grotesque"', '"Instrument Sans"', "ui-sans-serif", "sans-serif"],
+      },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "calc(var(--radius) - 4px)",
+        sm: "calc(var(--radius) - 6px)",
+        card: "1.5rem",
+        panel: "1.75rem",
+      },
+      boxShadow: {
+        glass: "var(--shadow-glass)",
+        float: "var(--shadow-float)",
+        glow: "0 10px 30px -12px hsl(var(--primary) / 0.65)",
+      },
+      backgroundImage: {
+        brand: "var(--gradient-brand)",
       },
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        background: tone("background"),
+        foreground: tone("foreground"),
         card: {
-          DEFAULT: "var(--card)",
-          foreground: "var(--card-foreground)",
+          DEFAULT: glassTone("card", "card-alpha"),
+          foreground: tone("card-foreground"),
         },
         popover: {
-          DEFAULT: "var(--popover)",
-          foreground: "var(--popover-foreground)",
+          DEFAULT: glassTone("popover", "popover-alpha"),
+          foreground: tone("popover-foreground"),
         },
         primary: {
-          DEFAULT: "var(--primary)",
-          foreground: "var(--primary-foreground)",
+          DEFAULT: tone("primary"),
+          foreground: tone("primary-foreground"),
         },
         secondary: {
-          DEFAULT: "var(--secondary)",
-          foreground: "var(--secondary-foreground)",
+          DEFAULT: glassTone("secondary", "secondary-alpha"),
+          foreground: tone("secondary-foreground"),
         },
         muted: {
-          DEFAULT: "var(--muted)",
-          foreground: "var(--muted-foreground)",
+          DEFAULT: glassTone("muted", "muted-alpha"),
+          foreground: tone("muted-foreground"),
         },
         accent: {
-          DEFAULT: "var(--accent)",
-          foreground: "var(--accent-foreground)",
+          DEFAULT: glassTone("accent", "accent-alpha"),
+          foreground: tone("accent-foreground"),
         },
         destructive: {
-          DEFAULT: "var(--destructive)",
-          foreground: "var(--destructive-foreground)",
+          DEFAULT: tone("destructive"),
+          foreground: tone("destructive-foreground"),
         },
-        border: "var(--border)",
-        input: "var(--input)",
-        ring: "var(--ring)",
+        success: {
+          DEFAULT: tone("success"),
+          foreground: tone("success-foreground"),
+        },
+        warning: {
+          DEFAULT: tone("warning"),
+          foreground: tone("warning-foreground"),
+        },
+        info: {
+          DEFAULT: tone("info"),
+          foreground: tone("info-foreground"),
+        },
+        highlight: {
+          DEFAULT: tone("highlight"),
+          foreground: tone("highlight-foreground"),
+        },
+        ink: {
+          DEFAULT: tone("ink"),
+          foreground: tone("ink-foreground"),
+        },
+        field: glassTone("field", "field-alpha"),
+        edge: glassTone("edge", "edge-alpha"),
+        border: glassTone("border", "border-alpha"),
+        input: glassTone("input", "input-alpha"),
+        ring: tone("ring"),
+        scrim: tone("scrim"),
+        whatsapp: {
+          wallpaper: tone("whatsapp-wallpaper"),
+          bubble: tone("whatsapp-bubble"),
+        },
         chart: {
-          "1": "var(--chart-1)",
-          "2": "var(--chart-2)",
-          "3": "var(--chart-3)",
-          "4": "var(--chart-4)",
-          "5": "var(--chart-5)",
+          "1": tone("chart-1"),
+          "2": tone("chart-2"),
+          "3": tone("chart-3"),
+          "4": tone("chart-4"),
+          "5": tone("chart-5"),
+          "6": tone("chart-6"),
         },
         sidebar: {
-          DEFAULT: "var(--sidebar-background)",
-          foreground: "var(--sidebar-foreground)",
-          primary: "var(--sidebar-primary)",
-          "primary-foreground": "var(--sidebar-primary-foreground)",
-          accent: "var(--sidebar-accent)",
-          "accent-foreground": "var(--sidebar-accent-foreground)",
-          border: "var(--sidebar-border)",
-          ring: "var(--sidebar-ring)",
+          DEFAULT: glassTone("card", "card-alpha"),
+          foreground: tone("foreground"),
+          primary: tone("ink"),
+          "primary-foreground": tone("ink-foreground"),
+          accent: glassTone("accent", "accent-alpha"),
+          "accent-foreground": tone("accent-foreground"),
+          border: glassTone("border", "border-alpha"),
+          ring: tone("ring"),
         },
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
         },
       },
       animation: {

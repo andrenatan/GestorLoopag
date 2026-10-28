@@ -378,7 +378,7 @@ export default function Employees() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-muted rounded w-64" />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -392,16 +392,13 @@ export default function Employees() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
       {/* Header */}
-      <div className="rounded-2xl p-6 flex items-center justify-between flex-wrap gap-4 bg-primary/5 border border-primary/10">
+      <div data-reveal className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center gradient-bg shrink-0">
-            <Users className="w-5 h-5 text-white" />
-          </div>
           <div>
-            <h1 className="text-2xl font-bold">Gestão de Funcionários</h1>
-            <p className="text-muted-foreground text-sm">
+            <h1 className="text-balance font-display text-3xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-[2.6rem]">Gestão de Funcionários</h1>
+            <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground sm:text-base">
               Gerencie a equipe e informações dos funcionários
             </p>
           </div>
@@ -416,8 +413,8 @@ export default function Employees() {
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center gradient-bg shrink-0">
-                  <UserCheck className="w-3.5 h-3.5 text-white" />
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center brand-tile shrink-0">
+                  <UserCheck className="w-3.5 h-3.5" />
                 </div>
                 {editingEmployee ? "Editar Funcionário" : "Novo Funcionário"}
               </DialogTitle>
@@ -426,7 +423,7 @@ export default function Employees() {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
                 {/* Dados Pessoais */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-2">
                     <IdCard className="w-3.5 h-3.5" />
                     Dados Pessoais
                   </h4>
@@ -505,7 +502,7 @@ export default function Employees() {
 
                 {/* Dados Profissionais */}
                 <div className="space-y-3 border-t pt-4">
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-2">
                     <Briefcase className="w-3.5 h-3.5" />
                     Dados Profissionais
                   </h4>
@@ -574,7 +571,7 @@ export default function Employees() {
                 <div className="border-t pt-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-2">
                         <KeyRound className="w-3.5 h-3.5" />
                         Acesso ao sistema
                       </h4>
@@ -615,8 +612,8 @@ export default function Employees() {
                   </div>
 
                   {enableAccess && editingEmployee?.accessAuthUserId && (
-                    <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm text-muted-foreground">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+                    <div className="flex items-start gap-2 rounded-xl bg-success/10 border border-success/20 p-3 text-sm text-muted-foreground">
+                      <ShieldCheck className="w-4 h-4 text-success mt-0.5 shrink-0" />
                       <span>
                         Acesso ativo para <strong className="text-foreground">{editingEmployee.accessEmail}</strong>. Para alterar a senha, desligue o acesso, salve e habilite novamente.
                       </span>
@@ -738,7 +735,7 @@ export default function Employees() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 rounded-xl border bg-muted/20 p-4">
                             {PERMISSION_GROUPS.map((group) => (
                               <div key={group.title} className="space-y-2">
-                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{group.title}</p>
+                                <p className="text-xs font-semibold text-muted-foreground">{group.title}</p>
                                 {group.items.map((item) => {
                                   const checked = field.value?.includes(item.key) ?? false;
                                   return (
@@ -795,7 +792,7 @@ export default function Employees() {
       </div>
 
       {/* Search */}
-      <Card className="glassmorphism neon-border rounded-xl">
+      <Card>
         <CardContent className="p-4">
           <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -812,7 +809,7 @@ export default function Employees() {
       {/* Employee Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredEmployees.map((employee: Employee) => (
-          <Card key={employee.id} className="glassmorphism neon-border rounded-xl hover:scale-[1.02] transition-all duration-200">
+          <Card key={employee.id}>
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between mb-3">
                 <span className="font-mono text-sm text-muted-foreground">#{employee.employeeNumber}</span>
@@ -820,7 +817,7 @@ export default function Employees() {
               <div className="flex items-center space-x-4">
                 <Avatar className="w-16 h-16">
                   <AvatarImage src={employee.photo || undefined} alt={employee.name} />
-                  <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-500 text-white font-medium">
+                  <AvatarFallback className="brand-tile text-white font-medium">
                     {employee.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                   </AvatarFallback>
                 </Avatar>
@@ -831,8 +828,8 @@ export default function Employees() {
                     variant="outline"
                     className={`mt-1 ${
                       employee.isActive
-                        ? "border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400"
-                        : "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400"
+                        ? "border-success/30 bg-success/10 text-success "
+                        : "border-destructive/30 bg-destructive/10 text-destructive "
                     }`}
                   >
                     {employee.isActive ? "Ativo" : "Inativo"}
@@ -874,7 +871,7 @@ export default function Employees() {
                   {employee.accessAuthUserId ? (
                     <Badge
                       variant="outline"
-                      className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      className="border-success/30 bg-success/10 text-success"
                     >
                       <KeyRound className="w-3 h-3 mr-1" />
                       Tem acesso
@@ -894,7 +891,7 @@ export default function Employees() {
                         }
                       }}
                       title="Revogar acesso"
-                      className="text-amber-600 hover:text-amber-700"
+                      className="text-warning hover:text-warning"
                     >
                       <ShieldOff className="w-4 h-4" />
                     </Button>
@@ -910,7 +907,7 @@ export default function Employees() {
                         deleteEmployeeMutation.mutate(employee.id);
                       }
                     }}
-                    className="text-red-600 hover:text-red-700"
+                    className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -922,7 +919,7 @@ export default function Employees() {
       </div>
 
       {filteredEmployees.length === 0 && (
-        <Card className="glassmorphism neon-border rounded-xl">
+        <Card>
           <CardContent className="text-center py-12">
             <UserCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Nenhum funcionário encontrado</h3>

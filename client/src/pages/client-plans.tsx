@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { PageHeader } from "@/components/layout/page-header";
 import {
   Plus,
   Search,
@@ -173,44 +174,28 @@ export default function ClientPlans() {
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="p-6 space-y-4 min-h-screen">
-      {/* Header */}
-      <div
-        className="rounded-2xl p-6 flex items-center justify-between"
-        style={{
-          background: "linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.1) 100%)",
-          border: "1px solid rgba(99,102,241,0.2)",
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-          >
-            <ClipboardList className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white">Planos dos Clientes</h1>
-            <p className="text-slate-400 text-sm">Gerencie os planos de assinatura oferecidos aos seus clientes.</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-2 text-white font-semibold px-4 py-2.5 rounded-xl transition-all text-sm"
-            style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-          >
-            <Plus className="w-4 h-4" />
-            Novo Plano
-          </button>
-        </div>
-      </div>
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
+      <PageHeader
+        title="Planos dos Clientes"
+        description="Gerencie os planos de assinatura oferecidos aos seus clientes."
+        actions={
+          <>
+              <button
+                onClick={openCreate}
+                className="flex items-center gap-2 font-semibold px-4 py-2.5 rounded-full transition-all text-sm bg-primary text-primary-foreground shadow-glow hover:bg-primary/90"
+              >
+                <Plus className="w-4 h-4" />
+                Novo Plano
+              </button>
+          </>
+        }
+      />
 
       {/* Search + Per-page */}
-      <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl p-4 flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider">
+      <div className="glass p-4 flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2 text-muted-foreground text-xs font-semibold">
           <Search className="w-4 h-4" />
-          BUSCAR
+          Buscar
         </div>
         <div className="relative flex-1 min-w-[200px]">
           <input
@@ -218,20 +203,20 @@ export default function ClientPlans() {
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Buscar plano por nome..."
-            className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg pl-3 pr-9 py-2 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
+            className="w-full field text-sm rounded-lg pl-3 pr-9 py-2 placeholder:text-muted-foreground"
           />
           {search && (
-            <button onClick={() => { setSearch(""); setPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
+            <button onClick={() => { setSearch(""); setPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
               <X className="w-4 h-4" />
             </button>
           )}
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">POR PÁGINA</span>
+          <span className="text-xs text-muted-foreground font-semibold">Por página</span>
           <select
             value={perPage}
             onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }}
-            className="bg-[#0d1b2a] border border-[#2a3a4a] text-slate-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500"
+            className="field text-sm rounded-lg px-3 py-2"
           >
             <option value={10}>10</option>
             <option value={25}>25</option>
@@ -241,65 +226,65 @@ export default function ClientPlans() {
       </div>
 
       {/* Table */}
-      <div className="bg-[#111c2a] border border-[#1e2e3e] rounded-xl overflow-hidden">
+      <div className="glass-strong overflow-x-auto">
         {isLoading ? (
-          <div className="p-8 text-center text-slate-400">Carregando planos...</div>
+          <div className="p-8 text-center text-muted-foreground">Carregando planos...</div>
         ) : (
           <>
             <table className="w-full">
               <thead>
-                <tr className="border-b border-[#1e2e3e]">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">NOME</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">CLIENTES</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">VALOR</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">DURAÇÃO</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">DESCRIÇÃO</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">AÇÕES</th>
+                <tr className="border-b border-border">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">ID</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Nome</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Clientes</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Valor</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Duração</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Descrição</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-16 text-slate-500 text-sm">
+                    <td colSpan={7} className="text-center py-16 text-muted-foreground text-sm">
                       {search ? "Nenhum plano encontrado para essa busca." : "Nenhum plano cadastrado. Clique em \"+ Novo Plano\" para criar."}
                     </td>
                   </tr>
                 ) : (
                   paginated.map((plan) => (
-                    <tr key={plan.id} className="border-b border-[#1a2a3a] hover:bg-[#142030] transition-colors">
-                      <td className="px-4 py-3 text-slate-400 text-sm font-mono">#{plan.id}</td>
-                      <td className="px-4 py-3 text-white font-semibold text-sm">{plan.name}</td>
+                    <tr key={plan.id} className="border-b border-border hover:bg-muted transition-colors">
+                      <td className="px-4 py-3 text-muted-foreground text-sm font-mono">#{plan.id}</td>
+                      <td className="px-4 py-3 text-foreground font-semibold text-sm">{plan.name}</td>
                       <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-1.5 bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold px-2.5 py-1 rounded-full">
+                        <span className="inline-flex items-center gap-1.5 bg-primary/15 border border-primary/30 text-primary text-xs font-semibold px-2.5 py-1 rounded-full">
                           <Users className="w-3 h-3" />
                           {plan.clientCount}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-green-400 font-semibold text-sm">{formatCurrency(plan.value)}</span>
+                        <span className="text-success font-semibold text-sm">{formatCurrency(plan.value)}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-1.5 bg-blue-600/20 border border-blue-500/30 text-blue-300 text-xs font-semibold px-2.5 py-1 rounded-full">
+                        <span className="inline-flex items-center gap-1.5 bg-info/15 border border-info/30 text-info text-xs font-semibold px-2.5 py-1 rounded-full">
                           {plan.durationType === "months" ? <Calendar className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                           {formatDuration(plan.durationQuantity, plan.durationType)}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-slate-400 text-sm max-w-xs truncate">
-                        {plan.description || <span className="text-slate-600 italic">—</span>}
+                      <td className="px-4 py-3 text-muted-foreground text-sm max-w-xs truncate">
+                        {plan.description || <span className="text-muted-foreground italic">—</span>}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => openEdit(plan)}
-                            className="flex items-center gap-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-500/30 text-indigo-300 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                            className="flex items-center gap-1.5 bg-primary/15 hover:bg-primary/25 border border-primary/30 text-primary text-xs font-medium px-3 py-1.5 rounded-full transition-colors"
                           >
                             <Edit2 className="w-3 h-3" />
                             Editar
                           </button>
                           <button
                             onClick={() => setDeleteConfirm(plan)}
-                            className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 text-red-400 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                            className="flex items-center gap-1.5 bg-destructive/15 hover:bg-destructive/25 border border-destructive/30 text-destructive text-xs font-medium px-3 py-1.5 rounded-full transition-colors"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -312,15 +297,15 @@ export default function ClientPlans() {
             </table>
 
             {/* Pagination */}
-            <div className="px-4 py-3 border-t border-[#1e2e3e] flex items-center justify-between">
-              <p className="text-xs text-slate-500">
+            <div className="px-4 py-3 border-t border-border flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
                 Mostrando {filtered.length === 0 ? 0 : (safePage - 1) * perPage + 1} até {Math.min(safePage * perPage, filtered.length)} de {filtered.length} resultado{filtered.length !== 1 ? "s" : ""}
               </p>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={safePage === 1}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -333,15 +318,15 @@ export default function ClientPlans() {
                   }, [])
                   .map((p, i) =>
                     p === "..." ? (
-                      <span key={`ellipsis-${i}`} className="px-2 text-slate-500 text-xs">…</span>
+                      <span key={`ellipsis-${i}`} className="px-2 text-muted-foreground text-xs">…</span>
                     ) : (
                       <button
                         key={p}
                         onClick={() => setPage(p as number)}
                         className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
                           safePage === p
-                            ? "bg-indigo-600 text-white"
-                            : "text-slate-400 hover:text-white hover:bg-white/10"
+                            ? "bg-ink text-ink-foreground"
+                            : "text-muted-foreground hover:text-foreground hover:bg-accent"
                         }`}
                       >
                         {p}
@@ -351,7 +336,7 @@ export default function ClientPlans() {
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={safePage === totalPages}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -364,25 +349,23 @@ export default function ClientPlans() {
       {/* Create/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeModal} />
+          <div className="absolute inset-0 bg-scrim/50 backdrop-blur-sm" onClick={closeModal} />
           <div
-            className="relative w-full max-w-lg rounded-2xl p-6 space-y-5 shadow-2xl"
-            style={{ background: "#0f1929", border: "1px solid rgba(99,102,241,0.2)" }}
+            className="relative w-full max-w-lg rounded-card p-6 space-y-5 glass-strong"
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center"
-                  style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center brand-tile"
                 >
-                  <Plus className="w-4 h-4 text-white" />
+                  <Plus className="w-4 h-4" />
                 </div>
-                <h2 className="text-white font-semibold text-lg">
+                <h2 className="text-foreground font-semibold text-lg">
                   {editing ? "Editar Plano" : "Novo Plano"}
                 </h2>
               </div>
-              <button onClick={closeModal} className="text-slate-400 hover:text-white transition-colors">
+              <button onClick={closeModal} className="text-muted-foreground hover:text-foreground transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -390,7 +373,7 @@ export default function ClientPlans() {
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Nome */}
               <div className="space-y-1.5">
-                <label className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                   <Tag className="w-3.5 h-3.5" />
                   NOME DO PLANO *
                 </label>
@@ -399,13 +382,13 @@ export default function ClientPlans() {
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   placeholder="Ex: Plano Mensal"
-                  className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-200 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
+                  className="w-full field text-sm rounded-xl px-4 py-3 placeholder:text-muted-foreground"
                 />
               </div>
 
               {/* Valor */}
               <div className="space-y-1.5">
-                <label className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                   <DollarSign className="w-3.5 h-3.5" />
                   VALOR *
                 </label>
@@ -416,15 +399,15 @@ export default function ClientPlans() {
                   value={form.value}
                   onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))}
                   placeholder="0,00"
-                  className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-200 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
+                  className="w-full field text-sm rounded-xl px-4 py-3 placeholder:text-muted-foreground"
                 />
               </div>
 
               {/* Tipo de Duração */}
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                   <Calendar className="w-3.5 h-3.5" />
-                  TIPO DE DURAÇÃO
+                  Tipo de duração
                 </label>
                 <div className="flex gap-3">
                   <button
@@ -432,16 +415,16 @@ export default function ClientPlans() {
                     onClick={() => setForm((f) => ({ ...f, durationType: "months" }))}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
                       form.durationType === "months"
-                        ? "bg-indigo-600 border-indigo-500 text-white"
-                        : "bg-[#0d1b2a] border-[#2a3a4a] text-slate-400 hover:border-indigo-500/50"
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : "bg-field border-input text-muted-foreground hover:border-primary/40"
                     }`}
                   >
                     <span
                       className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        form.durationType === "months" ? "border-white" : "border-slate-500"
+                        form.durationType === "months" ? "border-primary-foreground" : "border-border"
                       }`}
                     >
-                      {form.durationType === "months" && <span className="w-2 h-2 rounded-full bg-white" />}
+                      {form.durationType === "months" && <span className="w-2 h-2 rounded-full bg-primary-foreground" />}
                     </span>
                     <Calendar className="w-4 h-4" />
                     Meses
@@ -451,16 +434,16 @@ export default function ClientPlans() {
                     onClick={() => setForm((f) => ({ ...f, durationType: "days" }))}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
                       form.durationType === "days"
-                        ? "bg-indigo-600 border-indigo-500 text-white"
-                        : "bg-[#0d1b2a] border-[#2a3a4a] text-slate-400 hover:border-indigo-500/50"
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : "bg-field border-input text-muted-foreground hover:border-primary/40"
                     }`}
                   >
                     <span
                       className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        form.durationType === "days" ? "border-white" : "border-slate-500"
+                        form.durationType === "days" ? "border-primary-foreground" : "border-border"
                       }`}
                     >
-                      {form.durationType === "days" && <span className="w-2 h-2 rounded-full bg-white" />}
+                      {form.durationType === "days" && <span className="w-2 h-2 rounded-full bg-primary-foreground" />}
                     </span>
                     <Clock className="w-4 h-4" />
                     Dias
@@ -470,14 +453,13 @@ export default function ClientPlans() {
 
               {/* Quantidade */}
               <div className="space-y-1.5">
-                <label className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  <span className="text-indigo-400 font-bold">#</span>
-                  ESCOLHA A QUANTIDADE DE{" "}
+                <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                  <span className="text-primary font-bold">#</span>
+                  Escolha a quantidade de{" "}
                   <span
-                    className="ml-1 px-2 py-0.5 rounded text-xs font-bold"
-                    style={{ background: "rgba(99,102,241,0.3)", color: "#a5b4fc" }}
+                    className="ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-highlight text-highlight-foreground"
                   >
-                    {form.durationType === "months" ? "MESES" : "DIAS"}
+                    {form.durationType === "months" ? "meses" : "dias"}
                   </span>{" "}
                   *
                 </label>
@@ -487,22 +469,22 @@ export default function ClientPlans() {
                   value={form.durationQuantity}
                   onChange={(e) => setForm((f) => ({ ...f, durationQuantity: parseInt(e.target.value) || 1 }))}
                   placeholder="Quantidade"
-                  className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-200 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
+                  className="w-full field text-sm rounded-xl px-4 py-3 placeholder:text-muted-foreground"
                 />
               </div>
 
               {/* Descrição */}
               <div className="space-y-1.5">
-                <label className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                   <AlignLeft className="w-3.5 h-3.5" />
-                  DESCRIÇÃO
+                  Descrição
                 </label>
                 <textarea
                   value={form.description}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                   placeholder="Descrição do plano (opcional)"
                   rows={4}
-                  className="w-full bg-[#0d1b2a] border border-[#2a3a4a] text-slate-200 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 placeholder-slate-600 resize-y"
+                  className="w-full field text-sm rounded-xl px-4 py-3 placeholder:text-muted-foreground resize-y"
                 />
               </div>
 
@@ -511,7 +493,7 @@ export default function ClientPlans() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex items-center gap-2 flex-1 justify-center px-4 py-2.5 rounded-xl border border-[#2a3a4a] text-slate-400 hover:text-white hover:border-slate-500 text-sm font-medium transition-colors"
+                  className="flex items-center gap-2 flex-1 justify-center px-4 py-2.5 rounded-full border border-input text-muted-foreground hover:text-foreground hover:border-foreground/25 text-sm font-medium transition-colors"
                 >
                   <X className="w-4 h-4" />
                   Cancelar
@@ -519,11 +501,10 @@ export default function ClientPlans() {
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="flex items-center gap-2 flex-1 justify-center px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-60"
-                  style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+                  className="flex items-center gap-2 flex-1 justify-center px-4 py-2.5 rounded-full text-sm font-semibold transition-all disabled:opacity-60 bg-primary text-primary-foreground shadow-glow hover:bg-primary/90"
                 >
                   {isPending ? (
-                    <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
+                    <span className="animate-spin w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full" />
                   ) : (
                     <span>✓</span>
                   )}
@@ -538,25 +519,24 @@ export default function ClientPlans() {
       {/* Delete Confirm Modal */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)} />
+          <div className="absolute inset-0 bg-scrim/50 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)} />
           <div
-            className="relative w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl"
-            style={{ background: "#0f1929", border: "1px solid rgba(239,68,68,0.3)" }}
+            className="relative w-full max-w-sm rounded-card p-6 space-y-4 glass-strong border-destructive/30"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-600/20 border border-red-500/30 flex items-center justify-center">
-                <Trash2 className="w-5 h-5 text-red-400" />
+              <div className="w-10 h-10 rounded-xl bg-destructive/15 border border-destructive/30 flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-destructive" />
               </div>
               <div>
-                <h3 className="text-white font-semibold">Excluir plano</h3>
-                <p className="text-slate-400 text-sm">Essa ação não pode ser desfeita.</p>
+                <h3 className="text-foreground font-semibold">Excluir plano</h3>
+                <p className="text-muted-foreground text-sm">Essa ação não pode ser desfeita.</p>
               </div>
             </div>
-            <p className="text-slate-300 text-sm">
+            <p className="text-foreground/85 text-sm">
               Tem certeza que deseja excluir o plano{" "}
-              <strong className="text-white">{deleteConfirm.name}</strong>?
+              <strong className="text-foreground">{deleteConfirm.name}</strong>?
               {deleteConfirm.clientCount > 0 && (
-                <span className="text-yellow-400 block mt-1">
+                <span className="text-warning block mt-1">
                   ⚠ {deleteConfirm.clientCount} cliente(s) usam esse plano.
                 </span>
               )}
@@ -564,14 +544,14 @@ export default function ClientPlans() {
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-[#2a3a4a] text-slate-400 hover:text-white text-sm font-medium transition-colors"
+                className="flex-1 px-4 py-2.5 rounded-full border border-input text-muted-foreground hover:text-foreground text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => deleteMutation.mutate(deleteConfirm.id)}
                 disabled={deleteMutation.isPending}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors disabled:opacity-60"
+                className="flex-1 px-4 py-2.5 rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm font-semibold transition-colors disabled:opacity-60"
               >
                 {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
               </button>

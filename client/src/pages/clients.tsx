@@ -9,6 +9,7 @@ import { AddonDialog } from "@/components/clients/addon-dialog";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
+import { PageHeader } from "@/components/layout/page-header";
 import {
   Plus,
   Search,
@@ -43,19 +44,19 @@ function formatExpiryDate(expiryDate: string): string {
 }
 
 function expiryBadgeStyle(days: number, status: string): string {
-  if (status !== "Ativa") return "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30";
-  if (days < 0) return "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30";
-  if (days === 0) return "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30";
-  if (days <= 3) return "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30";
-  return "bg-green-500/15 text-green-600 dark:text-green-400 border border-green-500/30";
+  if (status !== "Ativa") return "bg-destructive/15 text-destructive  border border-destructive/30";
+  if (days < 0) return "bg-destructive/15 text-destructive  border border-destructive/30";
+  if (days === 0) return "bg-destructive/15 text-destructive  border border-destructive/30";
+  if (days <= 3) return "bg-warning/15 text-warning  border border-warning/30";
+  return "bg-success/15 text-success  border border-success/30";
 }
 
 function statusBadgeStyle(status: string, days: number): string {
-  if (status !== "Ativa") return "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30";
-  if (days === 0) return "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30";
-  if (days === 1) return "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30";
-  if (days <= 3) return "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30";
-  return "bg-green-500/15 text-green-600 dark:text-green-400 border border-green-500/30";
+  if (status !== "Ativa") return "bg-destructive/15 text-destructive  border border-destructive/30";
+  if (days === 0) return "bg-info/15 text-info  border border-info/30";
+  if (days === 1) return "bg-warning/15 text-warning  border border-warning/30";
+  if (days <= 3) return "bg-warning/15 text-warning  border border-warning/30";
+  return "bg-success/15 text-success  border border-success/30";
 }
 
 function statusLabel(status: string, days: number): string {
@@ -67,9 +68,9 @@ function statusLabel(status: string, days: number): string {
 }
 
 function dotColor(status: string, days: number): string {
-  if (status !== "Ativa") return "bg-red-500";
-  if (days <= 3) return "bg-orange-500";
-  return "bg-green-500";
+  if (status !== "Ativa") return "bg-destructive";
+  if (days <= 3) return "bg-warning";
+  return "bg-success";
 }
 
 // ─── Filter Bar ─────────────────────────────────────────────────────────────
@@ -430,10 +431,10 @@ export default function Clients() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-muted rounded-lg w-64" />
-          <div className="h-96 bg-muted rounded-xl" />
+          <div className="h-10 bg-foreground/[0.07] rounded-xl w-64" />
+          <div className="h-96 glass" />
         </div>
       </div>
     );
@@ -443,29 +444,20 @@ export default function Clients() {
 
   if (showForm) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
         <div className="flex items-center gap-4">
           <button
             onClick={() => { setShowForm(false); setEditingClient(undefined); }}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm"
+            className="flex h-9 items-center gap-2 rounded-full border border-edge bg-secondary px-4 text-sm font-medium text-foreground shadow-glass transition-colors hover:bg-accent"
           >
             <ArrowLeft className="w-4 h-4" />
             Voltar
           </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-[hsl(262,52%,47%)] flex items-center justify-center shrink-0">
-              <Users className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                {editingClient ? "Editar Cliente" : "Novo Cliente"}
-              </h1>
-              <p className="text-muted-foreground text-sm">
-                {editingClient ? "Atualize as informações do cliente" : "Cadastre um novo cliente IPTV"}
-              </p>
-            </div>
-          </div>
         </div>
+        <PageHeader
+          title={editingClient ? "Editar Cliente" : "Novo Cliente"}
+          description={editingClient ? "Atualize as informações do cliente" : "Cadastre um novo cliente IPTV"}
+        />
         <ClientForm
           initialData={editingClient}
           onSubmit={handleFormSubmit}
@@ -482,30 +474,25 @@ export default function Clients() {
 
   return (
     <>
-    <div className="p-6 space-y-4 min-h-screen">
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-[hsl(262,52%,47%)] flex items-center justify-center shrink-0">
-            <Users className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Clientes</h1>
-            <p className="text-muted-foreground text-sm">Lista de clientes</p>
-          </div>
-        </div>
+      <PageHeader
+        title="Clientes"
+        description="Lista de clientes"
+        actions={
         <button
           onClick={() => { setEditingClient(undefined); setShowForm(true); }}
-          className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm"
+          className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-5 py-2.5 rounded-full transition-colors text-sm"
         >
           <Plus className="w-4 h-4" />
           Novo cliente
         </button>
-      </div>
+        }
+      />
 
       {/* ── Filter Bar ── */}
-      <div className="bg-card border border-border rounded-xl p-4">
+      <div className="glass p-4">
         <div className="flex flex-wrap items-end gap-3">
 
           {/* Activation Date */}
@@ -515,7 +502,7 @@ export default function Clients() {
               type="date"
               value={filters.activationDate}
               onChange={(e) => setFilter("activationDate", e.target.value)}
-              className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary w-40"
+              className="field text-sm rounded-lg px-3 py-2 w-40"
             />
           </div>
 
@@ -526,7 +513,7 @@ export default function Clients() {
               type="date"
               value={filters.expiryDate}
               onChange={(e) => setFilter("expiryDate", e.target.value)}
-              className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary w-40"
+              className="field text-sm rounded-lg px-3 py-2 w-40"
             />
           </div>
 
@@ -536,7 +523,7 @@ export default function Clients() {
             <select
               value={filters.status}
               onChange={(e) => setFilter("status", e.target.value)}
-              className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary w-40"
+              className="field text-sm rounded-lg px-3 py-2 w-40"
             >
               <option value="all">Todos</option>
               <option value="Ativa">Ativos</option>
@@ -555,7 +542,7 @@ export default function Clients() {
             <select
               value={filters.paymentStatus}
               onChange={(e) => setFilter("paymentStatus", e.target.value)}
-              className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary w-40"
+              className="field text-sm rounded-lg px-3 py-2 w-40"
             >
               <option value="all">Todos</option>
               <option value="Pago">Pago</option>
@@ -570,7 +557,7 @@ export default function Clients() {
             <select
               value={filters.plan}
               onChange={(e) => setFilter("plan", e.target.value)}
-              className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary w-40"
+              className="field text-sm rounded-lg px-3 py-2 w-40"
             >
               <option value="all">Todos</option>
               {clientPlansList.map((p) => (
@@ -585,7 +572,7 @@ export default function Clients() {
             <select
               value={filters.system}
               onChange={(e) => setFilter("system", e.target.value)}
-              className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary w-40"
+              className="field text-sm rounded-lg px-3 py-2 w-40"
             >
               <option value="all">Todos</option>
               {systemsList.map((s) => (
@@ -597,7 +584,7 @@ export default function Clients() {
           {/* Limpar */}
           <button
             onClick={handleClearFilters}
-            className="ml-auto bg-secondary hover:bg-secondary/80 text-secondary-foreground text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-border"
+            className="ml-auto bg-secondary hover:bg-secondary/80 text-secondary-foreground text-sm font-medium px-4 py-2 rounded-full transition-colors border border-border"
           >
             Limpar
           </button>
@@ -605,14 +592,14 @@ export default function Clients() {
       </div>
 
       {/* ── Search + Bulk ── */}
-      <div className="bg-card border border-border rounded-xl p-4">
+      <div className="glass p-4">
         <div className="flex items-center gap-4 flex-wrap">
           {/* Search */}
           <div className="flex flex-1 min-w-[280px] gap-2">
             <select
               value={searchField}
               onChange={(e) => { setSearchField(e.target.value as typeof searchField); setSearchTerm(""); setCurrentPage(1); }}
-              className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary shrink-0"
+              className="field text-sm rounded-lg px-3 py-2 shrink-0"
             >
               <option value="nome">Nome</option>
               <option value="usuario">Usuário</option>
@@ -632,7 +619,7 @@ export default function Clients() {
                   searchField === "telefone" ? "Buscar por telefone (número exato)..." :
                   "Buscar por ID (ex: 1158)..."
                 }
-                className="w-full bg-background border border-border text-foreground text-sm rounded-lg pl-9 pr-9 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary placeholder:text-muted-foreground/70"
+                className="w-full field text-sm rounded-lg pl-9 pr-9 py-2 placeholder:text-muted-foreground/70"
               />
               {searchTerm && (
                 <button
@@ -653,7 +640,7 @@ export default function Clients() {
             {selectedClients.length > 0 && (
               <button
                 onClick={handleDeleteSelected}
-                className="flex items-center gap-1.5 bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+                className="flex items-center gap-1.5 bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm font-medium px-3 py-1.5 rounded-full transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Deletar
@@ -666,7 +653,7 @@ export default function Clients() {
             <select
               value={itemsPerPage}
               onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
+              className="field text-sm rounded-lg px-3 py-2"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>
@@ -677,9 +664,9 @@ export default function Clients() {
       </div>
 
       {/* ── Table ── */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="glass-strong overflow-hidden">
         <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full [&_td]:whitespace-nowrap">
           <thead>
             <tr className="border-b border-border">
               <th className="px-4 py-3 text-left w-10">
@@ -689,15 +676,15 @@ export default function Clients() {
                 />
               </th>
               <th className="px-2 py-3 w-6" />
-              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">ID</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Usuário</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Plano</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sistema</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Aplicativo</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vencimento</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ações</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">ID</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Nome</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Usuário</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Plano</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Sistema</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Aplicativo</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Vencimento</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Status</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -847,17 +834,17 @@ export default function Clients() {
       const formattedRenewDate = renewDate ? `${rd}/${rm}/${ry}` : "";
 
       return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-md mx-4 rounded-2xl overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 backdrop-blur-sm">
+          <div className="w-full max-w-md mx-4 rounded-card overflow-hidden border border-edge shadow-float">
 
             {/* ── Teal header ── */}
-            <div className="bg-[#0d9488] px-6 pt-6 pb-5 text-center">
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-amber-400/20 border-2 border-amber-400 mx-auto mb-3">
-                <span className="text-amber-400 text-xl font-bold">!</span>
+            <div className="bg-success px-6 pt-6 pb-5 text-center">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-highlight mx-auto mb-3">
+                <span className="text-highlight-foreground text-xl font-bold">!</span>
               </div>
-              <h2 className="text-white text-xl font-bold mb-1">Atenção</h2>
-              <p className="text-white/90 text-sm font-medium">Tem certeza que deseja renovar esse cliente?</p>
-              <p className="text-white/80 text-sm">Será renovado: <span className="font-semibold">{durationLabel}</span></p>
+              <h2 className="text-success-foreground text-xl font-bold mb-1">Atenção</h2>
+              <p className="text-success-foreground/90 text-sm font-medium">Tem certeza que deseja renovar esse cliente?</p>
+              <p className="text-success-foreground/80 text-sm">Será renovado: <span className="font-semibold">{durationLabel}</span></p>
             </div>
 
             {/* ── Body ── */}
@@ -874,7 +861,7 @@ export default function Clients() {
                       const raw = e.target.value.replace(/[^\d,\.]/g, "").replace(",", ".");
                       setRenewPlanValue(raw);
                     }}
-                    className="w-full bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500"
+                    className="w-full field text-sm rounded-lg px-3 py-2.5"
                   />
                 </div>
 
@@ -885,7 +872,7 @@ export default function Clients() {
                     type="date"
                     value={renewDate}
                     onChange={(e) => setRenewDate(e.target.value)}
-                    className="w-full bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500"
+                    className="w-full field text-sm rounded-lg px-3 py-2.5"
                   />
                   <p className="text-muted-foreground text-[11px] mt-1 leading-tight">
                     Para renovar um mês corrente, deixe o campo de data vazio
@@ -898,7 +885,7 @@ export default function Clients() {
                   <select
                     value={renewPlanName}
                     onChange={(e) => handleRenewPlanChange(e.target.value)}
-                    className="w-full bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500"
+                    className="w-full field text-sm rounded-lg px-3 py-2.5"
                   >
                     {clientPlansList.length === 0 && (
                       <option value={renewPlanName}>{renewPlanName || "Mensal"}</option>
@@ -916,14 +903,14 @@ export default function Clients() {
               <div className="flex gap-3 pt-1">
                 <button
                   onClick={() => setRenewClient(undefined)}
-                  className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium py-2.5 rounded-lg transition-colors text-sm border border-border"
+                  className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium py-2.5 rounded-full transition-colors text-sm border border-border"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={confirmRenewal}
                   disabled={!renewDate || updateMutation.isPending}
-                  className="flex-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors text-sm"
+                  className="flex-1 bg-success hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed text-success-foreground font-semibold py-2.5 rounded-full transition-colors text-sm"
                 >
                   {updateMutation.isPending ? "Renovando..." : "Sim, Renovar"}
                 </button>
@@ -936,8 +923,8 @@ export default function Clients() {
 
     {/* ── Free Month Modal ── */}
     {giftClient && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-        <div className="bg-popover border border-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 backdrop-blur-sm">
+        <div className="glass-strong w-full max-w-md mx-4 p-6">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-10 h-10 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center">
               <Gift className="w-5 h-5 text-primary" />
@@ -955,7 +942,7 @@ export default function Clients() {
                 type="date"
                 value={giftDate}
                 onChange={(e) => setGiftDate(e.target.value)}
-                className="w-full bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
+                className="w-full field text-sm rounded-lg px-3 py-2.5"
               />
             </div>
 
@@ -967,14 +954,14 @@ export default function Clients() {
           <div className="flex gap-3 mt-6">
             <button
               onClick={() => setGiftClient(undefined)}
-              className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium py-2.5 rounded-lg transition-colors text-sm border border-border"
+              className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium py-2.5 rounded-full transition-colors text-sm border border-border"
             >
               Cancelar
             </button>
             <button
               onClick={confirmFreeMonth}
               disabled={!giftDate || freeMonthMutation.isPending}
-              className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground font-semibold py-2.5 rounded-lg transition-colors text-sm"
+              className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground font-semibold py-2.5 rounded-full transition-colors text-sm"
             >
               {freeMonthMutation.isPending ? "Aplicando..." : "Confirmar"}
             </button>
@@ -1034,9 +1021,9 @@ function PagBtn({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+      className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium transition-colors ${
         active
-          ? "bg-primary text-primary-foreground"
+          ? "bg-ink text-ink-foreground"
           : disabled
           ? "text-muted-foreground/50 cursor-not-allowed"
           : "text-muted-foreground hover:bg-muted hover:text-foreground"

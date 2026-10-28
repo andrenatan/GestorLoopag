@@ -120,28 +120,25 @@ export default function CrmTemplateNew() {
   const isEmpty = !headerText && !bodyText && !footerText && buttons.length === 0;
 
   return (
-    <div className="h-full overflow-y-auto p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <Link href="/crm/templates" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
+      <div className="flex items-center gap-3">
+        <Link href="/crm/templates" className="flex h-9 items-center gap-1.5 rounded-full border border-edge bg-secondary px-4 text-sm font-medium text-foreground shadow-glass transition-colors hover:bg-accent">
           <ArrowLeft className="w-4 h-4" />
           Voltar
         </Link>
       </div>
 
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center shrink-0">
-          <MessageSquare className="w-5 h-5 text-white" />
-        </div>
+      <div data-reveal className="flex items-center gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Novo Template</h1>
-          <p className="text-muted-foreground text-sm">
+          <h1 className="text-balance font-display text-3xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-[2.6rem]">Novo Template</h1>
+          <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground sm:text-base">
             Crie um template de mensagem para envio via WhatsApp, sujeito a aprovação da Meta
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 items-start">
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="glass-strong space-y-5 p-5 sm:p-6">
           <div className="space-y-2">
             <Label>WABA / Canal *</Label>
             <Select value={hasConnection ? "current" : ""} disabled>
@@ -161,7 +158,7 @@ export default function CrmTemplateNew() {
             )}
           </div>
 
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-1">
+          <p className="text-xs font-semibold text-muted-foreground pt-1">
             Identificação
           </p>
 
@@ -207,7 +204,7 @@ export default function CrmTemplateNew() {
             {categoryInfo?.help} — categorizar incorretamente pode causar reprovação do template pela Meta.
           </p>
 
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-1">
+          <p className="text-xs font-semibold text-muted-foreground pt-1">
             Conteúdo da mensagem
           </p>
 
@@ -327,22 +324,22 @@ export default function CrmTemplateNew() {
         </form>
 
         <div className="lg:sticky lg:top-6 space-y-3">
-          <p className="text-xs font-semibold tracking-wide text-muted-foreground">PREVIEW</p>
+          <p className="text-sm font-semibold text-foreground">Preview</p>
           <div className="mx-auto w-full max-w-[280px] rounded-[2rem] border-8 border-foreground/10 overflow-hidden shadow-xl">
-            <div className="bg-emerald-600 text-white px-4 py-3 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-white/20" />
+            <div className="bg-success text-success-foreground px-4 py-3 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-success-foreground/25" />
               <div>
                 <p className="text-sm font-semibold leading-tight">Sua empresa</p>
-                <p className="text-[10px] text-white/80 leading-tight">online</p>
+                <p className="text-[10px] text-success-foreground/80 leading-tight">online</p>
               </div>
             </div>
-            <div className="bg-[#e5ddd5] dark:bg-[#0b141a] min-h-[360px] p-3 flex flex-col justify-end">
+            <div className="bg-whatsapp-wallpaper min-h-[360px] p-3 flex flex-col justify-end">
               {isEmpty ? (
                 <p className="text-xs text-muted-foreground text-center m-auto px-6">
                   Preencha o template para ver o preview
                 </p>
               ) : (
-                <div className="bg-white dark:bg-[#202c33] rounded-lg rounded-tl-none p-3 shadow-sm max-w-[90%] space-y-1.5">
+                <div className="bg-whatsapp-bubble text-foreground rounded-lg rounded-tl-none p-3 shadow-sm max-w-[90%] space-y-1.5">
                   {showHeader && headerText && (
                     <p className="text-sm font-bold text-foreground">{headerText}</p>
                   )}
@@ -355,7 +352,7 @@ export default function CrmTemplateNew() {
                   {showButtons && buttons.length > 0 && (
                     <div className="pt-1.5 mt-1.5 border-t border-border space-y-1">
                       {buttons.map((b, i) => (
-                        <p key={i} className="text-xs text-blue-600 dark:text-blue-400 text-center py-1">
+                        <p key={i} className="text-xs text-info text-center py-1">
                           {b.text || "Botão"}
                         </p>
                       ))}

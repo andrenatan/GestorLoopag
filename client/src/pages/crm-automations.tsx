@@ -16,6 +16,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Plus, Edit2, Trash2, Zap, PlayCircle, ListChecks, BarChart3 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { CrmAutomation, CrmAutomationRun, CrmTemplate, System } from "@shared/schema";
+import { getBrasiliaDateString } from "@/lib/timezone";
+import { chartAxisTick, chartColors, chartCursor, chartGridStroke, chartTooltipItemStyle, chartTooltipLabelStyle, chartTooltipStyle } from "@/lib/chart-theme";
 
 type EnrichedRun = CrmAutomationRun & { contactName: string | null; contactPhone: string | null };
 
@@ -311,15 +313,12 @@ export default function CrmAutomations() {
     !formData.templateId || formData.templateVariableMapping.length === 0 || formData.templateVariableMapping.some((m) => !m);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-8">
+      <div data-reveal className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center shrink-0">
-            <Zap className="w-5 h-5 text-white" />
-          </div>
           <div>
-            <h1 className="text-3xl font-bold">Automações do CRM</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-balance font-display text-3xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-[2.6rem]">Automações do CRM</h1>
+            <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground sm:text-base">
               Disparos automáticos de WhatsApp por vencimento, criação de cliente ou sob demanda
             </p>
           </div>
@@ -350,7 +349,7 @@ export default function CrmAutomations() {
                 />
               </div>
 
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-1">
+              <p className="text-xs font-semibold text-muted-foreground pt-1">
                 Gatilho e público-alvo
               </p>
 
@@ -423,7 +422,7 @@ export default function CrmAutomations() {
                 </div>
               </div>
 
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-1">
+              <p className="text-xs font-semibold text-muted-foreground pt-1">
                 Mensagem
               </p>
 
@@ -523,7 +522,7 @@ export default function CrmAutomations() {
         </TabsList>
 
         <TabsContent value="automations" className="space-y-6 pt-4">
-      <Card className="glassmorphism neon-border">
+      <Card>
         <CardHeader>
           <CardTitle>Automações ({automations.length})</CardTitle>
         </CardHeader>
@@ -555,7 +554,7 @@ export default function CrmAutomations() {
                       {templates.find((t) => t.id === automation.templateId)?.name ?? `#${automation.templateId}`}
                     </TableCell>
                     <TableCell>
-                      <Badge className={automation.isActive ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"}>
+                      <Badge className={automation.isActive ? "bg-success/10 text-success  " : "bg-destructive/10 text-destructive  "}>
                         {automation.isActive ? "Ativa" : "Inativa"}
                       </Badge>
                     </TableCell>
@@ -611,7 +610,7 @@ export default function CrmAutomations() {
         </TabsContent>
 
         <TabsContent value="report" className="space-y-6 pt-4">
-          <Card className="glassmorphism neon-border">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5" />
@@ -666,25 +665,25 @@ export default function CrmAutomations() {
                     <Card>
                       <CardContent className="p-4">
                         <p className="text-xs text-muted-foreground">Total Processado</p>
-                        <p className="text-2xl font-bold">{reportSummary.total}</p>
+                        <p className="font-display text-3xl font-semibold tracking-tight">{reportSummary.total}</p>
                       </CardContent>
                     </Card>
                     <Card>
                       <CardContent className="p-4">
                         <p className="text-xs text-muted-foreground">Enviados</p>
-                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">{reportSummary.sent}</p>
+                        <p className="font-display text-3xl font-semibold tracking-tight text-success">{reportSummary.sent}</p>
                       </CardContent>
                     </Card>
                     <Card>
                       <CardContent className="p-4">
                         <p className="text-xs text-muted-foreground">Falhas</p>
-                        <p className="text-2xl font-bold text-red-600 dark:text-red-400">{reportSummary.failed}</p>
+                        <p className="font-display text-3xl font-semibold tracking-tight text-destructive">{reportSummary.failed}</p>
                       </CardContent>
                     </Card>
                     <Card>
                       <CardContent className="p-4">
                         <p className="text-xs text-muted-foreground">Taxa de Sucesso</p>
-                        <p className="text-2xl font-bold">{reportSummary.successRate.toFixed(1)}%</p>
+                        <p className="font-display text-3xl font-semibold tracking-tight">{reportSummary.successRate.toFixed(1)}%</p>
                       </CardContent>
                     </Card>
                   </div>
@@ -709,25 +708,30 @@ export default function CrmAutomations() {
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={reportChartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                          <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
                           <XAxis
                             dataKey="date"
-                            tick={{ fontSize: 10 }}
+                            tick={{ ...chartAxisTick, fontSize: 10 }}
                             tickLine={false}
+                            axisLine={false}
                             tickFormatter={(d) => {
                               const [, m, day] = String(d).split("-");
                               return `${day}/${m}`;
                             }}
                           />
-                          <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                          <YAxis tick={chartAxisTick} tickLine={false} axisLine={false} allowDecimals={false} />
                           <Tooltip
+                            contentStyle={chartTooltipStyle}
+                            labelStyle={chartTooltipLabelStyle}
+                            itemStyle={chartTooltipItemStyle}
+                            cursor={chartCursor}
                             labelFormatter={(d) => {
                               const [y, m, day] = String(d).split("-");
                               return `${day}/${m}/${y}`;
                             }}
                           />
-                          <Bar dataKey="sent" name="Enviados" fill="#10b981" radius={[4, 4, 0, 0]} />
-                          <Bar dataKey="failed" name="Falhas" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="sent" name="Enviados" fill={chartColors.lagoa} radius={[6, 6, 0, 0]} />
+                          <Bar dataKey="failed" name="Falhas" fill={chartColors.danger} radius={[6, 6, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -756,10 +760,10 @@ export default function CrmAutomations() {
                               <Badge
                                 className={
                                   run.status === "sent"
-                                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                                    ? "bg-success/10 text-success  "
                                     : run.status === "failed"
-                                    ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                                    : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                                    ? "bg-destructive/10 text-destructive  "
+                                    : "bg-muted text-foreground  "
                                 }
                               >
                                 {run.status}
@@ -841,10 +845,10 @@ export default function CrmAutomations() {
                     <Badge
                       className={
                         run.status === "sent"
-                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                          ? "bg-success/10 text-success  "
                           : run.status === "failed"
-                          ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                          : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                          ? "bg-destructive/10 text-destructive  "
+                          : "bg-muted text-foreground  "
                       }
                     >
                       {run.status}

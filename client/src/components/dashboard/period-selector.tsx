@@ -182,7 +182,7 @@ export function PeriodSelector({ value, onChange }: Props) {
   return (
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setShowMonthPicker(false); }}>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-1 text-xs bg-muted text-muted-foreground px-3 py-1.5 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors border border-border">
+        <button type="button" className="flex h-8 shrink-0 items-center gap-1 rounded-full border border-edge bg-secondary px-3.5 text-xs font-semibold text-foreground shadow-glass transition-colors hover:bg-accent">
           {value.label}
           <ChevronDown className="w-3 h-3 ml-0.5 opacity-70" />
         </button>
@@ -190,15 +190,14 @@ export function PeriodSelector({ value, onChange }: Props) {
       <PopoverContent
         align="end"
         sideOffset={6}
-        className="w-52 p-0 bg-background border border-border rounded-xl shadow-2xl overflow-hidden"
+        className="w-56 overflow-hidden p-1.5"
       >
         {!showMonthPicker ? (
           <div className="max-h-80 overflow-y-auto">
             {GROUPS.map((group) => (
               <div key={group.label}>
                 <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
-                  <div className="w-3 h-3 rounded-sm bg-primary flex-shrink-0" />
-                  <span className="text-xs font-semibold text-primary uppercase tracking-wide">{group.label}</span>
+                  <span className="text-xs font-semibold text-muted-foreground">{group.label}</span>
                 </div>
                 {group.items.map((item) => {
                   const isSelected = value.label === item || (item === "Mês Específico" && !GROUPS.flatMap(g => g.items).includes(value.label));
@@ -206,10 +205,10 @@ export function PeriodSelector({ value, onChange }: Props) {
                     <button
                       key={item}
                       onClick={() => handleSelect(item)}
-                      className={`w-full text-left px-3 py-1.5 text-sm transition-colors flex items-center justify-between ${
+                      className={`w-full text-left px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center justify-between ${
                         isSelected
-                          ? "bg-primary/15 text-primary"
-                          : "text-muted-foreground hover:bg-muted"
+                          ? "bg-ink text-ink-foreground font-semibold"
+                          : "text-foreground/80 hover:bg-accent"
                       }`}
                     >
                       {item}
@@ -242,10 +241,10 @@ export function PeriodSelector({ value, onChange }: Props) {
                 <button
                   key={name}
                   onClick={() => handleMonthPick(idx)}
-                  className={`py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={`py-1.5 rounded-full text-xs font-medium transition-colors ${
                     selectedPickerMonth === idx && selectedPickerYear === pickerYear
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      ? "bg-ink text-ink-foreground"
+                      : "bg-muted text-foreground/80 hover:bg-accent hover:text-accent-foreground"
                   }`}
                 >
                   {name}
