@@ -16,7 +16,7 @@ import { Upload, FileSpreadsheet, AlertTriangle, ChevronsUpDown, Check, Smartpho
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import type { Client, System, ClientPlan, App } from "@shared/schema";
-import { getBrasiliaStartOfDay, parseDateString } from "@/lib/timezone";
+import { getBrasiliaStartOfDay, getBrasiliaDateString, parseDateString } from "@/lib/timezone";
 import { getSupabase } from "@/lib/supabase";
 
 const FALLBACK_PLANS = [
@@ -403,7 +403,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
       system: initialData?.system || "",
       subscriptionStatus: initialData?.subscriptionStatus || "Ativa",
       paymentMethod: initialData?.paymentMethod || "pix",
-      activationDate: initialData?.activationDate || new Date().toISOString().split('T')[0],
+      activationDate: initialData?.activationDate || getBrasiliaDateString(),
       expiryDate: initialData?.expiryDate || "",
       paymentStatus: initialData?.paymentStatus || "Pago",
       plan: initialData?.plan || "",

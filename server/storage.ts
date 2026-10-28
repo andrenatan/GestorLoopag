@@ -788,7 +788,7 @@ export class DbStorage implements IStorage {
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth() + 1;
     const monthStart = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
-    const monthEnd = new Date(currentYear, currentMonth, 0).toISOString().split('T')[0];
+    const monthEnd = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(new Date(currentYear, currentMonth, 0).getDate()).padStart(2, '0')}`;
 
     // Week start string
     const weekStartStr = `${sevenDaysAgo.getFullYear()}-${String(sevenDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysAgo.getDate()).padStart(2, '0')}`;

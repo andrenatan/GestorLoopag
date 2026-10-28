@@ -27,7 +27,7 @@ import {
   PlusCircle,
 } from "lucide-react";
 import type { Client, ClientPlan } from "@shared/schema";
-import { getBrasiliaStartOfDay, parseDateString } from "@/lib/timezone";
+import { getBrasiliaStartOfDay, parseDateString, formatLocalDateString } from "@/lib/timezone";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -249,7 +249,7 @@ export default function Clients() {
     } else {
       date.setDate(date.getDate() + durationQuantity);
     }
-    return date.toISOString().split("T")[0];
+    return formatLocalDateString(date);
   }
 
   function getPlanDurationLabel(plan: ClientPlan): string {
@@ -319,7 +319,7 @@ export default function Clients() {
   function openGiftModal(client: Client) {
     const expiry = parseDateString(client.expiryDate);
     expiry.setMonth(expiry.getMonth() + 1);
-    const newDate = expiry.toISOString().split("T")[0];
+    const newDate = formatLocalDateString(expiry);
     setGiftDate(newDate);
     setGiftClient(client);
   }

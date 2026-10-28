@@ -9,6 +9,7 @@ import {
   type User, type Client as ClientRow
 } from "@shared/schema";
 import { runAutomationNow } from "./automation-engine";
+import { getBrasiliaDateString, formatLocalDateString } from "./utils/timezone";
 import multer from "multer";
 import { Client } from "@replit/object-storage";
 import bcrypt from "bcryptjs";
@@ -207,13 +208,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const body = req.body;
-
-      const getBrasiliaDateString = () => {
-        const now = new Date();
-        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-        const brasiliaTime = new Date(utc + (3600000 * -3));
-        return brasiliaTime.toISOString().split('T')[0];
-      };
 
       const parseDateBR = (dateStr: string | undefined | null): string | undefined => {
         if (!dateStr) return undefined;
@@ -2178,8 +2172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (typeof date === 'string') {
             return date;
           }
-          const d = new Date(date);
-          return d.toISOString().split('T')[0];
+          return formatLocalDateString(new Date(date));
         };
         
         const oldDateNormalized = normalizeDate(oldExpiryDate);
@@ -2192,14 +2185,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Only register renewal if dates actually changed
         if (newDateNormalized !== oldDateNormalized) {
-          // Get current date in Brasília timezone for payment date
-          const getBrasiliaDateString = () => {
-            const now = new Date();
-            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-            const brasiliaTime = new Date(utc + (3600000 * -3));
-            return brasiliaTime.toISOString().split('T')[0];
-          };
-          
           // Create new renewal payment record (preserves historical data)
           const currentBrasiliaDate = getBrasiliaDateString();
           console.log(`[Renewal] Creating payment record for client ${client.id}: previousExpiry=${oldDateNormalized}, newExpiry=${newDateNormalized}`);

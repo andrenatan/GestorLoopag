@@ -77,13 +77,11 @@ interface ManualEntryForm {
 }
 
 function todayStr(): string {
-  return new Date().toISOString().split("T")[0];
+  return getBrasiliaDateString();
 }
 
 function daysAgoStr(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().split("T")[0];
+  return getBrasiliaDateString(new Date(Date.now() - days * 24 * 60 * 60 * 1000));
 }
 
 function formatCurrency(val: number): string {

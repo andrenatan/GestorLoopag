@@ -4,13 +4,7 @@ import { PlusCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import type { Client } from "@shared/schema";
-
-function getBrasiliaDateString(): string {
-  const now = new Date();
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  const brasilia = new Date(utc + 3600000 * -3);
-  return brasilia.toISOString().split("T")[0];
-}
+import { getBrasiliaDateString } from "@/lib/timezone";
 
 interface AddonDialogProps {
   client: Client;

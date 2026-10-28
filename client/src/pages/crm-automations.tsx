@@ -176,7 +176,7 @@ export default function CrmAutomations() {
   const reportChartData = useMemo(() => {
     const byDate = new Map<string, { date: string; sent: number; failed: number }>();
     for (const run of reportRuns) {
-      const date = new Date(run.executedAt).toISOString().split("T")[0];
+      const date = getBrasiliaDateString(new Date(run.executedAt));
       const entry = byDate.get(date) ?? { date, sent: 0, failed: 0 };
       if (run.status === "sent") entry.sent++;
       if (run.status === "failed") entry.failed++;
