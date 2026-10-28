@@ -1,6 +1,6 @@
 import {
   plans, users, employees, systems, clients, paymentHistory, clientPlans,
-  apps, clientApps,
+  apps,
   systemCreditRules, manualRenewalPlans, manualRenewalInstallments, creditConsumptionHistory,
   manualFinancialEntries,
   crmContacts, crmMessages, crmAutomations, crmAutomationRuns, crmTemplates,
@@ -13,7 +13,7 @@ import {
   type PaymentHistory, type InsertPaymentHistory,
   type ClientPlan, type InsertClientPlan,
   type App, type InsertApp,
-  type ClientApp,
+  type ClientAppLink,
   type SystemCreditRule, type InsertSystemCreditRule,
   type ManualRenewalPlan,
   type ManualRenewalInstallment,
@@ -28,6 +28,9 @@ import { getBrasiliaDate, getBrasiliaDateString, getBrasiliaStartOfDay, parseDat
 import { normalizePhoneDigits } from "./utils/whatsapp";
 import { getStateFromPhone } from "@shared/ddd-map";
 import { db } from "../db";
+
+// Shape returned by GET /api/clients/:id/apps (appName kept for the frontend)
+export type ClientAppView = ClientAppLink & { appName: string };
 import { eq, and, gte, lte, sql, desc, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
@@ -180,16 +183,16 @@ export interface IStorage {
   deleteApp(authUserId: string, id: number): Promise<boolean>;
   toggleAppStatus(authUserId: string, id: number): Promise<App | undefined>;
 
-  // Client Apps (links clients to apps)
-  getClientApps(authUserId: string, clientId: number): Promise<(ClientApp & { appName: string })[]>;
-  // Returns the resolved primary app's name (or null if primary is null /
-  // not found) — also mirrored onto clients.app in the same transaction.
+  // Client Apps (stored in clients.apps)
+  getClientApps(authUserId: string, clientId: number): Promise<ClientAppView[]>;
+  // Replaces clients.apps; throws if any appId isn't in the tenant's catalog.
+  // Returns the saved links (primary first).
   setClientApps(
     authUserId: string,
     clientId: number,
     primary: { appId: number; expiryDate?: string | null } | null,
     additional: { appId: number; expiryDate?: string | null }[]
-  ): Promise<string | null>;
+  ): Promise<ClientAppLink[]>;
 
   // System Credit Rules (credits consumed per system + client plan)
   getSystemCreditRules(authUserId: string, systemId: number): Promise<(SystemCreditRule & { clientPlanName: string })[]>;
@@ -520,9 +523,6 @@ export class DbStorage implements IStorage {
         await tx.delete(crmMessages).where(eq(crmMessages.contactId, contact[0].id));
         await tx.delete(crmContacts).where(eq(crmContacts.id, contact[0].id));
       }
-
-      await tx.delete(clientApps)
-        .where(and(eq(clientApps.clientId, id), eq(clientApps.authUserId, authUserId)));
 
       const renewalPlans = await tx.select({ id: manualRenewalPlans.id }).from(manualRenewalPlans)
         .where(and(eq(manualRenewalPlans.clientId, id), eq(manualRenewalPlans.authUserId, authUserId)));
@@ -1262,12 +1262,14 @@ export class DbStorage implements IStorage {
       .where(eq(apps.authUserId, authUserId))
       .orderBy(desc(apps.createdAt));
 
-    const counts = await db.select({ appId: clientApps.appId, count: sql<number>`COUNT(*)` })
-      .from(clientApps)
-      .where(eq(clientApps.authUserId, authUserId))
-      .groupBy(clientApps.appId);
+    const counts = await db.execute(sql`
+      SELECT (e->>'appId')::int AS app_id, COUNT(*)::int AS count
+      FROM clients, jsonb_array_elements(clients.apps) AS e
+      WHERE clients.auth_user_id = ${authUserId}
+      GROUP BY 1
+    `) as unknown as { app_id: number; count: number }[];
 
-    const countMap = new Map(counts.map((c) => [c.appId, Number(c.count)]));
+    const countMap = new Map(counts.map((c) => [Number(c.app_id), Number(c.count)]));
     return allApps.map((a) => ({ ...a, clientCount: countMap.get(a.id) ?? 0 }));
   }
 
@@ -1284,17 +1286,43 @@ export class DbStorage implements IStorage {
   }
 
   async updateApp(authUserId: string, id: number, updateData: Partial<InsertApp>): Promise<App | undefined> {
-    const result = await db.update(apps)
-      .set({ ...updateData, updatedAt: new Date() })
-      .where(and(eq(apps.id, id), eq(apps.authUserId, authUserId)))
-      .returning();
-    return result[0];
+    return await db.transaction(async (tx) => {
+      const result = await tx.update(apps)
+        .set({ ...updateData, updatedAt: new Date() })
+        .where(and(eq(apps.id, id), eq(apps.authUserId, authUserId)))
+        .returning();
+      const updated = result[0];
+
+      // Keep the denormalized name inside clients.apps in sync with the catalog
+      if (updated && updateData.name !== undefined) {
+        await tx.execute(sql`
+          UPDATE clients SET apps = (
+            SELECT jsonb_agg(
+              CASE WHEN (e->>'appId')::int = ${id}
+                THEN jsonb_set(e, '{name}', to_jsonb(${updated.name}::text))
+                ELSE e END
+              ORDER BY ord)
+            FROM jsonb_array_elements(clients.apps) WITH ORDINALITY AS t(e, ord)
+          )
+          WHERE auth_user_id = ${authUserId}
+            AND EXISTS (SELECT 1 FROM jsonb_array_elements(clients.apps) AS x WHERE (x->>'appId')::int = ${id})
+        `);
+      }
+      return updated;
+    });
   }
 
   async deleteApp(authUserId: string, id: number): Promise<boolean> {
     return await db.transaction(async (tx) => {
-      await tx.delete(clientApps)
-        .where(and(eq(clientApps.appId, id), eq(clientApps.authUserId, authUserId)));
+      await tx.execute(sql`
+        UPDATE clients SET apps = COALESCE((
+          SELECT jsonb_agg(e ORDER BY ord)
+          FROM jsonb_array_elements(clients.apps) WITH ORDINALITY AS t(e, ord)
+          WHERE (e->>'appId')::int <> ${id}
+        ), '[]'::jsonb), updated_at = NOW()
+        WHERE auth_user_id = ${authUserId}
+          AND EXISTS (SELECT 1 FROM jsonb_array_elements(clients.apps) AS x WHERE (x->>'appId')::int = ${id})
+      `);
       const result = await tx.delete(apps)
         .where(and(eq(apps.id, id), eq(apps.authUserId, authUserId)))
         .returning();
@@ -1312,23 +1340,12 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
-  // Client Apps
-  async getClientApps(authUserId: string, clientId: number): Promise<(ClientApp & { appName: string })[]> {
-    const rows = await db.select({
-      id: clientApps.id,
-      authUserId: clientApps.authUserId,
-      clientId: clientApps.clientId,
-      appId: clientApps.appId,
-      isPrimary: clientApps.isPrimary,
-      expiryDate: clientApps.expiryDate,
-      createdAt: clientApps.createdAt,
-      appName: apps.name,
-    })
-      .from(clientApps)
-      .innerJoin(apps, eq(clientApps.appId, apps.id))
-      .where(and(eq(clientApps.clientId, clientId), eq(clientApps.authUserId, authUserId)))
-      .orderBy(desc(clientApps.isPrimary));
-    return rows;
+  // Client Apps (stored in clients.apps, primary first)
+  async getClientApps(authUserId: string, clientId: number): Promise<ClientAppView[]> {
+    const result = await db.select({ apps: clients.apps }).from(clients)
+      .where(and(eq(clients.id, clientId), eq(clients.authUserId, authUserId)))
+      .limit(1);
+    return (result[0]?.apps ?? []).map((link) => ({ ...link, appName: link.name }));
   }
 
   async setClientApps(
@@ -1336,52 +1353,35 @@ export class DbStorage implements IStorage {
     clientId: number,
     primary: { appId: number; expiryDate?: string | null } | null,
     additional: { appId: number; expiryDate?: string | null }[]
-  ): Promise<string | null> {
-    return await db.transaction(async (tx) => {
-      await tx.delete(clientApps)
-        .where(and(eq(clientApps.clientId, clientId), eq(clientApps.authUserId, authUserId)));
+  ): Promise<ClientAppLink[]> {
+    const requested = [
+      ...(primary ? [{ ...primary, isPrimary: true }] : []),
+      ...additional.map((item) => ({ ...item, isPrimary: false })),
+    ];
 
-      const rows: (typeof clientApps.$inferInsert)[] = [];
-      if (primary) {
-        rows.push({
-          authUserId,
-          clientId,
-          appId: primary.appId,
-          isPrimary: true,
-          expiryDate: primary.expiryDate ?? null,
-        });
-      }
-      for (const item of additional) {
-        rows.push({
-          authUserId,
-          clientId,
-          appId: item.appId,
-          isPrimary: false,
-          expiryDate: item.expiryDate ?? null,
-        });
-      }
+    const ids = Array.from(new Set(requested.map((r) => r.appId)));
+    const catalog = ids.length > 0
+      ? await db.select({ id: apps.id, name: apps.name }).from(apps)
+          .where(and(eq(apps.authUserId, authUserId), inArray(apps.id, ids)))
+      : [];
+    const names = new Map(catalog.map((a) => [a.id, a.name]));
+    const missing = ids.filter((id) => !names.has(id));
+    if (missing.length > 0) {
+      throw new Error(`Aplicativo(s) não encontrado(s) para este usuário: ${missing.join(", ")}`);
+    }
 
-      if (rows.length > 0) {
-        await tx.insert(clientApps).values(rows);
-      }
+    const links: ClientAppLink[] = requested.map((r) => ({
+      appId: r.appId,
+      name: names.get(r.appId)!,
+      isPrimary: r.isPrimary,
+      expiryDate: r.expiryDate ?? null,
+    }));
 
-      // Mirror the primary app's name onto clients.app (denormalized, same
-      // pattern as clients.system/plan) so external tools reading the
-      // clients table directly (e.g. n8n via Supabase) see it without
-      // joining client_apps+apps. client_apps stays the source of truth.
-      let appName: string | null = null;
-      if (primary) {
-        const appRow = await tx.select({ name: apps.name }).from(apps)
-          .where(and(eq(apps.id, primary.appId), eq(apps.authUserId, authUserId)))
-          .limit(1);
-        appName = appRow[0]?.name ?? null;
-      }
-      await tx.update(clients)
-        .set({ app: appName, updatedAt: new Date() })
-        .where(and(eq(clients.id, clientId), eq(clients.authUserId, authUserId)));
+    await db.update(clients)
+      .set({ apps: links, updatedAt: new Date() })
+      .where(and(eq(clients.id, clientId), eq(clients.authUserId, authUserId)));
 
-      return appName;
-    });
+    return links;
   }
 
   // System Credit Rules

@@ -26,7 +26,7 @@ import {
   Gift,
   PlusCircle,
 } from "lucide-react";
-import type { Client, ClientPlan } from "@shared/schema";
+import type { Client, ClientAppLink, ClientPlan } from "@shared/schema";
 import { getBrasiliaStartOfDay, parseDateString, formatLocalDateString } from "@/lib/timezone";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -89,33 +89,10 @@ function emptyFilters(): FilterState {
 }
 
 // ─── Client App Cell ────────────────────────────────────────────────────────
-// Shows the app(s) linked to a client directly in the list, so a successful
-// save is visible without reopening the edit form. Reuses the same
-// GET /api/clients/:id/apps endpoint the edit form already fetches (no new
-// backend endpoint) — one small request per visible row, cached/deduped by
-// TanStack Query per client id.
+// Shows the app(s) linked to a client directly in the list, read from
+// clients.apps (already part of each client row — no extra request).
 
-interface ClientAppLink {
-  id: number;
-  appId: number;
-  isPrimary: boolean;
-  expiryDate: string | null;
-  appName: string;
-}
-
-function ClientAppCell({ clientId }: { clientId: number }) {
-  // No custom queryFn: relies on queryClient's default getQueryFn (see
-  // client/src/lib/queryClient.ts), which builds the URL from the key and
-  // attaches the Supabase Bearer token — a hand-rolled fetch() here was
-  // missing that header and silently 401ing on every request.
-  const { data: links = [], isLoading } = useQuery<ClientAppLink[]>({
-    queryKey: ["/api/clients", clientId, "apps"],
-  });
-
-  if (isLoading) {
-    return <span className="text-muted-foreground text-xs">…</span>;
-  }
-
+function ClientAppCell({ links }: { links: ClientAppLink[] }) {
   const primary = links.find((l) => l.isPrimary);
   if (!primary) {
     return <span className="text-muted-foreground text-xs italic">—</span>;
@@ -124,7 +101,7 @@ function ClientAppCell({ clientId }: { clientId: number }) {
   const extraCount = links.length - 1;
   return (
     <span className="text-foreground/80 text-sm">
-      {primary.appName}
+      {primary.name}
       {extraCount > 0 && (
         <span className="text-muted-foreground text-xs"> +{extraCount}</span>
       )}
@@ -743,7 +720,7 @@ export default function Clients() {
 
                     {/* Aplicativo */}
                     <td className="px-4 py-3">
-                      <ClientAppCell clientId={client.id} />
+                      <ClientAppCell links={client.apps ?? []} />
                     </td>
 
                     {/* Vencimento */}

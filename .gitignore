@@ -6,3 +6,4 @@ vite.config.ts.*
 *.tar.gz
 .env
 .claude/settings.local.json
+backups/

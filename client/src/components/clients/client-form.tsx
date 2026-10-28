@@ -336,7 +336,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isLoading = false 
   // The <Select> must still show a currently-linked app even if it was
   // deactivated afterward — otherwise the field silently falls back to the
   // placeholder and looks like the saved selection was lost, when it's
-  // actually intact in client_apps (see investigation in this session).
+  // actually intact in clients.apps.
   const primarySelectableApps = useMemo(() => {
     if (!appId || activeApps.some((a) => String(a.id) === appId)) return activeApps;
     const inactiveApp = apps.find((a) => String(a.id) === appId);
