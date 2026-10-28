@@ -35,6 +35,7 @@ paths:
   de receita.
 - Lançamentos financeiros avulsos (entradas/saídas) ficam em
   `manual_financial_entries`.
-- Apps: `client_apps` é a fonte da verdade (principal + adicionais, vencimento
-  por app). `clients.app` é espelho desnormalizado do nome do app principal,
-  escrito só por `storage.setClientApps` (para n8n ler direto do Supabase).
+- Apps do cliente ficam em `clients.apps` (jsonb, principal primeiro, com
+  vencimento por app), escrito só por `storage.setClientApps`, que valida os
+  appIds no catálogo do tenant. O `name` é desnormalizado para o n8n ler direto
+  do Supabase; `updateApp`/`deleteApp` mantêm ele em sincronia.

@@ -24,9 +24,11 @@ systems              system_number, name, description, is_active
 clients              client_number, name, phone, username, password, system,
                      subscription_status(Ativa|Inativa|Aguardando|Teste),
                      payment_method, activation_date (IMUTÁVEL), expiry_date,
-                     payment_status(Pago|Vencido|A Pagar), plan, app (espelho),
+                     payment_status(Pago|Vencido|A Pagar), plan,
+                     apps jsonb [{appId, name, isPrimary, expiryDate}] (principal 1º),
                      value, renewal_mode(automatic|manual), referral_source,
-                     referred_by_id, notes
+                     referred_by_id, notes,
+                     billing_status, respondeu_disparo_reativacao (do n8n, só leitura)
 payment_history      client_id, amount, payment_date,
                      type(new_client|renewal|addon), previous/new_expiry_date
 client_plans         name, value, duration_type(months|days), duration_quantity
@@ -39,7 +41,7 @@ credit_consumption_history   system_id, client_plan_id, credits,
                      manual_renewal_installment_id XOR source_payment_history_id
 manual_financial_entries     type(entrada|saida), description, value, date
 apps                 name, activation_value, description, is_active
-client_apps          client_id, app_id, is_primary, expiry_date
+client_apps          LEGADO congelado (backup) — usar clients.apps
 crm_contacts         client_id (unique por tenant), phone, display_name, last_message_at
 crm_messages         contact_id, direction(inbound|outbound), content, status, wa_message_id
 whatsapp_connections auth_user_id unique, connection_type(embedded_signup|manual),
